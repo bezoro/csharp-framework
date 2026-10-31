@@ -10,6 +10,10 @@ public sealed class BehaviorTreeDefinition
     internal readonly ConditionProgram[] Programs;
     /// <summary>Copies and validates a tree without recursive compilation.</summary>
     public BehaviorTreeDefinition(BehaviorNode root, int maximumNodes = 16_384, int maximumDepth = 256)
+        : this(root, maximumNodes, maximumDepth, null) { }
+
+    internal BehaviorTreeDefinition(BehaviorNode root, int maximumNodes, int maximumDepth,
+        Dictionary<BehaviorNode, int>? actionOccurrences)
     {
         if (root is null) throw new ArgumentNullException(nameof(root));
         if (maximumNodes <= 0) throw new ArgumentOutOfRangeException(nameof(maximumNodes));
@@ -64,6 +68,12 @@ public sealed class BehaviorTreeDefinition
                 if (frame.ReactivePath && data.Kind == BehaviorNodeKind.Action)
                     MaximumReactiveDepth = Math.Max(MaximumReactiveDepth, frame.Depth);
                 frame.OutputIndex = nodes.Count;
+                if (frame.Source is not null && data.Kind == BehaviorNodeKind.Action && actionOccurrences is not null)
+                {
+                    // A reused expression denotes multiple occurrences. Never silently bind the first one.
+                    if (actionOccurrences.ContainsKey(frame.Source)) actionOccurrences[frame.Source] = -1;
+                    else actionOccurrences.Add(frame.Source, frame.OutputIndex);
+                }
                 nodes.Add(data);
             }
             var current = nodes[frame.OutputIndex];
