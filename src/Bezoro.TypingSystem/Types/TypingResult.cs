@@ -5,34 +5,12 @@ namespace Bezoro.TypingSystem.Types;
 /// </summary>
 public readonly struct TypingResult
 {
-	/// <summary>
-	///     Initializes a new instance of the <see cref="TypingResult" /> struct.
-	/// </summary>
-	/// <param name="status">The validation status.</param>
-	/// <param name="expected">The expected character at the validation position.</param>
-	/// <param name="position">The position in the target sequence where validation occurred.</param>
-	/// <param name="input">The input character that was validated.</param>
-	/// <param name="isCorrect">A value indicating whether the input was correct.</param>
-	/// <param name="isComplete">A value indicating whether the typing operation is complete.</param>
-	/// <param name="nextPosition">The next position to validate in the target sequence.</param>
-	/// <param name="targetLength">The total length of the target sequence.</param>
-	[Obsolete("Use Match, Mismatch, Completed, EmptyTarget, or PositionOutOfRange instead.")]
-	public TypingResult(
-		TypingValidationStatus status,
-		char                   expected,
-		byte                   position,
-		char                   input,
-		bool                   isCorrect,
-		bool                   isComplete,
-		byte                   nextPosition,
-		byte                   targetLength)
+	private TypingResult(TypingValidationStatus status, char expected, int position, char input, int nextPosition, int targetLength)
 	{
-		Status       = status;
-		Expected     = expected;
-		Position     = position;
-		Input        = input;
-		IsCorrect    = isCorrect;
-		IsComplete   = isComplete;
+		Status = status;
+		Expected = expected;
+		Position = position;
+		Input = input;
 		NextPosition = nextPosition;
 		TargetLength = targetLength;
 	}
@@ -40,12 +18,12 @@ public readonly struct TypingResult
 	/// <summary>
 	///     Gets a value indicating whether the typing operation is complete.
 	/// </summary>
-	public bool IsComplete { get; }
+	public bool IsComplete => Status == TypingValidationStatus.Completed;
 
 	/// <summary>
 	///     Gets a value indicating whether the input was correct.
 	/// </summary>
-	public bool IsCorrect { get; }
+	public bool IsCorrect => Status is TypingValidationStatus.Match or TypingValidationStatus.Completed;
 
 	/// <summary>
 	///     Gets a value indicating whether the validation failed due to an error (e.g., out of range).
@@ -91,106 +69,47 @@ public readonly struct TypingResult
 	/// <param name="input">The input character that was validated.</param>
 	/// <param name="targetLength">The total length of the target sequence.</param>
 	/// <returns>A completed typing result.</returns>
-	#pragma warning disable CS0618
-	public static TypingResult Completed(char expected, byte position, char input, byte targetLength) =>
-		new(
-			TypingValidationStatus.Completed,
-			expected,
-			position,
-			input,
-			true,
-			true,
-			targetLength,
-			targetLength
-		);
-
-	/// <summary>
-	///     Creates a faulted result for an empty target sequence.
-	/// </summary>
-	/// <param name="position">The requested position in the target sequence.</param>
-	/// <param name="input">The input character that was validated.</param>
-	/// <returns>An empty-target typing result.</returns>
-	public static TypingResult EmptyTarget(byte position, char input) =>
-		new(
-			TypingValidationStatus.EmptyTarget,
-			default,
-			position,
-			input,
-			false,
-			false,
-			0,
-			0
-		);
-
-	/// <summary>
-	///     Creates a successful result for an input that matches the expected character.
-	/// </summary>
-	/// <param name="expected">The expected character at the validation position.</param>
-	/// <param name="position">The position in the target sequence where validation occurred.</param>
-	/// <param name="input">The input character that was validated.</param>
-	/// <param name="targetLength">The total length of the target sequence.</param>
-	/// <returns>A matching typing result.</returns>
-	public static TypingResult Match(char expected, byte position, char input, byte targetLength) =>
-		new(
-			TypingValidationStatus.Match,
-			expected,
-			position,
-			input,
-			true,
-			false,
-			(byte)(position + 1),
-			targetLength
-		);
-
-	/// <summary>
-	///     Creates an unsuccessful result for an input that does not match the expected character.
-	/// </summary>
-	/// <param name="expected">The expected character at the validation position.</param>
-	/// <param name="position">The position in the target sequence where validation occurred.</param>
-	/// <param name="input">The input character that was validated.</param>
-	/// <param name="targetLength">The total length of the target sequence.</param>
-	/// <returns>A mismatching typing result.</returns>
-	public static TypingResult Mismatch(char expected, byte position, char input, byte targetLength) =>
-		new(
-			TypingValidationStatus.Mismatch,
-			expected,
-			position,
-			input,
-			false,
-			false,
-			position,
-			targetLength
-		);
-
-	/// <summary>
-	///     Creates a faulted result for a validation position outside the target sequence.
-	/// </summary>
-	/// <param name="position">The requested position in the target sequence.</param>
-	/// <param name="targetLength">The total length of the target sequence.</param>
-	/// <param name="input">The input character that was validated.</param>
-	/// <returns>A position-out-of-range typing result with a next position clamped to the target sequence.</returns>
-	public static TypingResult PositionOutOfRange(byte position, byte targetLength, char input)
+	public static TypingResult Completed(char expected, int position, char input, int targetLength)
 	{
-		byte nextPosition = CalculateNextPositionForOutOfRange(position, targetLength);
-
-		return new(
-			TypingValidationStatus.PositionOutOfRange,
-			default,
-			position,
-			input,
-			false,
-			false,
-			nextPosition,
-			targetLength
-		);
+		ValidatePosition(position, targetLength);
+		if (position != targetLength - 1)
+			throw new ArgumentException("Completion must accept the final target character.", nameof(position));
+		return new(TypingValidationStatus.Completed, expected, position, input, targetLength, targetLength);
 	}
-	#pragma warning restore CS0618
 
-	private static byte CalculateNextPositionForOutOfRange(byte position, byte targetLength)
+	/// <summary>Creates a fault result for an empty target.</summary>
+	public static TypingResult EmptyTarget(int position, char input) =>
+		new(TypingValidationStatus.EmptyTarget, default, position, input, 0, 0);
+
+	/// <summary>Creates a match before the final target character. Use Completed for the final character.</summary>
+	public static TypingResult Match(char expected, int position, char input, int targetLength)
 	{
-		if (targetLength == 0) return 0;
+		ValidatePosition(position, targetLength);
+		if (position == targetLength - 1)
+			throw new ArgumentException("Use Completed for the final target character.", nameof(position));
+		return new(TypingValidationStatus.Match, expected, position, input, position + 1, targetLength);
+	}
 
-		var maxIndex = (byte)(targetLength - 1);
-		return position > maxIndex ? maxIndex : position;
+	/// <summary>Creates a mismatch that leaves the position unchanged.</summary>
+	public static TypingResult Mismatch(char expected, int position, char input, int targetLength)
+	{
+		ValidatePosition(position, targetLength);
+		return new(TypingValidationStatus.Mismatch, expected, position, input, position, targetLength);
+	}
+
+	/// <summary>Creates a fault for an invalid index, with the recovery position clamped to the target.</summary>
+	public static TypingResult PositionOutOfRange(int position, int targetLength, char input)
+	{
+		if (targetLength < 0) throw new ArgumentOutOfRangeException(nameof(targetLength));
+		if (position >= 0 && position < targetLength)
+			throw new ArgumentException("Position is within the target.", nameof(position));
+		return new(TypingValidationStatus.PositionOutOfRange, default, position, input,
+			targetLength == 0 ? 0 : Math.Clamp(position, 0, targetLength - 1), targetLength);
+	}
+
+	private static void ValidatePosition(int position, int targetLength)
+	{
+		if (targetLength <= 0) throw new ArgumentOutOfRangeException(nameof(targetLength));
+		if (position < 0 || position >= targetLength) throw new ArgumentOutOfRangeException(nameof(position));
 	}
 }

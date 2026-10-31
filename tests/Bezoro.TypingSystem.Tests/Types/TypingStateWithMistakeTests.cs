@@ -10,7 +10,7 @@ public class TypingStateWithMistakeTests
 	[Fact]
 	public void WithMistake_WhenCalled_ShouldIncrementMistakeCount()
 	{
-		var state = new TypingState(0, 0, 0);
+		var state = new TypingState(0);
 
 		var updated = state.WithMistake();
 
@@ -22,12 +22,12 @@ public class TypingStateWithMistakeTests
 	[Fact]
 	public void WithMistake_WhenMistakeCountIsAtMaximum_ShouldThrowInvalidOperationException()
 	{
-		var state = new TypingState(0, 0, ushort.MaxValue);
+		var state = new TypingState(0, int.MaxValue);
 
 		Action act = () => state.WithMistake();
 
 		act.Should()
 		   .Throw<InvalidOperationException>()
-		   .WithMessage("Mistake count cannot exceed 65535.");
+		   .WithMessage("Mistake count cannot exceed Int32.MaxValue.");
 	}
 }

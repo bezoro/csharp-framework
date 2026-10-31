@@ -7,7 +7,7 @@ using JetBrains.Annotations;
 namespace Bezoro.TypingSystem.Tests.Types;
 
 [TestSubject(typeof(TypingResult))]
-public class TypingResultCompatibilityTests
+public class TypingResultSerializationTests
 {
 	[Fact]
 	public void PublicProperties_WhenInspected_ShouldPreserveNamesAndTypes()
@@ -31,11 +31,9 @@ public class TypingResultCompatibilityTests
 	}
 
 	[Fact]
-	public void JsonSerialization_WhenUsingLegacyConstructor_ShouldPreservePublicShapeAndValues()
+	public void JsonSerialization_WhenUsingFactory_ShouldExposeConsistentStatusAndValues()
 	{
-	#pragma warning disable CS0618
-		var original = new TypingResult(TypingValidationStatus.Match, 'a', 0, 'a', true, false, 1, 3);
-	#pragma warning restore CS0618
+		var original = TypingResult.Match('a', 0, 'a', 3);
 		string json = JsonSerializer.Serialize(original);
 
 		using var document = JsonDocument.Parse(json);
@@ -51,35 +49,4 @@ public class TypingResultCompatibilityTests
 		document.RootElement.GetProperty("IsComplete").GetBoolean().Should().Be(original.IsComplete);
 	}
 
-	[Fact]
-	public void LegacyConstructor_WhenInspected_ShouldPreserveSignatureAndObsoleteMessage()
-	{
-		var constructor = typeof(TypingResult).GetConstructor(
-			[
-				typeof(TypingValidationStatus),
-				typeof(char),
-				typeof(byte),
-				typeof(char),
-				typeof(bool),
-				typeof(bool),
-				typeof(byte),
-				typeof(byte)
-			]);
-
-		constructor.Should().NotBeNull();
-		var obsoleteAttribute = constructor!.GetCustomAttribute<ObsoleteAttribute>();
-		obsoleteAttribute.Should().NotBeNull();
-		obsoleteAttribute!.Message.Should().Be("Use Match, Mismatch, Completed, EmptyTarget, or PositionOutOfRange instead.");
-	}
-
-	[Fact]
-	public void LegacyConstructor_WhenCallerProvidesFlags_ShouldStoreThemUnchanged()
-	{
-	#pragma warning disable CS0618
-		var result = new TypingResult(TypingValidationStatus.Mismatch, 'a', 2, 'z', true, true, 2, 3);
-	#pragma warning restore CS0618
-
-		result.IsCorrect.Should().BeTrue();
-		result.IsComplete.Should().BeTrue();
-	}
 }

@@ -10,7 +10,7 @@ public class TypingStateWithCorrectTests
 	[Fact]
 	public void WithCorrect_WhenCalled_ShouldAdvancePositionAndCorrectCount()
 	{
-		var state = new TypingState(0, 0, 0);
+		var state = new TypingState(0);
 
 		var updated = state.WithCorrect();
 
@@ -20,26 +20,14 @@ public class TypingStateWithCorrectTests
 	}
 
 	[Fact]
-	public void WithCorrect_WhenCorrectCountIsAtMax_ShouldThrowInvalidOperationException()
-	{
-		var state = new TypingState(byte.MaxValue - 1, byte.MaxValue, 0);
-
-		Action act = () => state.WithCorrect();
-
-		act.Should()
-		   .Throw<InvalidOperationException>()
-		   .WithMessage("Correct count cannot exceed 255.");
-	}
-
-	[Fact]
 	public void WithCorrect_WhenPositionIsAtMax_ShouldThrowInvalidOperationException()
 	{
-		var state = new TypingState(byte.MaxValue, byte.MaxValue, 0);
+		var state = new TypingState(int.MaxValue);
 
 		Action act = () => state.WithCorrect();
 
 		act.Should()
 		   .Throw<InvalidOperationException>()
-		   .WithMessage("Position cannot exceed 255.");
+		   .WithMessage("Position cannot exceed Int32.MaxValue.");
 	}
 }
