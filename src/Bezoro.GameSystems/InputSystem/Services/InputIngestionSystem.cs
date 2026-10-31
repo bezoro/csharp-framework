@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Bezoro.ECS.Abstractions;
+using Bezoro.ECS.Attributes;
 using Bezoro.ECS.Services;
 using Bezoro.ECS.Types;
 using Bezoro.GameSystems.InputSystem.Types;
@@ -10,8 +11,19 @@ namespace Bezoro.GameSystems.InputSystem.Services;
 /// <summary>
 ///     Drains external input commands into latest-per-control snapshots each fixed update.
 /// </summary>
+[WritesResource(typeof(InputCommandQueue))]
 public sealed class InputIngestionSystem : ISystem
 {
+	/// <summary>Creates ingestion with an explicit maximum number of dequeued commands per update.</summary>
+	/// <param name="maxCommandsPerUpdate">Zero pauses ingestion. The default drains until empty.</param>
+	public InputIngestionSystem(int maxCommandsPerUpdate = int.MaxValue)
+	{
+		if (maxCommandsPerUpdate < 0) throw new ArgumentOutOfRangeException(nameof(maxCommandsPerUpdate));
+		MaxCommandsPerUpdate = maxCommandsPerUpdate;
+	}
+
+	/// <summary>Maximum dequeued commands, including stale commands, per update.</summary>
+	public int MaxCommandsPerUpdate { get; }
 	/// <inheritdoc />
 	public Stage Stage => Stage.Input;
 
@@ -40,6 +52,6 @@ public sealed class InputIngestionSystem : ISystem
 		var world = context.World;
 		ref var queue = ref world.WriteResource<InputCommandQueue>();
 		queue.AdvanceTime(context.DeltaTime);
-		queue.Drain();
+		queue.Drain(MaxCommandsPerUpdate);
 	}
 }

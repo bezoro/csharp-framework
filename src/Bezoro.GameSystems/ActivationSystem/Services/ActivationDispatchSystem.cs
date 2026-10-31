@@ -12,6 +12,7 @@ namespace Bezoro.GameSystems.ActivationSystem.Services;
 ///     ECS system that executes callbacks activated by <see cref="ActivationProcessingSystem" />.
 /// </summary>
 [WritesResource(typeof(ActivationConfig))]
+[WritesResource(typeof(ActivationDispatchQueueResource))]
 public sealed class ActivationDispatchSystem : ISystem
 {
 	/// <inheritdoc />

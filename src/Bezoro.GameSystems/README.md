@@ -41,7 +41,8 @@ world.AddActivationPipeline();
 - World updates require finite, non-negative delta times. Unity hosts typically call `Tick(Time.deltaTime)` in `Update` and `FixedTick(Time.fixedDeltaTime)` in `FixedUpdate`; Godot hosts can call them from their corresponding process callbacks.
 - Callbacks run on the world update thread unless the subsystem has an explicitly configured dispatcher. The framework does not move the complete simulation to the engine's main thread.
 - Drain lifecycle queues regularly. A processing budget limits work per update and does not by itself bound producer backlog or memory use.
-- Input timestamps use double precision internally so short hold windows still expire after long uptimes. The existing public float timestamp is for display and compatibility.
+- Input timestamps and the public simulation clock use double precision so short hold windows still expire after long uptimes. Input ingestion has an explicit optional dequeue budget and supports releasing control snapshots on the world thread.
+- Movement integrates every finite positive delta, including values below a comparison epsilon. It skips invalid direct-update deltas and leaves a complete position unchanged when integration would produce a non-finite component.
 - Timer construction rejects non-finite values. The timer system skips advancement for non-finite values introduced through mutable timer fields, allowing recovery after those fields are repaired.
 
 ## Subsystem documentation
@@ -64,6 +65,13 @@ world.AddActivationPipeline();
 - Mutable gameplay data is represented as ECS components or resources rather than hidden service state.
 - Ingestion, processing, and dispatch are separate systems when a workflow crosses a queue boundary.
 - Generated query specifications keep filtering and scheduler metadata compile-time visible.
+
+## Migration
+
+- `InputCommandQueue.SimulationTimeSeconds` and `StreamingStateChangedEvent.DistanceSquared` are doubles. Avoid narrowing casts in timing or distance decisions.
+- Streaming configuration rejects non-finite thresholds and reference coordinates before changing state.
+- Timer control calls preserve every accepted transition before an update. Event consumers now receive the complete ordered sequence.
+- Invalid health mutation modes fail at request construction instead of during a partially applied update.
 
 ## Targets and validation
 

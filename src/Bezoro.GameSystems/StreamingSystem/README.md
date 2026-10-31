@@ -65,10 +65,11 @@ var state = world.Read<StreamState>(entity);
 
 ## Runtime notes
 
-- Uses squared-distance comparisons to avoid square root cost.
+- Uses double-precision squared-distance comparisons to avoid square roots and overflow across the finite float coordinate range. Transition `DistanceSquared` values are also doubles.
+- Rejects non-finite reference coordinates or thresholds before any state changes. Invalid entity positions are skipped until repaired.
 - Applies hysteresis (`StreamOutDistance >= StreamInDistance`) to prevent boundary flicker.
-- Maintains a round-robin cursor in `StreamingRuntimeState` so work is distributed over ticks.
-- Publishes transition data to `StreamingEventsResource` for deterministic consumption.
+- Maintains a round-robin cursor in `StreamingRuntimeState` so evaluations are distributed over ticks. Indexed traversal reads only the selected component rows and writes only real transitions, so unchanged and unselected states do not trigger ECS `Changed` consumers. Query preparation still traverses matching archetypes and chunks; the budget does not bound that bookkeeping cost.
+- Publishes transition data to `StreamingEventsResource` for independent consumption. `Changed` failures do not suppress the transition-specific event. Exceptions within one multicast callback can still prevent later subscribers of that same callback from running.
 
 ## Ownership and integration
 

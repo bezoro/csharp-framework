@@ -27,13 +27,16 @@ public struct Timer
 			throw new ArgumentOutOfRangeException(nameof(durationSeconds), "Duration must be positive and finite.");
 		if (float.IsNaN(elapsedSeconds) || float.IsInfinity(elapsedSeconds))
 			throw new ArgumentOutOfRangeException(nameof(elapsedSeconds), "Elapsed time must be finite.");
+		if (state < TimerState.Running || state > TimerState.Completed)
+			throw new ArgumentOutOfRangeException(nameof(state));
+		if (mode is not (TimerMode.OneShot or TimerMode.Persistent))
+			throw new ArgumentOutOfRangeException(nameof(mode));
 
 		TimerId = timerId;
 		DurationSeconds = durationSeconds;
 		ElapsedSeconds = Math.Clamp(elapsedSeconds, 0f, durationSeconds);
 		State = state;
 		Mode = mode;
-		PendingAction = TimerPendingAction.None;
 	}
 
 	/// <summary>
@@ -60,8 +63,6 @@ public struct Timer
 	///     Gets or sets completion behavior for this timer.
 	/// </summary>
 	public TimerMode Mode;
-
-	internal TimerPendingAction PendingAction;
 
 	/// <summary>
 	///     Gets the remaining time in seconds clamped to zero.

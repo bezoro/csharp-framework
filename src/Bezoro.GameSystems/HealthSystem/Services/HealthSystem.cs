@@ -166,13 +166,14 @@ public sealed class HealthSystem : ISystem
 	{
 		uint oldMax = health.Max;
 		uint oldCurrent = health.Current;
-		health.Max = max;
-		health.Current = mode switch
+		uint newCurrent = mode switch
 		{
 			MaxValueUpdateMode.ClampCurrent => oldCurrent > max ? max : oldCurrent,
 			MaxValueUpdateMode.PreservePercentage => ScaleCurrent(oldCurrent, oldMax, max),
 			_ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Invalid max update mode.")
 		};
+		health.Max = max;
+		health.Current = newCurrent;
 
 		return HealthChangeKind.SetMax;
 	}

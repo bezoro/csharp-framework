@@ -11,7 +11,9 @@ namespace Bezoro.GameSystems.TimerSystem.Services;
 ///     ECS system that advances running timers and emits lifecycle callbacks.
 /// </summary>
 [Writes(typeof(Timer))]
+[Reads(typeof(TimerOwner))]
 [WritesResource(typeof(TimerEventsResource))]
+[WritesResource(typeof(TimerTransitionQueue))]
 public sealed class TimerSystem : ISystem
 {
 	/// <summary>
@@ -71,10 +73,11 @@ public sealed class TimerSystem : ISystem
 		float deltaTime = context.DeltaTime <= 0f || float.IsNaN(context.DeltaTime) || float.IsInfinity(context.DeltaTime)
 			? 0f : context.DeltaTime;
 
+		PublishPendingTransitions(world);
+
 		world.Query<TimerQuery>().ForEach<Timer>(
 			(Entity timerEntity, ref Timer timer) =>
 		{
-			PublishPendingTransition(world, timerEntity, ref timer);
 			AdvanceTimer(world, commands, timerEntity, ref timer, deltaTime);
 		}
 		);
@@ -106,26 +109,16 @@ public sealed class TimerSystem : ISystem
 			commands.Destroy(timerEntity);
 	}
 
-	private void PublishPendingTransition(
-		World     world,
-		Entity    timerEntity,
-		ref Timer timer)
+	private void PublishPendingTransitions(World world)
 	{
-		var lifecycle = timer.PendingAction switch
+		if (!world.TryReadResource<TimerTransitionQueue>(out var pending)) return;
+		// Callback-enqueued transitions wait for the next update, bounding reentrant work.
+		int count = pending.Count;
+		for (int i = 0; i < count && pending.TryDequeue(out var transition); i++)
 		{
-			TimerPendingAction.Started => TimerLifecycle.Started,
-			TimerPendingAction.Paused => TimerLifecycle.Paused,
-			TimerPendingAction.Stopped => TimerLifecycle.Stopped,
-			TimerPendingAction.Resumed => TimerLifecycle.Resumed,
-			TimerPendingAction.Restarted => TimerLifecycle.Restarted,
-			_ => (TimerLifecycle?)null
-		};
-
-		timer.PendingAction = TimerPendingAction.None;
-		if (!lifecycle.HasValue)
-			return;
-
-		Publish(world, timerEntity, timer, lifecycle.Value);
+			if (!world.IsAlive(transition.TimerEntity) || !world.Has<Timer>(transition.TimerEntity)) continue;
+			Publish(world, in transition);
+		}
 	}
 
 	private void Publish(
@@ -145,12 +138,17 @@ public sealed class TimerSystem : ISystem
 			timer.DurationSeconds
 		);
 
+		Publish(world, in eventData);
+	}
+
+	private void Publish(World world, in TimerLifecycleEvent eventData)
+	{
 		ref var events = ref world.GetOrCreateResource<TimerEventsResource>();
 		events.Enqueue(in eventData);
 
 		try
 		{
-			GetHandler(lifecycle)?.Invoke(eventData);
+			GetHandler(eventData.Lifecycle)?.Invoke(eventData);
 		}
 		catch
 		{

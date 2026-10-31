@@ -52,7 +52,10 @@ world.FixedTick(0.02f);
 |------------------------------------------------|--------------------------------------------------------------|
 | `Enqueue(in InputCommand)`                     | Adds an external command from any thread.                    |
 | `Enqueue(int,float,float,float,ulong)`         | Convenience overload for command creation + enqueue.         |
-| `SimulationTimeSeconds`                        | Float view of accumulated simulation time; aging uses an internal double timestamp.            |
+| `SimulationTimeSeconds` | Double-precision accumulated simulation time used for aging. |
+| `PendingCommandCount` | Approximate producer backlog. |
+| `TrackedControlCount` | Retained control snapshots, read on the world thread. |
+| `ForgetControl(int)` | Removes a snapshot and its sequence on the world thread. Queued commands remain. |
 
 ### InputWorldExtensions
 
@@ -60,6 +63,10 @@ world.FixedTick(0.02f);
 |---------------------------------------|--------------------------------------------------------------|
 | `GetOrCreateInputCommandQueue(World)` | Returns existing input queue resource or creates one.        |
 | `AddMovementInputPipeline(World)`     | Registers ingestion and intent systems with correct stages.  |
+
+## Ingestion budget
+
+Pass `maxCommandsPerUpdate` to `AddMovementInputPipeline` or `InputIngestionSystem` to bound dequeues, including stale commands. Zero pauses ingestion while simulation time still advances. Negative budgets throw before pipeline registration. The default drains until the queue is observed empty, so sustained producers can prolong an update. A budget does not cap retained queue memory.
 
 ## Hold-last behavior
 
@@ -72,9 +79,9 @@ world.FixedTick(0.02f);
 
 - Producers and consumers are isolated: external threads only enqueue immutable commands.
 - Queue inspection, time advancement, snapshot consumption, ECS writes, and world disposal belong to the world update thread. Only `Enqueue` is a producer-thread operation.
-- Ingress and the latest-per-control map have no capacity or expiration cleanup policy. Reuse a bounded set of control IDs and control producer backlog at the application boundary.
+- Ingress and the latest-per-control map have no capacity or expiration cleanup policy. Use `ForgetControl` after a producer stops to release its snapshot and allow a sequence restart. Queued commands can recreate that snapshot. Dictionary capacity remains reserved for reuse. Control producer backlog at the application boundary.
 - Commands reject negative control IDs and non-finite axes. Invalid mutable movement settings or velocity multiplication overflow neutralize that entity's complete intent and velocity vector; other entities continue updating.
-- Timestamps use double precision internally, avoiding float-resolution loss that can otherwise keep short inputs held after long runtimes. `SimulationTimeSeconds` remains a float compatibility/display view.
+- Timestamps and `SimulationTimeSeconds` use double precision, avoiding float-resolution loss that can otherwise keep short inputs held after long runtimes.
 - `World.FixedTick` rejects non-finite or negative deltas. Direct calls to `InputIngestionSystem.Update` skip time advancement for those values.
 - Input sequence numbers order commands for one control. They do not make the whole simulation deterministic across different producer timing or platforms.
 - Stage ordering is explicit: input ingestion (`Input`) -> velocity conversion (`PreTick`) -> movement (`Tick`).
