@@ -9,14 +9,22 @@ namespace Bezoro.Events.Services;
 ///     Thread-safe event bus with priority-ordered handlers, cancellable propagation,
 ///     synchronous inline dispatch, and queued deferred dispatch.
 /// </summary>
-public sealed class EventBus : IBoundedEventBus
+public sealed class EventBus : IEventBus
 {
+	private readonly Action<Exception>? _reportHandlerError;
 	private readonly ConcurrentDictionary<int, Type>                     _handleToType  = new();
 	private readonly ConcurrentDictionary<Type, List<EventSubscription>> _subscriptions = new();
 	private readonly ConcurrentQueue<QueuedEvent>                        _queue         = new();
 	private readonly object                                             _lifecycleGate = new();
 	private          int                                                 _disposed;
 	private static   long                                                _nextId;
+
+	/// <summary>Creates a bus without handler-error reporting.</summary>
+	public EventBus() { }
+
+	/// <summary>Creates a bus with reporting for exceptions caught from handlers.</summary>
+	/// <param name="reportHandlerError">Runs inline after a handler fails. Reporter failures are ignored.</param>
+	public EventBus(Action<Exception>? reportHandlerError) => _reportHandlerError = reportHandlerError;
 
 	/// <inheritdoc />
 	public int QueuedCount => _queue.Count;
@@ -90,9 +98,10 @@ public sealed class EventBus : IBoundedEventBus
 				{
 					((Action<EventContext<TEvent>>)snapshot[i].Handler)(context);
 				}
-				catch
+				catch (Exception error)
 				{
-					// Don't let handler exceptions crash the bus
+					try { _reportHandlerError?.Invoke(error); }
+					catch { /* Error reporting must not interrupt the remaining handlers. */ }
 				}
 			}
 		}
@@ -215,7 +224,7 @@ public sealed class EventBus : IBoundedEventBus
 		{
 			ThrowIfDisposed();
 
-			_queue.Enqueue(new(() => Publish(evt)));
+			_queue.Enqueue(new QueuedEvent<TEvent>(this, evt));
 		}
 	}
 

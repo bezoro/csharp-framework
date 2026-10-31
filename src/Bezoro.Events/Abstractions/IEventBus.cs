@@ -36,6 +36,16 @@ public interface IEventBus : IDisposable
 	int FlushQueued();
 
 	/// <summary>
+	///     Dequeues at most <paramref name="maxEvents" /> events, including events without handlers
+	///     or with failed dispatch. Callback-enqueued events can consume the remaining budget.
+	///     Nested flushes have independent budgets and counts. This does not limit elapsed time or handler work.
+	/// </summary>
+	/// <returns>The number of events directly dequeued by this call.</returns>
+	/// <exception cref="ObjectDisposedException">The bus is disposed, regardless of the budget.</exception>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="maxEvents" /> is negative.</exception>
+	int FlushQueued(int maxEvents);
+
+	/// <summary>
 	///     Subscribes a handler to events of type <typeparamref name="TEvent" />.
 	///     Higher priority handlers run first. Same-priority handlers run in subscription order.
 	/// </summary>
@@ -44,7 +54,7 @@ public interface IEventBus : IDisposable
 		where TEvent : struct;
 
 	/// <summary>
-	///     Enqueues an event for deferred dispatch via <see cref="FlushQueued" />.
+	///     Enqueues an event for deferred dispatch via <see cref="FlushQueued()" />.
 	/// </summary>
 	void Enqueue<TEvent>(TEvent evt) where TEvent : struct;
 }

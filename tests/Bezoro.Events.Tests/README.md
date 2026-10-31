@@ -27,3 +27,5 @@ Tests use the .NET 10 SDK selected by [global.json](../../global.json). They run
 `EventBusLifecycleSafetyTests` verifies that handles from different buses do not unsubscribe local handlers, and that subscription/enqueue races with disposal leave no retained handlers or queued events. Bounded-flush tests cover budgets, callback-enqueued work, invalid budgets, and nested flush counts.
 
 The suite tests bus bookkeeping and publication semantics. It does not make subscriber-owned state thread-safe or require disposal to wait for callbacks already running.
+
+Queued budgets belong to `IEventBus` and phase groups directly. Regression coverage includes error reporting, reporter failures, borrowed bus lifetime, unique owned-bus disposal, and disposal continuation after failures.

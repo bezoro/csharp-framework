@@ -20,6 +20,7 @@ public sealed class UnityEventBuses(
 ) : IUnityEventBuses
 {
 	private readonly bool _ownsBuses = ownsBuses;
+	private int _disposed;
 
 	/// <summary>
 	///     Creates Unity event buses backed by new <see cref="EventBus" /> instances.
@@ -37,22 +38,46 @@ public sealed class UnityEventBuses(
 	public IEventBus Update { get; } = update ?? throw new ArgumentNullException(nameof(update));
 
 	/// <inheritdoc />
-	public int FlushFixedUpdate() => FixedUpdate.FlushQueued();
+	public int FlushFixedUpdate() { ThrowIfDisposed(); return FixedUpdate.FlushQueued(); }
 
 	/// <inheritdoc />
-	public int FlushLateUpdate() => LateUpdate.FlushQueued();
+	public int FlushFixedUpdate(int maxEvents) { ThrowIfDisposed(); return FixedUpdate.FlushQueued(maxEvents); }
 
 	/// <inheritdoc />
-	public int FlushUpdate() => Update.FlushQueued();
+	public int FlushLateUpdate() { ThrowIfDisposed(); return LateUpdate.FlushQueued(); }
+
+	/// <inheritdoc />
+	public int FlushLateUpdate(int maxEvents) { ThrowIfDisposed(); return LateUpdate.FlushQueued(maxEvents); }
+
+	/// <inheritdoc />
+	public int FlushUpdate() { ThrowIfDisposed(); return Update.FlushQueued(); }
+
+	/// <inheritdoc />
+	public int FlushUpdate(int maxEvents) { ThrowIfDisposed(); return Update.FlushQueued(maxEvents); }
 
 	/// <inheritdoc />
 	public void Dispose()
 	{
-		if (!_ownsBuses)
+		if (Interlocked.Exchange(ref _disposed, 1) != 0 || !_ownsBuses)
 			return;
 
-		Update.Dispose();
-		FixedUpdate.Dispose();
-		LateUpdate.Dispose();
+		List<Exception>? errors = null;
+		DisposeBus(Update, ref errors);
+		if (!ReferenceEquals(FixedUpdate, Update))
+			DisposeBus(FixedUpdate, ref errors);
+		if (!ReferenceEquals(LateUpdate, Update) && !ReferenceEquals(LateUpdate, FixedUpdate))
+			DisposeBus(LateUpdate, ref errors);
+		if (errors != null) throw new AggregateException("One or more event buses failed to dispose.", errors);
+	}
+
+	private static void DisposeBus(IEventBus bus, ref List<Exception>? errors)
+	{
+		try { bus.Dispose(); }
+		catch (Exception error) { (errors ??= new()).Add(error); }
+	}
+
+	private void ThrowIfDisposed()
+	{
+		if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(UnityEventBuses));
 	}
 }

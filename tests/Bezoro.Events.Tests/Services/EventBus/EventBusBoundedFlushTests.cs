@@ -32,7 +32,7 @@ public class EventBusBoundedFlushTests
 	[Fact]
 	public void FlushQueued_WithBudget_ShouldLimitCountAndPreserveFifoAcrossCalls()
 	{
-		using IBoundedEventBus bus = new Events.Services.EventBus();
+		using IEventBus bus = new Events.Services.EventBus();
 		var received = new List<string>();
 		bus.Subscribe<TestEventA>(ctx => received.Add($"A{ctx.Data.Value}"));
 		bus.Subscribe<TestEventB>(ctx => received.Add($"B{ctx.Data.Message}"));
