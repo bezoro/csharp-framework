@@ -161,7 +161,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 			if (index >= _count) throw new ArgumentOutOfRangeException(nameof(index));
 
 			_items[index] = value;
-			Version++;
+			Version = unchecked(Version + 1);
 		}
 	}
 
@@ -265,7 +265,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 		if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
 			_items[_count] = default!;
 
-		Version++;
+		Version = unchecked(Version + 1);
 		MaybeShrink();
 		return true;
 	}
@@ -300,7 +300,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 		if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
 			_items[_count] = default!;
 
-		Version++;
+		Version = unchecked(Version + 1);
 		MaybeShrink();
 		return true;
 	}
@@ -386,7 +386,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 	{
 		EnsureCapacity(_count + 1);
 		_items[_count++] = item;
-		Version++;
+		Version = unchecked(Version + 1);
 	}
 
 	/// <summary>
@@ -400,7 +400,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 		EnsureCapacity(_count + (uint)span.Length);
 		span.CopyTo(new(_items, (int)_count, span.Length));
 		_count += (uint)span.Length;
-		Version++;
+		Version = unchecked(Version + 1);
 	}
 
 	/// <summary>
@@ -434,7 +434,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 		finally
 		{
 			if (_count != startCount && Version == startVersion)
-				Version++;
+				Version = unchecked(Version + 1);
 		}
 	}
 
@@ -445,7 +445,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 	public void AddUnchecked(T item)
 	{
 		_items[_count++] = item;
-		Version++;
+		Version = unchecked(Version + 1);
 	}
 
 	/// <summary>
@@ -474,7 +474,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 			Array.Clear(_items, 0, (int)_count);
 
 		_count = 0;
-		Version++;
+		Version = unchecked(Version + 1);
 		if (trim && Capacity > MinimumArraySize)
 			Resize(MinimumArraySize);
 	}
@@ -579,7 +579,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 		}
 
 		_count++;
-		Version++;
+		Version = unchecked(Version + 1);
 	}
 
 	/// <summary>
@@ -606,7 +606,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 			throw new ArgumentOutOfRangeException(nameof(index), "Index must be less than Count.");
 
 		_items[index] = item;
-		Version++;
+		Version = unchecked(Version + 1);
 	}
 
 	/// <summary>
@@ -650,7 +650,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 		{
 			EnsureCapacity(_count + 1);
 			if (_count == startCount)
-				Version++;
+				Version = unchecked(Version + 1);
 
 			_items[_count++] = item;
 		}
@@ -746,7 +746,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 	{
 		ClearRemovedSlots(newCount, originalCount);
 		_count = newCount;
-		Version++;
+		Version = unchecked(Version + 1);
 		MaybeShrink();
 	}
 

@@ -88,6 +88,10 @@ public readonly struct Percent : IEquatable<Percent>, IComparable<Percent>
 		Value = CalculateValue(current, max);
 	}
 
+	/// <summary>Combines two current/maximum pairs without allocating a temporary array.</summary>
+	public static Percent FromTotals((uint current, uint max) first, (uint current, uint max) second) =>
+		new(CalculateValue((ulong)first.current + second.current, (ulong)first.max + second.max));
+
 	/// <summary>
 	///     Creates a <see cref="Percent" /> from the sum of one or more current/max pairs.
 	/// </summary>

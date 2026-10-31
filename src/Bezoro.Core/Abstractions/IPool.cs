@@ -77,6 +77,7 @@ public interface IPool<T> where T : class
 	/// <param name="timeout">Maximum time to wait for an object.</param>
 	/// <param name="cancellationToken">Token to cancel the wait operation.</param>
 	/// <returns>A task containing the object, or <c>null</c> if the operation timed out.</returns>
+	/// <remarks>The timeout ranges from zero to Int32.MaxValue milliseconds, or Timeout.InfiniteTimeSpan.</remarks>
 	ValueTask<T?> RentAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
 
 	/// <summary>

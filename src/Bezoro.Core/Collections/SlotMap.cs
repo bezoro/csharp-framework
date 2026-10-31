@@ -97,7 +97,7 @@ public sealed class SlotMap<T> : IReadOnlyCollection<T>
 
 	/// <summary>Reports whether a handle currently identifies a value in this map.</summary>
 	public bool Contains(SlotHandle handle) =>
-		handle.Owner == _owner && (uint)handle.Index < (uint)_slots.Length &&
+		handle.Owner == _owner && unchecked((uint)handle.Index) < (uint)_slots.Length &&
 		_slots[handle.Index].DenseIndex >= 0 && _slots[handle.Index].Generation == handle.Generation;
 
 	/// <summary>Copies a live value to the output, or returns false and the default value for an invalid handle.</summary>
@@ -116,7 +116,7 @@ public sealed class SlotMap<T> : IReadOnlyCollection<T>
 	/// <exception cref="ArgumentOutOfRangeException">The dense index is outside the live value range.</exception>
 	public SlotHandle GetHandleAt(int denseIndex)
 	{
-		if ((uint)denseIndex >= (uint)_count) throw new ArgumentOutOfRangeException(nameof(denseIndex));
+		if (unchecked((uint)denseIndex) >= (uint)_count) throw new ArgumentOutOfRangeException(nameof(denseIndex));
 		int slotIndex = _denseToSlot[denseIndex];
 		return new SlotHandle(_owner, slotIndex, _slots[slotIndex].Generation);
 	}
@@ -204,7 +204,7 @@ public sealed class SlotMap<T> : IReadOnlyCollection<T>
 			get
 			{
 				EnsureUnchanged();
-				if ((uint)_index >= (uint)_map._count) throw new InvalidOperationException("The enumerator is not positioned on a value.");
+				if (unchecked((uint)_index) >= (uint)_map._count) throw new InvalidOperationException("The enumerator is not positioned on a value.");
 				return _map._values[_index];
 			}
 		}

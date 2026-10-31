@@ -56,5 +56,18 @@ Tests use the .NET 10 SDK selected by [global.json](../../global.json). They run
 - `ObjectPoolLifecycleSafetyTests` covers disposal with pending timed and indefinite renters, infinite timeouts, duplicate owned returns, reset and validation failures, failed prewarming, and continuing cleanup after a discard failure.
 - `ObjectPoolDuplicateOwnershipTests` covers foreign-object ownership, preserving active rentals when the pool is full, and duplicate returns during reset or discard and after disposal.
 - Validation-helper tests require valid objects to pass the obsolete null guard and preserve named parameter details for null values.
+- `CoreBoundaryRegressionTests` covers the UInt32/float boundary, packed color layouts, strict CSS input, CSS output and allocation-free color formatting.
+- `SingletonLifecycleTests` covers cross-thread constructor guards, reverse-order scope closure, duplicate ownership, reset of nested scopes and disposal once.
+- `ObjectPoolAllocationTests` covers warmed reuse with async waiting enabled or disabled, immediate timed rents, configuration bounds, failed creation with an awaiting renter and cleanup after a throwing discard callback.
+- `ObjectPoolRentReentrancyTests` prevents validation and rent callbacks from publishing their in-progress rental to a second consumer.
+- `CodeWriterTests` covers mixed text/line indentation, idempotent scopes, scope order and class/namespace boundaries.
+- `LegacyUtilitiesRegressionTests` covers null array slots, count-only collections, finite extreme and tiny ranges, relative distance overflow, cancellation propagation and removed transient allocations.
+- `TicketLockTests` covers callback failure and ticket wrap in checked builds.
+
+Run the same contracts with checked integer arithmetic:
+
+```bash
+dotnet test tests/Bezoro.Core.Tests/Bezoro.Core.Tests.csproj -c Release -p:CheckForOverflowUnderflow=true
+```
 
 Concurrency tests use bounded waits to expose ownership errors. Passing them is evidence for those scenarios, not a proof covering every possible thread interleaving.

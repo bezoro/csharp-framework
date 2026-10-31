@@ -15,6 +15,7 @@ public class CodeWriter
 	private          bool          _isNewLine = true;
 
 	private int _indentLevel;
+	private ScopeGuard? _scope;
 
 	/// <summary>
 	///     Returns the generated code as a string, including using statements and a file header.
@@ -28,9 +29,9 @@ public class CodeWriter
 		finalBuilder.AppendLine();
 
 		// Write usings
-		foreach (string? @using in _usings.OrderBy(x => x)) finalBuilder.AppendLine($"using {@using};");
+		foreach (string? @using in _usings.OrderBy(x => x, StringComparer.Ordinal)) finalBuilder.AppendLine($"using {@using};");
 
-		if (_usings.Any()) finalBuilder.AppendLine();
+		if (_usings.Count != 0) finalBuilder.AppendLine();
 
 		// Write main content
 		finalBuilder.Append(_builder.ToString());
@@ -44,6 +45,7 @@ public class CodeWriter
 	/// <returns>This <see cref="CodeWriter" /> instance for chaining.</returns>
 	public CodeWriter AddUsing(string nameSpace)
 	{
+		if (string.IsNullOrWhiteSpace(nameSpace)) throw new ArgumentException("A namespace is required.", nameof(nameSpace));
 		_usings.Add(nameSpace);
 		return this;
 	}
@@ -55,6 +57,7 @@ public class CodeWriter
 	/// <returns>This <see cref="CodeWriter" /> instance for chaining.</returns>
 	public CodeWriter AddUsingRange(IEnumerable<string> namespaces)
 	{
+		if (namespaces is null) throw new ArgumentNullException(nameof(namespaces));
 		foreach (string? @namespace in namespaces) AddUsing(@namespace);
 		return this;
 	}
@@ -85,7 +88,7 @@ public class CodeWriter
 	{
 		if (!string.IsNullOrEmpty(line))
 		{
-			WriteIndent();
+			if (_isNewLine) WriteIndent();
 			_builder.AppendLine(line);
 		}
 		else
@@ -108,7 +111,8 @@ public class CodeWriter
 
 		WriteLine("{");
 		_indentLevel++;
-		return new ScopeGuard(this);
+		_scope = new ScopeGuard(this, _scope);
+		return _scope;
 	}
 
 	/// <summary>
@@ -117,6 +121,9 @@ public class CodeWriter
 	/// <param name="closer">The string to write as the closer, typically "}".</param>
 	public void EndScope(string closer = "}")
 	{
+		if (_scope is null) throw new InvalidOperationException("There is no open scope to close.");
+		_scope.Close();
+		_scope = _scope.Parent;
 		_indentLevel--;
 		WriteLine(closer);
 	}
@@ -136,14 +143,23 @@ public class CodeWriter
 	///     Constructs a new <see cref="ScopeGuard" /> for the specified writer.
 	/// </remarks>
 	/// <param name="writer">The writer for which to manage the scope.</param>
-	private class ScopeGuard(CodeWriter writer) : IDisposable
+	/// <param name="parent">The containing scope, if any.</param>
+	private sealed class ScopeGuard(CodeWriter writer, ScopeGuard? parent) : IDisposable
 	{
 		private readonly CodeWriter _writer = writer;
+		private bool _closed;
+		internal ScopeGuard? Parent { get; } = parent;
+		internal void Close() => _closed = true;
 
 		/// <summary>
 		///     Ends the current scope on the writer when disposed.
 		/// </summary>
-		public void Dispose() =>
+		public void Dispose()
+		{
+			if (_closed) return;
+			if (!ReferenceEquals(_writer._scope, this))
+				throw new InvalidOperationException("Close nested scopes before their containing scope.");
 			_writer.EndScope();
+		}
 	}
 }

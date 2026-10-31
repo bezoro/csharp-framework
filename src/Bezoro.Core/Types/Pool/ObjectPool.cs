@@ -17,7 +17,9 @@ namespace Bezoro.Core.Types.Pool;
 [DebuggerDisplay("Available={AvailableCount}, Total={TotalCount}, Max={MaxCapacity}")]
 public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 {
-	private readonly ConcurrentStack<T>                          _available;
+	// Reuse storage for available references. All access after construction holds
+	// _lifecycleGate; unlike ConcurrentStack, returning an item allocates no node.
+	private readonly Stack<T> _available;
 	private readonly ConcurrentDictionary<T, PoolItemState> _ownedItems;
 	private readonly object                                  _lifecycleGate = new();
 	private readonly IPoolPolicy<T>                          _policy;
@@ -63,8 +65,12 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 	public ObjectPool(IPoolPolicy<T> policy, PoolOptions options = default)
 	{
 		_policy     = policy.ThrowIfNull();
-		_options    = options == default ? PoolOptions.Default : options;
-		_available  = new();
+		_options    = options.IsConfigured || options != default ? options : PoolOptions.Default;
+		if (_options.InitialCapacity < 0) throw new ArgumentOutOfRangeException(nameof(options), "Initial capacity must be nonnegative.");
+		if (_options.MaxCapacity < -1) throw new ArgumentOutOfRangeException(nameof(options), "Maximum capacity must be -1 or nonnegative.");
+		if (_options.MaxCapacity >= 0 && _options.InitialCapacity > _options.MaxCapacity)
+			throw new ArgumentException("Initial capacity must not exceed maximum capacity.", nameof(options));
+		_available  = new(_options.InitialCapacity);
 		_ownedItems = new(ReferenceIdentityComparer<T>.Instance);
 
 		if (_options.EnableAsyncWait && _options.MaxCapacity > 0)
@@ -86,7 +92,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 	}
 
 	/// <inheritdoc />
-	public int AvailableCount => _available.Count;
+	public int AvailableCount { get { lock (_lifecycleGate) return _available.Count; } }
 
 	/// <inheritdoc />
 	public int MaxCapacity => _options.MaxCapacity;
@@ -167,15 +173,15 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 			targetUtilization = Percent.Ninety;
 
 		var trimmed   = 0;
-		int available = _available.Count;
+		int available = AvailableCount;
 		int total     = TotalCount;
 
 		if (total == 0) return 0;
 
-		var targetAvailable = (int)(total * (100 - targetUtilization.Value) / 100.0);
+		var targetAvailable = (int)((long)total * (100 - targetUtilization.Value) / 100);
 		int toRemove        = available - targetAvailable;
 
-		while (toRemove > 0 && _available.TryPop(out var item))
+		while (toRemove > 0 && TryPopAvailable(out var item))
 		{
 			if (!_ownedItems.TryGetValue(item, out var state) || state != PoolItemState.Available)
 				continue;
@@ -208,10 +214,11 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 	public async ValueTask<T?> RentAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
-		if (timeout < TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan)
+		if (timeout != Timeout.InfiniteTimeSpan && (timeout < TimeSpan.Zero ||
+			timeout.Ticks > (long)int.MaxValue * TimeSpan.TicksPerMillisecond))
 			throw new ArgumentOutOfRangeException(nameof(timeout));
 
-		var stopwatch = Stopwatch.StartNew();
+		long startedAt = Stopwatch.GetTimestamp();
 
 		while (true)
 		{
@@ -223,7 +230,8 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 			if (_asyncWaitSemaphore is null || !_options.EnableAsyncWait)
 				return null;
 
-			var remaining = timeout == Timeout.InfiniteTimeSpan ? Timeout.InfiniteTimeSpan : timeout - stopwatch.Elapsed;
+			var remaining = timeout == Timeout.InfiniteTimeSpan ? Timeout.InfiniteTimeSpan
+				: timeout - TimeSpan.FromSeconds((Stopwatch.GetTimestamp() - startedAt) / (double)Stopwatch.Frequency);
 			if (timeout != Timeout.InfiniteTimeSpan && remaining <= TimeSpan.Zero)
 			{
 				if (_options.TrackStatistics)
@@ -339,6 +347,10 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 		lock (_lifecycleGate)
 		{
 			ThrowIfDisposed();
+			// A return or discard may have happened after TryAcquire failed but before
+			// this waiter registered. Recheck under the same gate as publication/signals.
+			if (_available.Count != 0 || TotalCount < _options.MaxCapacity)
+				return true;
 			linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
 				cancellationToken, _disposeWaitCancellation!.Token);
 			_activeWaiters++;
@@ -380,7 +392,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private void NotifyRent(T item)
+	private void CompleteRent(T item)
 	{
 		try
 		{
@@ -411,6 +423,12 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 
 			throw;
 		}
+
+		// Validation and OnRent observe an in-progress acquisition. Return must not
+		// publish that item until its lease is ready to leave the pool.
+		if (!_ownedItems.TryUpdate(item, PoolItemState.Rented, PoolItemState.Renting))
+			throw new InvalidOperationException("The object could not complete its rental transition.");
+		IncrementRented();
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -419,7 +437,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 	private void ClearAvailable(Action<T> release)
 	{
 		ExceptionDispatchInfo? failure = null;
-		while (_available.TryPop(out var item))
+		while (TryPopAvailable(out var item))
 		{
 			try { ReleaseOwnedItem(item, release); }
 			catch (Exception ex) { failure ??= ExceptionDispatchInfo.Capture(ex); }
@@ -463,7 +481,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 			if (!TryCreateOwnedItem(out var item))
 				break;
 
-			if (!_ownedItems.TryUpdate(item, PoolItemState.Available, PoolItemState.Rented))
+			if (!_ownedItems.TryUpdate(item, PoolItemState.Available, PoolItemState.Renting))
 			{
 				ReleaseOwnedItem(item, _policy.OnDiscard);
 				throw new InvalidOperationException("Failed to register a prewarmed item as available.");
@@ -530,9 +548,9 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 			return false;
 		}
 
-		while (_available.TryPop(out var availableItem))
+		while (TryPopAvailable(out var availableItem))
 		{
-			if (!_ownedItems.TryUpdate(availableItem, PoolItemState.Rented, PoolItemState.Available))
+			if (!_ownedItems.TryUpdate(availableItem, PoolItemState.Renting, PoolItemState.Available))
 				continue;
 
 			bool valid;
@@ -554,8 +572,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 			}
 
 			item = availableItem;
-			NotifyRent(item);
-			IncrementRented();
+			CompleteRent(item);
 			return true;
 		}
 
@@ -568,8 +585,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 		if (!TryCreateOwnedItem(out item))
 			return false;
 
-		NotifyRent(item);
-		IncrementRented();
+		CompleteRent(item);
 		return true;
 	}
 
@@ -586,7 +602,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 			if (created is null)
 				throw new InvalidOperationException("Pool policy returned null from Create().");
 
-			if (!_ownedItems.TryAdd(created, PoolItemState.Rented))
+			if (!_ownedItems.TryAdd(created, PoolItemState.Renting))
 				throw new InvalidOperationException("Pool policy returned an instance already owned by the pool.");
 
 			item = created;
@@ -599,6 +615,11 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 		catch
 		{
 			Interlocked.Decrement(ref _totalCount);
+			lock (_lifecycleGate)
+			{
+				if (Volatile.Read(ref _disposed) == 0)
+					TrySignalWaiters();
+			}
 			throw;
 		}
 	}
@@ -615,7 +636,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 		{
 			int currentCount = Volatile.Read(ref _totalCount);
 
-			if (_options.MaxCapacity > 0 && currentCount >= _options.MaxCapacity)
+			if ((_options.MaxCapacity >= 0 && currentCount >= _options.MaxCapacity) || currentCount == int.MaxValue)
 				return false;
 
 			if (Interlocked.CompareExchange(ref _totalCount, currentCount + 1, currentCount) == currentCount)
@@ -627,8 +648,10 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 	{
 		int  total       = TotalCount;
 		int  available   = AvailableCount;
-		int  rented      = total - available;
-		byte utilization = total > 0 ? (byte)(rented * 100 / total) : (byte)0;
+		// Counts are sampled independently under concurrent use. Bound that approximate
+		// snapshot before converting, and widen before multiplying large capacities.
+		long rented      = Math.Max(0, total - (long)available);
+		byte utilization = total > 0 ? (byte)Math.Min(100, rented * 100 / total) : (byte)0;
 
 		return new()
 		{
@@ -659,16 +682,26 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void TrySignalWaiters()
 	{
-		if (_asyncWaitSemaphore is null)
+		// Callers hold _lifecycleGate. Limit signals to registered waiters and the
+		// semaphore's bound, so normal returns never throw SemaphoreFullException.
+		if (_asyncWaitSemaphore is null || _activeWaiters == 0 ||
+			_asyncWaitSemaphore.CurrentCount >= Math.Min(_activeWaiters, _options.MaxCapacity))
 			return;
 
-		try
+		_asyncWaitSemaphore.Release();
+	}
+
+	private bool TryPopAvailable([NotNullWhen(true)] out T? item)
+	{
+		lock (_lifecycleGate)
 		{
-			_asyncWaitSemaphore.Release();
+			if (_available.Count != 0)
+			{
+				item = _available.Pop();
+				return true;
+			}
 		}
-		catch (SemaphoreFullException)
-		{
-			// No waiters - semaphore already at max, safe to ignore
-		}
+		item = null;
+		return false;
 	}
 }

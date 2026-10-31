@@ -6,8 +6,7 @@ namespace Bezoro.Core.Extensions;
 public static class ActionExtensions
 {
 	/// <summary>
-	///     Safely invokes each delegate in the invocation list of the specified <see cref="Action" />, throwing an exception
-	///     if the handler is <c>null</c>.
+	///     Invokes the specified delegate, rejecting null. A callback exception propagates and stops invocation.
 	/// </summary>
 	/// <param name="handler">The <see cref="Action" /> delegate to invoke.</param>
 	/// <exception cref="ArgumentNullException">Thrown if the <paramref name="handler" /> is <c>null</c>.</exception>
@@ -15,7 +14,6 @@ public static class ActionExtensions
 	{
 		handler.ThrowIfNull();
 
-		foreach (var d in handler.GetInvocationList())
-			((Action)d)?.Invoke();
+		handler();
 	}
 }

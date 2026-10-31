@@ -95,7 +95,10 @@ public static partial class StringExtensions
 
 		if (count == 1) return str;
 
-		var sb = new StringBuilder(str.Length * (int)count);
+		long length = (long)str.Length * count;
+		if (length > int.MaxValue)
+			throw new ArgumentOutOfRangeException(nameof(count), "The repeated string must fit in an Int32.");
+		var sb = new StringBuilder((int)length);
 		for (var i = 0; i < count; i++) sb.Append(str);
 
 		return sb.ToString();

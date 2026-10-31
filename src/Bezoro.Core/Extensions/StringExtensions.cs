@@ -1,7 +1,7 @@
 namespace Bezoro.Core.Extensions;
 
 /// <summary>
-///     Provides extension methods for common string empty/null/whitespace checks, following .NET semantics.
+	///     Provides string predicates. Empty checks also consider strings consisting only of whitespace empty.
 /// </summary>
 public static partial class StringExtensions
 {
@@ -11,7 +11,7 @@ public static partial class StringExtensions
 	/// <param name="text">The string to check.</param>
 	/// <returns>True if the trimmed string has no characters; otherwise, false.</returns>
 	public static bool IsEmpty(this string text) =>
-		text.Trim() == string.Empty;
+		text.ThrowIfNull().AsSpan().Trim().IsEmpty;
 
 	/// <summary>
 	///     Determines whether the string is <c>null</c> or empty after trimming.
@@ -27,7 +27,7 @@ public static partial class StringExtensions
 	/// <param name="text">The string to check.</param>
 	/// <returns>True if the input is null, or contains only whitespace; otherwise, false.</returns>
 	public static bool IsNullOrWhiteSpace(this string? text) =>
-		text == null || text.Trim() == string.Empty;
+		string.IsNullOrWhiteSpace(text);
 
 	/// <summary>
 	///     Determines whether the string is not empty but consists only of whitespace.
@@ -35,5 +35,5 @@ public static partial class StringExtensions
 	/// <param name="text">The string to check.</param>
 	/// <returns>True if the string is not empty and only contains whitespace; otherwise, false.</returns>
 	public static bool IsWhiteSpace(this string text) =>
-		text != "" && text.Trim() == string.Empty;
+		text.ThrowIfNull().Length != 0 && string.IsNullOrWhiteSpace(text);
 }

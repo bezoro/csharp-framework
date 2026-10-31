@@ -42,7 +42,13 @@ public static class EnumerableExtensions
 	/// <returns><c>true</c> if the sequence contains any elements; otherwise, <c>false</c>.</returns>
 	/// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is <c>null</c>.</exception>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool HasAny<T>(this IEnumerable<T> source) => ((IEnumerable)source).HasAny();
+	public static bool HasAny<T>(this IEnumerable<T> source)
+	{
+		source.ThrowIfNull();
+		if (source.TryGetCount(out int count)) return count != 0;
+		using var enumerator = source.GetEnumerator();
+		return enumerator.MoveNext();
+	}
 
 	/// <summary>
 	///     Returns <c>true</c> when the sequence is <c>null</c> or has no elements.

@@ -49,9 +49,16 @@ public sealed class PoolPolicy<T>(
 	/// <inheritdoc />
 	public void OnDiscard(T item)
 	{
-		_onDiscard?.Invoke(item);
-
-		if (item is IDisposable disposable)
-			disposable.Dispose();
+		try { _onDiscard?.Invoke(item); }
+		catch (Exception callbackFailure)
+		{
+			try { if (item is IDisposable failedItem) failedItem.Dispose(); }
+			catch (Exception disposalFailure)
+			{
+				throw new AggregateException("The discard callback and object disposal both failed.", callbackFailure, disposalFailure);
+			}
+			throw;
+		}
+		if (item is IDisposable disposable) disposable.Dispose();
 	}
 }
