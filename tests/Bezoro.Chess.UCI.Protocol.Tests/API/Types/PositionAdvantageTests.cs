@@ -7,6 +7,16 @@ namespace Bezoro.Chess.UCI.Protocol.Tests.API.Types;
 public class PositionAdvantageTests
 {
 	[Fact]
+	public void FromScore_HandlesMinimumCentipawnAndMateValues()
+	{
+		var centipawns = PositionAdvantage.FromScore(new(int.MinValue, null));
+		centipawns.Normalized.Should().BeNegative();
+		centipawns.Summary.Should().Contain("2147483648 cp");
+		var mate = PositionAdvantage.FromScore(new(null, int.MinValue));
+		mate.Normalized.Should().BeNegative();
+		mate.Summary.Should().Contain("mate in 2147483648");
+	}
+	[Fact]
 	public void FromScore_WhenCentipawnScoreIsPositive_ShouldProducePlayerRelativeSummary()
 	{
 		var advantage = PositionAdvantage.FromScore(new(48, null));

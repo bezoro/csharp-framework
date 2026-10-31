@@ -25,7 +25,7 @@ internal static class UciCommandBuilder
 	}
 
 	/// <summary>
-	///     Normalizes a collection of user-provided search moves, keeping only valid UCI move strings.
+	///     Normalizes a collection of user-provided moves, rejecting the entire command if any move is malformed.
 	/// </summary>
 	public static ImmutableArray<string> NormalizeSearchMoves(IEnumerable<string>? moves)
 	{
@@ -35,7 +35,8 @@ internal static class UciCommandBuilder
 		foreach (string? move in moves)
 		{
 			string? candidate = NormalizeMove(move);
-			if (candidate is null) continue;
+			if (candidate is null)
+				throw new ArgumentException("Every move must be valid UCI coordinate notation.", nameof(moves));
 
 			normalized ??= new();
 			normalized.Add(candidate);
@@ -113,6 +114,8 @@ internal static class UciCommandBuilder
 				"A registration name is required unless 'register later' is requested.",
 				nameof(registration)
 			);
+		ValidateSingleLine(registration.Name, nameof(registration));
+		ValidateSingleLine(registration.Code, nameof(registration));
 
 		var parts = new List<string>
 		{
@@ -130,12 +133,22 @@ internal static class UciCommandBuilder
 		return string.Join(' ', parts);
 	}
 
-	public static string BuildSetOptionCommand(string name, string? value) =>
-		string.IsNullOrWhiteSpace(name)
-			? throw new ArgumentException("Option name must be provided.", nameof(name))
-			: value is null
+	public static string BuildSetOptionCommand(string name, string? value)
+	{
+		if (string.IsNullOrWhiteSpace(name))
+			throw new ArgumentException("Option name must be provided.", nameof(name));
+		ValidateSingleLine(name, nameof(name));
+		ValidateSingleLine(value, nameof(value));
+		return value is null
 			? $"{UciConstants.Commands.SET_OPTION} {UciConstants.Keywords.NAME} {name}"
 			: $"{UciConstants.Commands.SET_OPTION} {UciConstants.Keywords.NAME} {name} {UciConstants.Keywords.VALUE} {value}";
+	}
+
+	private static void ValidateSingleLine(string? value, string parameterName)
+	{
+		if (value is not null && (value.IndexOf('\r') >= 0 || value.IndexOf('\n') >= 0 || value.IndexOf('\0') >= 0))
+			throw new ArgumentException("UCI command fields must contain a single line without NUL characters.", parameterName);
+	}
 
 	/// <summary>
 	///     Attempts to normalize a UCI move string.

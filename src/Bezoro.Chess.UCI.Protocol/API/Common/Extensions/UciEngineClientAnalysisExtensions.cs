@@ -29,6 +29,7 @@ public static class UciEngineClientAnalysisExtensions
 		CancellationToken    ct         = default)
 	{
 		if (client is null) throw new ArgumentNullException(nameof(client));
+		ValidateRequest(sideToMove, playerColor, moveTimeMs, moveTimeMs, ct);
 
 		var evaluation = await client.GoAsync(new() { MoveTimeMs = moveTimeMs }, ct).ConfigureAwait(false);
 		return PositionAdvantage.FromEngineScore(
@@ -62,6 +63,7 @@ public static class UciEngineClientAnalysisExtensions
 	{
 		if (client is null) throw new ArgumentNullException(nameof(client));
 		if (legalMoves is null) throw new ArgumentNullException(nameof(legalMoves));
+		ValidateRequest(sideToMove, playerColor, multiPvMoveTimeMs, fallbackMoveTimeMs, ct);
 
 		ImmutableArray<string> legalMovesSnapshot = legalMoves.NormalizeUciMoves();
 		if (legalMovesSnapshot.IsDefaultOrEmpty)
@@ -129,6 +131,7 @@ public static class UciEngineClientAnalysisExtensions
 	{
 		if (client is null) throw new ArgumentNullException(nameof(client));
 		if (legalMoves is null) throw new ArgumentNullException(nameof(legalMoves));
+		ValidateRequest(sideToMove, playerColor, multiPvMoveTimeMs, fallbackMoveTimeMs, ct);
 
 		ImmutableArray<string> legalMovesSnapshot = legalMoves.NormalizeUciMoves();
 		if (legalMovesSnapshot.IsDefaultOrEmpty)
@@ -330,6 +333,16 @@ public static class UciEngineClientAnalysisExtensions
 			sideToMove,
 			playerColor
 		);
+	}
+
+	private static void ValidateRequest(char sideToMove, char playerColor, int moveTimeMs, int fallbackMoveTimeMs,
+		CancellationToken ct)
+	{
+		ct.ThrowIfCancellationRequested();
+		if (sideToMove is not ('w' or 'b')) throw new ArgumentOutOfRangeException(nameof(sideToMove));
+		if (playerColor is not ('w' or 'b')) throw new ArgumentOutOfRangeException(nameof(playerColor));
+		if (moveTimeMs <= 0) throw new ArgumentOutOfRangeException(nameof(moveTimeMs));
+		if (fallbackMoveTimeMs <= 0) throw new ArgumentOutOfRangeException(nameof(fallbackMoveTimeMs));
 	}
 
 	private static bool TryGetMultiPvOption(UciEngineClient client, out UciEngineOption option)

@@ -579,7 +579,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	}
 
 	/// <summary>
-	///     Prepares a new game in all engines. Clears all cached move classifications and legal moves.
+	///     Starts a locally playable game with the standard position and freshly initialized clocks.
 	/// </summary>
 	public Task NewGameAsync(CancellationToken ct = default) =>
 		RunCommandAsync(() => NewGameCoreAsync(ct), ct);
@@ -592,7 +592,14 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		ClearState();
 		QueuePonderStop();
 		ResetGameplaySession();
-		State = UciState.Default;
+		InitializeClocks('w');
+		var snapshot = ApplyMatchMetadata(UciState.Default with
+		{
+			LegalMoves = Fen.Default.GetLegalMoves().ToImmutableList()
+		}).Snapshot;
+		State = snapshot;
+		PublishPositionChanged(snapshot);
+		RaiseStateEvent(LegalMovesUpdated, UciGameEngineSessionEventKind.LegalMovesUpdated, snapshot);
 		var gameStarted = new GameStartedEvent(_gameId, Fen.Default, DateTimeOffset.UtcNow);
 		RaiseTypedEvent(GameStarted, gameStarted, UciGameEngineSessionEvent.ForGameStarted(gameStarted));
 		return Task.CompletedTask;
@@ -1566,6 +1573,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	{
 		PruneCompletedAnalysisTasks();
 		if (_engineClients is not { Ponder.IsStarted: true } engines) return;
+		if (_ponderOperation.IsCompletedSuccessfully && !engines.Ponder.HasActiveSearch) return;
 		var preceding = _ponderOperation;
 		_ponderOperation = Task.Run(async () =>
 		{

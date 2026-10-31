@@ -59,7 +59,7 @@ public readonly record struct MoveAnalysis
 				nameof(boardState)
 			);
 
-		var classification = boardState.Fen.ClassifyMoveFully(parsedMove.Raw.ToLowerInvariant());
+		var classification = boardState.Fen.ClassifyMoveFully(parsedMove.Notation);
 		bool isMate = classification.IsMate;
 		bool isCheck = classification.IsCheck || isMate;
 

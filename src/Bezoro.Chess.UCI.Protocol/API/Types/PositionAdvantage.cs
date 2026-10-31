@@ -20,7 +20,7 @@ public readonly record struct PositionAdvantage(double Normalized, string Summar
 	{
 		if (score.Mate is int adjustedMate)
 		{
-			int plyToMate = Math.Abs(adjustedMate);
+			long plyToMate = Math.Abs((long)adjustedMate);
 			double magnitude = plyToMate switch
 			{
 				<= 1 => 1.0,
@@ -42,12 +42,13 @@ public readonly record struct PositionAdvantage(double Normalized, string Summar
 		double normalized = AdvantageScale.NormalizeCp(adjustedCp);
 
 		string cpText = adjustedCp.ToString(CultureInfo.InvariantCulture);
-		string magnitudeText = (Math.Abs(adjustedCp) / 100.0).ToString("0.0", CultureInfo.InvariantCulture);
+		long magnitudeCp = Math.Abs((long)adjustedCp);
+		string magnitudeText = (magnitudeCp / 100.0).ToString("0.0", CultureInfo.InvariantCulture);
 
 		string summary = normalized switch
 		{
 			> 0 => $"Advantage +{normalized.ToString("0.00", CultureInfo.InvariantCulture)} | You +{magnitudeText} pawns ({cpText} cp)",
-			< 0 => $"Advantage {normalized.ToString("0.00", CultureInfo.InvariantCulture)} | Engine +{magnitudeText} pawns ({Math.Abs(adjustedCp).ToString(CultureInfo.InvariantCulture)} cp)",
+			< 0 => $"Advantage {normalized.ToString("0.00", CultureInfo.InvariantCulture)} | Engine +{magnitudeText} pawns ({magnitudeCp.ToString(CultureInfo.InvariantCulture)} cp)",
 			_   => "Advantage 0.00 | Even (0 cp)"
 		};
 

@@ -9,6 +9,8 @@ namespace Bezoro.Chess.UCI.Protocol.Internal;
 
 internal sealed class MoveClassificationCoordinator : IDisposable
 {
+	private static readonly ImmutableDictionary<string, MoveClassification> EmptyClassifications =
+		ImmutableDictionary<string, MoveClassification>.Empty.WithComparers(StringComparer.Ordinal);
 	private readonly Func<Fen, ImmutableArray<string>, CancellationToken,
 		ImmutableDictionary<string, MoveClassification>> _classifyFully;
 	private readonly Action? _beforeWorkerRetires;
@@ -51,8 +53,13 @@ internal sealed class MoveClassificationCoordinator : IDisposable
 		{
 			return _classificationsByPosition.TryGetValue(positionKey, out var classifications)
 					   ? classifications
-					   : ImmutableDictionary<string, MoveClassification>.Empty.WithComparers(StringComparer.Ordinal);
+					   : EmptyClassifications;
 		}
+	}
+
+	internal bool HasKnownPositions
+	{
+		get { lock (_sync) return _classificationsByPosition.Count != 0; }
 	}
 
 	public void Enqueue(string positionKey, Fen fen, ImmutableArray<string> legalMoves)
@@ -101,13 +108,17 @@ internal sealed class MoveClassificationCoordinator : IDisposable
 				   : WaitWithCancellationAsync(waiterTask, ct);
 	}
 
-	public void Cancel() => CancelPendingAndRetain(new HashSet<string>(StringComparer.Ordinal));
+	public void Cancel() => CancelCore(null);
 
 	public void CancelPendingAndRetain(ISet<string> retainedPositionKeys)
 	{
 		if (retainedPositionKeys is null)
 			throw new ArgumentNullException(nameof(retainedPositionKeys));
+		CancelCore(retainedPositionKeys);
+	}
 
+	private void CancelCore(ISet<string>? retainedPositionKeys)
+	{
 		TaskCompletionSource<ImmutableDictionary<string, MoveClassification>>[] waiters;
 		WorkerCancellationSource? workerCancellation;
 
@@ -117,7 +128,9 @@ internal sealed class MoveClassificationCoordinator : IDisposable
 			workerCancellation = _workerCancellation;
 			waiters = [.. _waiters.Values];
 
-			foreach (var positionKey in _classificationsByPosition.Keys.ToArray())
+			if (retainedPositionKeys is null)
+				_classificationsByPosition.Clear();
+			else foreach (var positionKey in _classificationsByPosition.Keys.ToArray())
 			{
 				if (!retainedPositionKeys.Contains(positionKey))
 					_classificationsByPosition.Remove(positionKey);

@@ -227,7 +227,7 @@ public class UciPositionAnalysisCoordinatorTests
 	}
 
 	[Fact]
-	public async Task Dispose_WhenCoordinatorIsReused_ShouldProcessNewAnalysis()
+	public async Task Dispose_WhenCoordinatorIsReused_ShouldRejectNewAnalysis()
 	{
 		var calls = 0;
 		var coordinator = new UciPositionAnalysisCoordinator(
@@ -239,9 +239,9 @@ public class UciPositionAnalysisCoordinatorTests
 			await coordinator.GetAnalysisAsync("first").WaitAsync(TimeSpan.FromSeconds(5));
 			coordinator.Dispose();
 
-			Enqueue(coordinator, "second");
-
-			(await coordinator.GetAnalysisAsync("second").WaitAsync(TimeSpan.FromSeconds(5))).Should().Be(Result(2));
+			Action enqueue = () => Enqueue(coordinator, "second");
+			enqueue.Should().Throw<ObjectDisposedException>();
+			calls.Should().Be(1);
 		}
 		finally
 		{

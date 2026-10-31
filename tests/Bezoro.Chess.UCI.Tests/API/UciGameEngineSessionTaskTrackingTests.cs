@@ -10,12 +10,13 @@ namespace Bezoro.Chess.UCI.Tests.API;
 public sealed class UciGameEngineSessionTaskTrackingTests
 {
 	[Fact]
-	public async Task Gameplay_WithAutomaticAnalysisDisabled_DoesNotRetainCompletedStopTasks()
+	public async Task Gameplay_WithAutomaticAnalysisDisabled_LeavesIdleEnginesAlone()
 	{
-		var (session, _) = CreateSession();
+		var (session, ponderTransport) = CreateSession();
 		await using var lifetime = session;
 		await session.StartAsync();
 		Assert.False(session.Options.EnableBackgroundAnalysis);
+		ponderTransport.Transport.ClearReceivedCalls();
 
 		for (int i = 0; i < 12; i++)
 		{
@@ -29,7 +30,8 @@ public sealed class UciGameEngineSessionTaskTrackingTests
 			await DrainTrackedTasksAsync(session);
 		}
 
-		Assert.InRange(TrackedTasks(session).Length, 0, 1);
+		Assert.Empty(TrackedTasks(session));
+		await ponderTransport.Transport.DidNotReceiveWithAnyArgs().WriteLineAsync(default!, default);
 		await session.StopAsync();
 		Assert.Empty(TrackedTasks(session));
 	}
@@ -40,6 +42,7 @@ public sealed class UciGameEngineSessionTaskTrackingTests
 		var (session, ponderTransport) = CreateSession();
 		await using var lifetime = session;
 		await session.StartAsync();
+		await session.StartSearchAsync();
 		var blockedReady = ponderTransport.BlockNextReady();
 		try
 		{
@@ -69,6 +72,7 @@ public sealed class UciGameEngineSessionTaskTrackingTests
 	{
 		var (session, ponderTransport) = CreateSession();
 		await session.StartAsync();
+		await session.StartSearchAsync();
 		var writeFailure = new InvalidOperationException("controlled ready write failure");
 		var subscriberFailure = new ApplicationException("controlled error subscriber failure");
 		var blockedReady = ponderTransport.BlockNextReady(writeFailure);
@@ -177,6 +181,8 @@ public sealed class UciGameEngineSessionTaskTrackingTests
 				}
 				_lines.Writer.TryWrite("readyok");
 			}
+			else if (line == "stop")
+				_lines.Writer.TryWrite("bestmove e2e4");
 		}
 	}
 

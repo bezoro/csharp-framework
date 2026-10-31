@@ -39,7 +39,11 @@ public static class UciMoveExtensions
 
 		var builder = ImmutableArray.CreateBuilder<string>();
 		foreach (string move in moves)
-			builder.Add(move.ToLowerInvariant());
+		{
+			if (move is null || !UciEngineClient.IsUciMoveString(move.Trim()))
+				throw new ArgumentException("Every move must be valid UCI coordinate notation.", nameof(moves));
+			builder.Add(move.Trim().ToLowerInvariant());
+		}
 
 		return builder.ToImmutable();
 	}

@@ -124,9 +124,11 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 	public UciEngineClient(IUciTransport transport, UciClientOptions? options = null)
 	{
 		_transport                = transport ?? throw new ArgumentNullException(nameof(transport));
+		_options                  = options ?? new UciClientOptions();
+		if (_options.MaxCapturedPrincipalVariations <= 0)
+			throw new ArgumentOutOfRangeException(nameof(options), "MaxCapturedPrincipalVariations must be positive.");
 		_transport.Error         += OnTransportError;
 		_transport.StderrReceived += OnTransportStderr;
-		_options                  = options ?? new UciClientOptions();
 
 		_searchCoordinator = new(
 			_transport,

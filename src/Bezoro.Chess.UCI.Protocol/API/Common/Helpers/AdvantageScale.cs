@@ -18,7 +18,7 @@ public static class AdvantageScale
 		if (cp == 0)
 			return 0;
 
-		double magnitude = Math.Tanh(Math.Abs(cp) / CP_SCALE) * MAX_NORMALIZED_CP;
+		double magnitude = Math.Tanh(Math.Abs((long)cp) / CP_SCALE) * MAX_NORMALIZED_CP;
 		return cp > 0 ? magnitude : -magnitude;
 	}
 }

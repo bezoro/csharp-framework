@@ -1,4 +1,4 @@
-using System.Globalization;
+using Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers;
 
 namespace Bezoro.Chess.UCI.API.Types;
 
@@ -28,52 +28,13 @@ public readonly record struct MoveScore()
 	public static bool TryParse(string line, out MoveScore? score)
 	{
 		score = null;
+		if (string.IsNullOrWhiteSpace(line) ||
+			!UciInfoParser.TryParseTrimmed(line.Trim(), out var info) ||
+			info.Score is not { } parsed ||
+			!parsed.Centipawns.HasValue && !parsed.Mate.HasValue)
+			return false;
 
-		if (string.IsNullOrEmpty(line)) return false;
-
-		int? scoreCp   = null;
-		int? scoreMate = null;
-
-		int scoreIdx = line.IndexOf(" score ", StringComparison.OrdinalIgnoreCase);
-		if (scoreIdx < 0) return false;
-
-		int mateIdx = line.IndexOf(" mate ", scoreIdx, StringComparison.OrdinalIgnoreCase);
-		if (mateIdx >= 0)
-		{
-			int start        = mateIdx + 6;
-			int end          = line.IndexOf(' ', start);
-			if (end < 0) end = line.Length;
-
-			if (!int.TryParse(
-					line.AsSpan(start, end - start),
-					NumberStyles.Integer,
-					CultureInfo.InvariantCulture,
-					out int mateScore
-				)) return false;
-
-			scoreMate = mateScore;
-		}
-
-		int cpIdx = line.IndexOf(" cp ", scoreIdx, StringComparison.OrdinalIgnoreCase);
-		if (cpIdx >= 0)
-		{
-			int start        = cpIdx + 4;
-			int end          = line.IndexOf(' ', start);
-			if (end < 0) end = line.Length;
-
-			if (!int.TryParse(
-					line.AsSpan(start, end - start),
-					NumberStyles.Integer,
-					CultureInfo.InvariantCulture,
-					out int cpScore
-				)) return false;
-
-			scoreCp = cpScore;
-		}
-
-		if (scoreCp == null && scoreMate == null) return false;
-
-		score = new(scoreCp, scoreMate);
+		score = new(parsed.Centipawns, parsed.Mate);
 		return true;
 	}
 
@@ -102,7 +63,7 @@ public readonly record struct MoveScore()
 		if (!cp.HasValue)
 		{
 			var variations = result.PrincipalVariations;
-			if (variations.Length > 0)
+			if (!variations.IsDefaultOrEmpty)
 				// Prefer the first available centipawn score
 				foreach (var pv in variations)
 				{

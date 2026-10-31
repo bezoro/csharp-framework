@@ -136,7 +136,8 @@ public readonly record struct SearchResult
 		result = default;
 		if (lines is null) return false;
 
-		var session = new SearchSession(false);
+		// The caller already owns this finite transcript. Preserve all supplied PVs when parsing it.
+		var session = new SearchSession(false, maxCapturedVariations: int.MaxValue);
 		UciBestMoveMessage? bestMove = null;
 		foreach (string? line in lines)
 		{
