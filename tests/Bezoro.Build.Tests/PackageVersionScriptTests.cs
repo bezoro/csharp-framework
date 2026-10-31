@@ -122,18 +122,7 @@ public sealed class PackageVersionScriptTests
 
 	private static string FindRepositoryRoot()
 	{
-		var directory = new DirectoryInfo(AppContext.BaseDirectory);
-		while (directory is not null)
-		{
-			if (File.Exists(System.IO.Path.Combine(directory.FullName, "bezoro.framework.sln")))
-			{
-				return directory.FullName;
-			}
-
-			directory = directory.Parent;
-		}
-
-		throw new InvalidOperationException("Could not find repository root.");
+		return RepositoryPaths.FindRoot();
 	}
 
 	private static ProcessResult RunProcess(string workingDirectory, string fileName, params string[] arguments)

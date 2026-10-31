@@ -47,6 +47,22 @@ public sealed class UnityPackageScriptTests
     }
 
     [Fact]
+    public void StagingTreatsOutputNamesLiterallyAndReplacesOldArtifacts()
+    {
+        using var fixture = new StagingFixture();
+        fixture.AddProject("Bezoro.One");
+        string output = Path.Combine(fixture.Path, "artifacts/package[one]");
+        Directory.CreateDirectory(output);
+        File.WriteAllText(Path.Combine(output, "obsolete.dll"), "old");
+
+        var result = fixture.Run("artifacts/package[one]");
+
+        result.ExitCode.Should().Be(0, result.Error);
+        File.Exists(Path.Combine(output, "obsolete.dll")).Should().BeFalse();
+        File.Exists(Path.Combine(output, "Runtime/Bezoro.One.dll")).Should().BeTrue();
+    }
+
+    [Fact]
     public void StagingRejectsConflictingDependencyVersions()
     {
         using var fixture = new StagingFixture();
@@ -76,6 +92,11 @@ public sealed class UnityPackageScriptTests
     [InlineData(".")]
     [InlineData("src")]
     [InlineData("unity-package")]
+    [InlineData(".git")]
+    [InlineData(".github")]
+    [InlineData("AGENTS.md")]
+    [InlineData("Directory.Build.props")]
+    [InlineData("artifacts")]
     [InlineData("../outside")]
     public void StagingRejectsSourceAndAncestorOutputPaths(string output)
     {
@@ -88,21 +109,36 @@ public sealed class UnityPackageScriptTests
         result.Error.Should().Contain("OutputPath must be a staging directory");
     }
 
+    [Fact]
+    public void StagingRejectsOutputThroughASymbolicLink()
+    {
+        // Unix symlinks can be created without the Windows symlink privilege.
+        if (OperatingSystem.IsWindows()) return;
+        using var fixture = new StagingFixture();
+        fixture.AddProject("Bezoro.One");
+        Directory.CreateDirectory(Path.Combine(fixture.Path, "artifacts"));
+        Directory.CreateSymbolicLink(Path.Combine(fixture.Path, "artifacts/link"),
+            Path.Combine(fixture.Path, "src"));
+
+        var result = fixture.Run("artifacts/link/package");
+
+        result.ExitCode.Should().NotBe(0);
+        result.Error.Should().Contain("symbolic links or junctions");
+        Directory.Exists(Path.Combine(fixture.Path, "src/package")).Should().BeFalse();
+    }
+
     private sealed class StagingFixture : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "bezoro-staging", Guid.NewGuid().ToString("N"));
 
         public StagingFixture()
         {
-            var root = new DirectoryInfo(AppContext.BaseDirectory);
-            while (root is not null && !File.Exists(System.IO.Path.Combine(root.FullName, "bezoro.framework.sln")))
-                root = root.Parent;
-            if (root is null) throw new InvalidOperationException("Repository not found.");
+            string root = RepositoryPaths.FindRoot();
             Directory.CreateDirectory(System.IO.Path.Combine(Path, "scripts"));
             Directory.CreateDirectory(System.IO.Path.Combine(Path, "src"));
             Directory.CreateDirectory(System.IO.Path.Combine(Path, "unity-package"));
             foreach (var script in new[] { "Build-UnityPackage.ps1", "Get-PackageVersion.ps1" })
-                File.Copy(System.IO.Path.Combine(root.FullName, "scripts", script), System.IO.Path.Combine(Path, "scripts", script));
+                File.Copy(System.IO.Path.Combine(root, "scripts", script), System.IO.Path.Combine(Path, "scripts", script));
             File.WriteAllText(System.IO.Path.Combine(Path, "unity-package/package.json"), "{\"name\":\"test\",\"version\":\"0.0.0\"}");
         }
 

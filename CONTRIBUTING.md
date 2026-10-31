@@ -45,4 +45,6 @@ For a platform-specific failure, set `validation_platform` to `windows` or `linu
 
 For an optional older-compiler check against staged DLLs, use `scripts/Test-UnityApiCompiler.ps1` with a compiler DLL and .NET Standard 2.1 reference directory. It downloads nothing and leaves the framework's `LangVersion=latest` build unchanged. See the [consumer instructions](samples/Bezoro.UnityApiSmoke/README.md).
 
+Stage Unity packages into a dedicated directory under `artifacts`, such as `artifacts/unity-package`. The staging script rejects source/Git paths and symbolic-link or junction ancestors before deleting previous output. Publication supplies its GitHub token through temporary process configuration, keeping credentials out of remote URLs and Git config files.
+
 State/behavior changes must preserve explicit pay-for-use costs. Cover absence of work as well as produced results: inactive state guards must not execute, memory trees must not recheck completed prefixes, budget-one composition must advance, and canceled activations must reject late results before callbacks. Keep immutable definitions separate from per-owner runtime and document reserved capacity. Guards observe context; effects belong to actions/lifecycle handlers. Async completions must return to the owner before validation or mutation.
