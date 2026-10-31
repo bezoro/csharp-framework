@@ -25,6 +25,10 @@ public static class Logger
 	/// </summary>
 	public static LogLevel MinimumLevel { get; set; } = LogLevel.Info;
 
+	/// <summary>Reports whether a listener would receive this level and category under the current filters.</summary>
+	/// <remarks>Use before constructing expensive arguments. This is a snapshot; listeners and settings can change.</remarks>
+	public static bool IsEnabled(LogLevel level = LogLevel.Info, LogCategory? category = null) => !ShouldSkipLog(level, category);
+
 	/// <summary>
 	///     Begins a performance timer that logs the operation duration when disposed if the
 	///     Bezoro.Logging assembly is compiled with <c>DEBUG</c>.
@@ -69,7 +73,7 @@ public static class Logger
 	/// </param>
 	[Conditional("DEBUG")]
 	public static void Log(
-		object                     message,
+		object?                    message,
 		LogLevel                   level             = LogLevel.Info,
 		LogCategory?               category          = null,
 		object?                    contextObject     = null,
@@ -79,7 +83,7 @@ public static class Logger
 		LogInternal(message, level, category, contextObject, captureCallerInfo, memberName, filePath);
 
 	private static void LogInternal(
-		object       message,
+		object?      message,
 		LogLevel     level,
 		LogCategory? category,
 		object?      contextObject,
@@ -269,7 +273,8 @@ public static class Logger
 
 	private static bool ShouldSkipLog(LogLevel level, LogCategory? category)
 	{
-		if (!LoggerSettings.Enabled)
+		if (level < LogLevel.None || level > LogLevel.Divider) throw new ArgumentOutOfRangeException(nameof(level));
+		if (OnLog is null || !LoggerSettings.Enabled)
 			return true;
 
 		if (level < MinimumLevel)
@@ -309,9 +314,9 @@ public static class Logger
 	/// <summary>
 	///     Formats a message object into a string representation.
 	/// </summary>
-	private static string FormatMessage(object message)
+	private static string FormatMessage(object? message)
 	{
-		if (message is not (IEnumerable collection and not string)) return message.ToString() ?? string.Empty;
+		if (message is not (IEnumerable collection and not string)) return message?.ToString() ?? "null";
 
 		var collectionAsStrings =
 			collection.Cast<object>().Select(o => o?.ToString() ?? "null");
@@ -391,8 +396,9 @@ public static class Logger
 
 		var settings = LogSettingsSnapshot.Capture();
 		var timestamp = DateTime.UtcNow;
-		var sequenceNumber = LoggerSettings.GetNextSequenceNumber();
-		var threadId = Environment.CurrentManagedThreadId;
+		var sequenceNumber = settings.SequenceNumber.Enabled ? LoggerSettings.GetNextSequenceNumber() : 0;
+		var threadId = settings.ThreadId.Enabled || settings.Grouping.GroupBy == LoggerSettings.ContextGrouping.Thread
+			? Environment.CurrentManagedThreadId : 0;
 		int? frameCount = settings.FrameCount.Enabled && settings.FrameCount.Provider != null
 			? settings.FrameCount.Provider()
 			: null;

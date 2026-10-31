@@ -3,10 +3,11 @@ namespace Bezoro.Logging.Internal;
 internal sealed class AsyncContextScope : IDisposable
 {
 	private static readonly AsyncLocal<AsyncContextScope?> Current = new();
-	private int _disposed;
 
 	internal AsyncContextScope(string contextName)
 	{
+		if (string.IsNullOrWhiteSpace(contextName))
+			throw new ArgumentException("Context name must contain a non-whitespace character.", nameof(contextName));
 		Name = contextName;
 		Parent = Current.Value;
 		Depth = (Parent?.Depth ?? 0) + 1;
@@ -23,8 +24,17 @@ internal sealed class AsyncContextScope : IDisposable
 
 	public void Dispose()
 	{
-		if (Interlocked.Exchange(ref _disposed, 1) == 0)
+		// Scope objects flow to child ExecutionContexts. Disposal belongs to the current
+		// flow, so a flag on the shared object would prevent its parent's later disposal.
+		if (ReferenceEquals(Current.Value, this))
+		{
 			Current.Value = Parent;
+			return;
+		}
+
+		for (var scope = Current.Value; scope != null; scope = scope.Parent)
+			if (ReferenceEquals(scope, this))
+				throw new InvalidOperationException("Dispose async contexts in reverse creation order.");
 	}
 
 	private string[] ToHierarchy()

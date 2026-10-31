@@ -16,6 +16,11 @@ public enum LogLevel
 	Info,
 
 	/// <summary>
+	///     Successful operations. These have lower severity than warnings.
+	/// </summary>
+	Success,
+
+	/// <summary>
 	///     Warnings that indicate a potential issue or non-critical problem.
 	/// </summary>
 	Warning,
@@ -29,11 +34,6 @@ public enum LogLevel
 	///     Exceptions representing severe errors or unexpected failures.
 	/// </summary>
 	Exception,
-
-	/// <summary>
-	///     Success notifications, used to indicate successful operations.
-	/// </summary>
-	Success,
 
 	/// <summary>
 	///     Divider
