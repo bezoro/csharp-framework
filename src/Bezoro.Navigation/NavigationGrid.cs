@@ -50,7 +50,7 @@ public sealed class NavigationGrid
     public ushort this[int x, int y] => _costs[GetIndex(new GridPoint(x, y))];
 
     /// <summary>Returns whether the coordinate lies inside the grid.</summary>
-    public bool Contains(GridPoint point) => (uint)point.X < (uint)Width && (uint)point.Y < (uint)Height;
+    public bool Contains(GridPoint point) => unchecked((uint)point.X) < (uint)Width && unchecked((uint)point.Y) < (uint)Height;
 
     /// <summary>Returns whether a coordinate is inside the grid and has a positive cost.</summary>
     public bool IsWalkable(GridPoint point) => Contains(point) && _costs[point.Y * Width + point.X] != 0;

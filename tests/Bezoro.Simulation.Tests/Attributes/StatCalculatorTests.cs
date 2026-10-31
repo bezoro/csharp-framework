@@ -7,6 +7,14 @@ public sealed class StatCalculatorTests
 {
     private static readonly StatId Damage = new(1);
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(int.MinValue)]
+    public void Modifier_RejectsNegativeOperationsBeforeAnyCheckedConversion(int operation)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new StatModifier((StatModifierOperation)operation, 0));
+    }
+
     [Fact]
     public void Modifier_KeepsItsValueAndTwoIntegerFieldsWithinSixteenBytes()
     {

@@ -211,7 +211,7 @@ public sealed class TickScheduler<T>
     }
 
     private bool IsActive(ScheduledHandle handle) =>
-        handle.OwnerId == _ownerId && (uint)handle.Slot < (uint)_nodes.Length &&
+        handle.OwnerId == _ownerId && unchecked((uint)handle.Slot) < (uint)_nodes.Length &&
         _nodes[handle.Slot].Active && _nodes[handle.Slot].Generation == handle.Generation;
 
     private ScheduledItem<T> ItemAt(int slot)

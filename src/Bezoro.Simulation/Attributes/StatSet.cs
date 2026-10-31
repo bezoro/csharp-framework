@@ -219,7 +219,7 @@ public sealed class StatSet
     }
 
     private bool IsLive(StatModifierHandle handle) => handle.Owner == _owner &&
-        (uint)handle.Slot < (uint)_slots.Length && _slots[handle.Slot].Active &&
+        unchecked((uint)handle.Slot) < (uint)_slots.Length && _slots[handle.Slot].Active &&
         _slots[handle.Slot].Generation == handle.Generation;
 
     private void RemoveSlot(int slot)

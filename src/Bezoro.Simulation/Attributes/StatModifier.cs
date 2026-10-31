@@ -19,7 +19,7 @@ public readonly struct StatModifier
     /// <summary>Creates a modifier. Priority is used only to choose between overrides.</summary>
     public StatModifier(StatModifierOperation operation, double value, int priority = 0)
     {
-        if ((uint)operation > (uint)StatModifierOperation.Override)
+        if (unchecked((uint)operation) > (uint)StatModifierOperation.Override)
             throw new ArgumentOutOfRangeException(nameof(operation));
         StatDefinition.RequireFinite(value, nameof(value));
         if (operation == StatModifierOperation.Multiply && value < 0)
