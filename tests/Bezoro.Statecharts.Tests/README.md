@@ -8,6 +8,8 @@ Fault fixtures exercise enter, exit, guard, and reentrancy failures. Cleanup pre
 
 A 100,000-alternative-state definition checks that runner allocation follows maximum active state count. A 20,000-level hierarchy exercises iterative compilation and lifecycle execution. A warmed character loop checks zero managed allocation, while concurrent owners share one immutable definition.
 
+Builder cases declare hierarchy and simultaneous regions without coordinated arrays, execute parallel transitions, and preserve unaffected parent tokens. They cover independent Build snapshots, missing initial selections, invalid lifecycle domains, and default/foreign/wrong-region handles rejected before mutation.
+
 ```sh
 dotnet test tests/Bezoro.Statecharts.Tests -c Release
 dotnet test tests/Bezoro.Statecharts.Tests -c Release -p:CheckForOverflowUnderflow=true

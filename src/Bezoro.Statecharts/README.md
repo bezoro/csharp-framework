@@ -6,43 +6,53 @@ The existing `Bezoro.StateMachines.StateMachineDefinition` remains the smaller c
 
 ## Definitions and execution
 
-State and region identifiers are dense positions in the declaration spans. Each state belongs to one region. Each region has an initial state and either a parent state or no parent. All root regions are active concurrently; entering a state enables all its child regions. Each enabled region contains one active state.
+Declare each state through its containing region. Each region requires an initial state and either a parent state or no parent. All root regions are active concurrently; entering a state enables all its child regions. Each enabled region contains one active state.
 
 ```csharp
 using Bezoro.StateMachines;
 using Bezoro.Statecharts;
 
-// Motion is one region; reactions are an independent region.
-var definition = new StatechartDefinition(
-    states: new ChartState[]
-    {
-        new(new RegionId(0)), // State 0: Grounded
-        new(new RegionId(0)), // State 1: InAir
-        new(new RegionId(1)), // State 2: Normal reaction
-        new(new RegionId(1))  // State 3: TakingDamage
-    },
-    regions: new ChartRegion[]
-    {
-        new(new StateId(0)),
-        new(new StateId(2))
-    },
-    transitions: new ChartTransition[]
-    {
-        new(new StateId(0), new SignalId(0), new StateId(1)), // Jump
-        new(new StateId(1), new SignalId(1), new StateId(0)), // Land
-        new(new StateId(2), new SignalId(2), new StateId(3)), // Damage
-        new(new StateId(3), new SignalId(3), new StateId(2))  // Recovery
-    },
-    signalCount: 4);
+var chart = new StatechartBuilder();
+var motion = chart.Region();
+var grounded = motion.State();
+var inAir = motion.State();
+motion.StartIn(grounded);
+
+var groundMovement = chart.Region(grounded);
+var idle = groundMovement.State();
+var walking = groundMovement.State();
+groundMovement.StartIn(idle);
+
+// Reactions remain enabled while motion changes between Grounded and InAir.
+var reaction = chart.Region();
+var normal = reaction.State();
+var takingDamage = reaction.State();
+reaction.StartIn(normal);
+
+var jump = chart.Signal();
+var land = chart.Signal();
+var walk = chart.Signal();
+var damage = chart.Signal();
+var recover = chart.Signal();
+chart.Transition(from: grounded, on: jump, to: inAir);
+chart.Transition(from: inAir, on: land, to: grounded);
+chart.Transition(from: idle, on: walk, to: walking);
+chart.Transition(from: normal, on: damage, to: takingDamage);
+chart.Transition(from: takingDamage, on: recover, to: normal);
+var definition = chart.Build();
+SignalId damageSignal = chart.Resolve(damage);
+StateId groundedId = chart.Resolve(grounded);
 
 int context = 0;
 var runner = new StatechartRunner<int>(definition);
 runner.Start(ref context);
-runner.Dispatch(new SignalId(2), ref context);
-// Grounded and TakingDamage are now both active.
+runner.Dispatch(damageSignal, ref context);
+// Grounded, Idle, and TakingDamage are now active.
 ```
 
-Add a region with `parentState: groundedId` to model Walking/Idle beneath Grounded. Guards can inspect a `StatechartView` through `IStatechartHandler<TContext>.EvaluateGuard`. For Damage, a predicate can test `configuration.IsActive(groundedId)` to select an additive ground reaction, while another selects airborne knockback. All guards participating in one dispatch see the configuration before any selected exit.
+`StatechartBuilder` assigns the coordinated numeric state/region tables during construction. Its `StateHandle` and `SignalHandle` values belong to that chart, and a region accepts only its own states in `StartIn`. Default or foreign handles throw before inserting declarations. Each `Build` returns an independent immutable snapshot; later declarations or initial-state changes cannot alter it. Resolve runtime IDs during setup. The runtime retains neither the builder nor construction handles. The span-based `StatechartDefinition` constructor remains available for loaders with explicit tables.
+
+Guards can inspect a `StatechartView` through `IStatechartHandler<TContext>.EvaluateGuard`. For Damage, a predicate can test `configuration.IsActive(groundedId)` to select an additive ground reaction, while another selects airborne knockback. All guards participating in one dispatch see the configuration before any selected exit.
 
 Use `ConditionExpression` and `ConditionProgram` for short-circuit Boolean composition. Predicate identifiers are application-defined; the handler receives the typed context and can perform ordinary C# comparisons. Guards must be pure. The runtime may omit structurally preempted guards, and the condition program omits unreachable Boolean branches. There is no implicit guard-result cache between signals.
 
@@ -56,7 +66,7 @@ Use `ConditionExpression` and `ConditionProgram` for short-circuit Boolean compo
 | Local | Requires a strict descendant target. It replaces only the first child region along the source-to-target path, preserving the source and the source's other child regions. |
 | Internal | Requires source equal to target. It invokes only the transition effect, preserving all activations and descendants. |
 
-Set `kind:` as the last optional constructor argument. External is the default. Direct jumps between orthogonal regions are rejected during definition construction. Coordinate independent regions by broadcasting a signal and guards rather than forcing one region's transition to enter another region.
+Set `kind:` on `chart.Transition` or a `ChartTransition` constructor. External is the default. Direct jumps between orthogonal regions are rejected during definition construction. Coordinate independent regions by broadcasting a signal and guards rather than forcing one region's transition to enter another region.
 
 Selection uses descending priority, then descending source depth, then declaration order. Each active source chooses its first passing guard in that order. Transitions conflict when their sources are ancestors/descendants, their exit domains overlap, or one exits the other's source. Disjoint regions may select transitions together. An enabled but conflicting transition consumes its source's choice; lower alternatives from that source do not become fallbacks after conflict resolution.
 

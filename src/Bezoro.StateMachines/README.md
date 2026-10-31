@@ -7,28 +7,25 @@ Immutable finite-state definitions with pure evaluation. The module stores state
 ```csharp
 using Bezoro.StateMachines;
 
-var idle = new StateId(0);
-var chasing = new StateId(1);
-var attacking = new StateId(2);
-var spotted = new SignalId(0);
-var reached = new SignalId(1);
-var lost = new SignalId(2);
+var machine = new StateMachineBuilder();
+var idle = machine.State();
+var chasing = machine.State();
+var attacking = machine.State();
+var spotted = machine.Signal();
+var reached = machine.Signal();
+var lost = machine.Signal();
 
-var definition = new StateMachineDefinition(
-    stateCount: 3,
-    signalCount: 3,
-    transitions: new StateTransition[]
-    {
-        new(idle, spotted, chasing),
-        new(chasing, reached, attacking),
-        new(chasing, lost, idle),
-        new(attacking, lost, idle)
-    },
-    initialState: idle);
+machine.StartIn(idle);
+machine.Transition(from: idle, on: spotted, to: chasing);
+machine.Transition(from: chasing, on: reached, to: attacking);
+machine.Transition(from: chasing, on: lost, to: idle);
+machine.Transition(from: attacking, on: lost, to: idle);
+var definition = machine.Build();
+SignalId spottedSignal = machine.Resolve(spotted);
 
 // One definition can serve many agents. Each agent owns its current state.
 StateId current = definition.InitialState;
-StateStep step = definition.Step(current, spotted);
+StateStep step = definition.Step(current, spottedSignal);
 current = step.CurrentState;
 if (step.HasStateChanged)
     ApplyStateChange(step.PreviousState, step.CurrentState);
@@ -39,6 +36,10 @@ The host supplies signals after evaluating game conditions and applies the retur
 `HasTransition` distinguishes an explicit matching rule from a missing rule. A missing rule preserves the current state. A self transition has `HasTransition == true` and `HasStateChanged == false`. The host can deliberately respond to that self transition when a restart or repeated action is useful.
 
 ## IDs and validation
+
+`StateMachineBuilder` assigns counts and identifiers as states and signals are declared. `StartIn` is required, even for a one-state machine. `StateHandle` and `SignalHandle` belong to that builder; default and foreign handles throw before changing declarations. `Resolve` converts a handle into its stable runtime ID. Resolve IDs used by the host once during setup. A builder can produce multiple immutable snapshots; later declarations and changes to `StartIn` do not change earlier definitions. New handles only belong to snapshots built after their declaration.
+
+The definition does not retain the builder or its handles. The span-based `StateMachineDefinition` constructor remains useful for loading transition tables with an established numeric mapping. Both construction paths use the same sparse kernel and validation.
 
 State and signal IDs contain a nonnegative `int` and occupy four bytes. Their default value is zero, which identifies the first state or signal. State IDs are valid within `[0, StateCount)`, and signal IDs within `[0, SignalCount)`. The definition requires at least one state and permits zero signals for a machine accepting no input. A zero-signal machine has no valid query signal.
 
