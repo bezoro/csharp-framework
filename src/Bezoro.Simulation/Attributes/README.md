@@ -59,6 +59,8 @@ var evaluated = StatCalculator.Evaluate(
 
 Definitions and modifier constructors reject NaN and infinity. Minimum must not exceed maximum; the base value may lie outside the output bounds. All public value models are readonly structs. Their default values are intentional: `default(StatId)` and `default(StatDefinition)` are uninitialized and rejected when a definition or identifier is required; `default(StatModifier)` is additive zero.
 
+Undefined modifier operations, including negative enum values, throw `ArgumentOutOfRangeException` under both normal and checked integer compilation.
+
 Each overflowing addition or multiplication saturates to `double.MinValue` or `double.MaxValue`. Category sums and products fold in insertion order, followed by the formula above. This keeps intermediate values finite, including an overflowing product followed by a zero factor. `WasSaturated` reports any overflow in this non-overridden computation, even when a later zero factor makes the final result zero. When an override wins, ignored arithmetic does not set this flag.
 
 Saturation is not arbitrary-precision arithmetic. For example, the additions `MaxValue`, `MaxValue`, and `MinValue` fold to zero after the first overflowing step saturates. Normal double rounding and saturation follow input order; the library does not promise bit-identical floating-point results across all CPUs, compilers, or game runtimes. Use fixed-point application data if that guarantee is required by a network protocol.

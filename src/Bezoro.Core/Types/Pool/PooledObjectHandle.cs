@@ -12,7 +12,7 @@ namespace Bezoro.Core.Types.Pool;
 ///     This is a mutable struct whose copies share disposal state, ensuring the pooled object is returned only once.
 /// </remarks>
 [DebuggerDisplay("Value={DebuggerValue}, IsDisposed={IsDisposed}")]
-public struct PooledObjectHandle<T> : IDisposable where T : class
+public readonly struct PooledObjectHandle<T> : IDisposable where T : class
 {
 	private readonly PooledObjectHandleState<T>? _state;
 
@@ -31,13 +31,13 @@ public struct PooledObjectHandle<T> : IDisposable where T : class
 	/// <summary>
 	///     Gets whether this handle has been disposed.
 	/// </summary>
-	public readonly bool IsDisposed => _state is null || _state.IsDisposed;
+	public bool IsDisposed => _state is null || _state.IsDisposed;
 
 	/// <summary>
 	///     Gets the pooled object.
 	/// </summary>
 	/// <exception cref="ObjectDisposedException">Thrown if accessed after disposal.</exception>
-	public readonly T Value => _state?.Value ?? throw new ObjectDisposedException(nameof(PooledObjectHandle<T>));
+	public T Value => _state?.Value ?? throw new ObjectDisposedException(nameof(PooledObjectHandle<T>));
 
 	/// <summary>
 	///     Implicitly converts the handle to the underlying value.

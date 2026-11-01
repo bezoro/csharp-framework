@@ -17,28 +17,16 @@ internal static class LogPayloadFormatter
 		var categoryEmoji = input.Category.HasValue
 			? LogCategoryEmoji.GetEmoji(input.Category.Value)
 			: null;
-		var fileLocation = GetFileLocation(input.FilePath, settings.FileLocation);
-
-		return new LogPayload
+		return new LogPayload(input.Level, input.Message,
+			BuildFormattedMessage(input, settings, context, severityEmoji, categoryEmoji, groupingContext), severityEmoji)
 		{
 			Timestamp             = context.Timestamp,
-			Level                 = input.Level,
 			Category              = input.Category,
-			Message               = input.Message,
-			SeverityEmoji         = severityEmoji,
 			CategoryEmoji         = categoryEmoji,
 			Exception             = input.Exception,
 			ExceptionType         = input.ExceptionType,
 			CallerInfo            = input.CallerInfo,
 			Stage                 = context.Stage,
-			FormattedMessage      = BuildFormattedMessage(
-				input,
-				settings,
-				context,
-				severityEmoji,
-				categoryEmoji,
-				groupingContext,
-				fileLocation),
 			ContextObject         = input.ContextObject,
 			StackTrace            = input.StackTrace,
 			InnerExceptionType    = input.InnerExceptionType,
@@ -61,19 +49,15 @@ internal static class LogPayloadFormatter
 			? string.Join(" > ", context.AsyncHierarchy)
 			: null;
 
-		return new LogPayload
+		return new LogPayload(LogLevel.Divider, dividerLine, dividerLine, LogLevelEmoji.GetEmoji(input.Level))
 		{
 			Timestamp             = context.Timestamp,
-			Level                 = LogLevel.Divider,
 			Category              = LogCategory.None,
-			Message               = dividerLine,
-			SeverityEmoji         = LogLevelEmoji.GetEmoji(input.Level),
 			CategoryEmoji         = input.Category.HasValue ? LogCategoryEmoji.GetEmoji(input.Category.Value) : null,
 			Exception             = null,
 			ExceptionType         = null,
 			CallerInfo            = null,
 			Stage                 = context.Stage,
-			FormattedMessage      = dividerLine,
 			ContextObject         = input.ContextObject,
 			StackTrace            = null,
 			InnerExceptionType    = null,
@@ -92,8 +76,7 @@ internal static class LogPayloadFormatter
 		in LogEventContext context,
 		string severityEmoji,
 		string? categoryEmoji,
-		string? groupingContext,
-		string? fileLocation)
+		string? groupingContext)
 	{
 		var lines = new List<string>();
 		if (context.AsyncHierarchy != null)
@@ -103,6 +86,7 @@ internal static class LogPayloadFormatter
 
 		if (ShouldIncludeDetails(input.Level, input.CallerInfo))
 		{
+			var fileLocation = GetFileLocation(input.FilePath, settings.FileLocation);
 			var details = new List<string>();
 			if (settings.FileLocation.Enabled && fileLocation != null)
 				details.Add(fileLocation);

@@ -8,6 +8,18 @@ namespace Bezoro.Chess.UCI.Tests.API.Types;
 public class BoardStateTests
 {
 	[Fact]
+	public void FromFen_ExposesAnImmutablePositionCollection()
+	{
+		var board = BoardState.FromFen(Fen.Default)!.Value;
+		var writable = (ICollection<Position>)board.Positions;
+		writable.IsReadOnly.Should().BeTrue();
+		Action clear = writable.Clear;
+		clear.Should().Throw<NotSupportedException>();
+		board.Positions.Should().HaveCount(64);
+		board.TryGetPieceAt("e1", out var king).Should().BeTrue();
+		king.Should().NotBeNull();
+	}
+	[Fact]
 	public void FromFen_WhenInvalidFen_ShouldThrowArgumentException()
 	{
 		var invalidFen = Fen.Empty();

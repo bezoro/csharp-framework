@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Bezoro.Chess.UCI.Protocol.Domain.EngineClient;
 
 namespace Bezoro.Chess.UCI.Protocol.API.Types;
 
@@ -98,5 +99,10 @@ public readonly record struct SearchParameters
 
 		if (MovesToGo is < 0)
 			throw new ArgumentOutOfRangeException(nameof(MovesToGo), "MovesToGo cannot be negative.");
+
+		if (!SearchMoves.IsDefaultOrEmpty)
+			foreach (string move in SearchMoves)
+				if (!UciCommandBuilder.IsUciMoveString(move))
+					throw new ArgumentException("Every search move must be valid UCI coordinate notation.", nameof(SearchMoves));
 	}
 }

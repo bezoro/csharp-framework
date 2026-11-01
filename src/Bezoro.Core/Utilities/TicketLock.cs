@@ -41,7 +41,7 @@ public sealed class TicketLock
 			}
 			finally
 			{
-				_servingTicket++;
+				_servingTicket = unchecked(_servingTicket + 1);
 				Monitor.PulseAll(SyncRoot);
 			}
 		}

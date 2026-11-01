@@ -1,269 +1,172 @@
-﻿namespace Bezoro.Core.Types;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
 
-/// <summary>
-///     A robust, thread-safe, and highly flexible Singleton base class.
-///     Features:
-///     - Lazy, thread-safe publication of the default instance
-///     - Configurable creation factory (before or with reinitialization)
-///     - Scoped runtime overrides for testing or special scenarios
-///     - Reset support with optional disposal of existing instances
-///     - Safe TryGet and state inspection helpers
-///     - Protective construction checks to prevent unauthorized instantiation
-/// </summary>
-/// <typeparam name="T">The singleton's concrete type. Must be a reference type.</typeparam>
+namespace Bezoro.Core.Types;
+
+/// <summary>Creates one default instance per type and supports owned, nested overrides.</summary>
+/// <remarks>
+/// Creation, configuration, and scope changes are serialized. Reading an existing instance does not lock.
+/// The application must finish using borrowed instances before resetting, recreating, or disposing an override.
+/// Factories run on the calling thread and cannot recursively change this singleton's lifecycle.
+/// </remarks>
+/// <typeparam name="T">The singleton's reference type.</typeparam>
 public abstract class Singleton<T> where T : class
 {
-	private static readonly object  Sync = new();
-	private static          int     _initializing;
-	private static          Func<T> _factory = DefaultFactory;
-
-
-	// The current creation factory; defaults to reflective parameterless-ctor creation
-
-
-	// Guards construction so derived types can only be instantiated through controlled factory paths
-
-
-	// Primary lazy instance
-	private static Lazy<T> _lazy = NewLazy();
-
-	// Optional runtime override instance
+	private static readonly object Sync = new();
+	private static Func<T> _factory = DefaultFactory;
+	private static T? _instance;
+	private static T? _initializedOverride;
 	private static T? _overrideInstance;
+	private static OverrideScope? _scope;
+	private static ExceptionDispatchInfo? _creationFailure;
+	private static int _initializingThread;
+	private static bool _releasing;
 
-	/// <summary>
-	///     Initializes a new instance of the singleton type.
-	///     Direct construction is disallowed; instances must be created via the internal guarded factory.
-	/// </summary>
-	/// <exception cref="InvalidOperationException">Thrown when constructed outside allowed guarded paths.</exception>
+	/// <summary>Rejects direct construction outside the owning thread's factory call.</summary>
 	protected Singleton()
 	{
-		// Allow construction only during guarded factory invocation
-		if (_initializing == 1)
-			return;
-
-		throw new InvalidOperationException(
-			$"Direct construction of {typeof(T).FullName} is not allowed. " +
-			$"Use {typeof(T).FullName}.{nameof(Instance)} or configure a custom factory."
-		);
+		if (Volatile.Read(ref _initializingThread) != Environment.CurrentManagedThreadId)
+			throw new InvalidOperationException($"Direct construction of {typeof(T).FullName} is not allowed. Use Instance or a configured factory.");
 	}
 
-	/// <summary>
-	///     Initializes the singleton by eagerly creating and setting an override instance using the provided factory.
-	///     Fails if an instance already exists or an override is active.
-	/// </summary>
-	/// <param name="factory">Factory used to create the override instance.</param>
-	/// <exception cref="ArgumentNullException">When factory is null.</exception>
-	/// <exception cref="InvalidOperationException">When the singleton is already created or overridden.</exception>
+	/// <summary>Eagerly creates an owned override. Fails if any instance already exists.</summary>
 	public static void Initialize(Func<T> factory)
 	{
 		if (factory is null) throw new ArgumentNullException(nameof(factory));
-
 		lock (Sync)
 		{
-			if (IsValueCreated || _overrideInstance is { })
+			RequireLifecycleChange();
+			if (_instance is not null || _overrideInstance is not null)
 				throw new InvalidOperationException("The singleton has already been created or overridden.");
-
-			_overrideInstance = CreateWithGuard(factory);
+			_initializedOverride = CreateWithGuard(factory);
+			Volatile.Write(ref _overrideInstance, _initializedOverride);
 		}
 	}
 
-	/// <summary>
-	///     Indicates whether an override instance is currently active.
-	/// </summary>
-	public static bool IsOverridden => Volatile.Read(ref _overrideInstance) is { };
+	/// <summary>Gets whether an initialized or scoped override is active.</summary>
+	public static bool IsOverridden => Volatile.Read(ref _overrideInstance) is not null;
 
-	/// <summary>
-	///     Indicates whether the singleton instance has been created (either override or default).
-	/// </summary>
-	public static bool IsValueCreated
-	{
-		get
-		{
-			if (Volatile.Read(ref _overrideInstance) is { }) return true;
+	/// <summary>Gets whether a default or override instance exists, without creating one.</summary>
+	public static bool IsValueCreated => TryGet(out _);
 
-			return _lazy.IsValueCreated;
-		}
-	}
-
-	/// <summary>
-	///     Gets the active singleton instance: an override if available, otherwise the lazily created one.
-	/// </summary>
+	/// <summary>Gets the current override or creates the default instance once.</summary>
+	/// <remarks>A default-factory failure is retained until reset or recreation.</remarks>
 	public static T Instance
 	{
 		get
 		{
-			var o = Volatile.Read(ref _overrideInstance);
-			if (o is { }) return o;
-
-			return _lazy.Value;
+			if (TryGet(out var current)) return current;
+			lock (Sync)
+			{
+				if (TryGet(out current)) return current;
+				RequireLifecycleChange();
+				_creationFailure?.Throw();
+				try
+				{
+					current = CreateWithGuard(_factory);
+					Volatile.Write(ref _instance, current);
+					return current;
+				}
+				catch (Exception error)
+				{
+					_creationFailure = ExceptionDispatchInfo.Capture(error);
+					throw;
+				}
+			}
 		}
 	}
 
-	/// <summary>
-	///     Attempts to get the current instance without forcing initialization.
-	/// </summary>
-	/// <param name="instance">Receives the instance if already created or overridden; otherwise null.</param>
-	/// <returns>True if an instance is available; false otherwise.</returns>
-	public static bool TryGet(out T? instance)
+	/// <summary>Reads an existing instance without invoking the factory.</summary>
+	public static bool TryGet([NotNullWhen(true)] out T? instance)
 	{
-		var o = Volatile.Read(ref _overrideInstance);
-		if (o is { })
-		{
-			instance = o;
-			return true;
-		}
-
-		if (_lazy.IsValueCreated)
-		{
-			instance = _lazy.Value;
-			return true;
-		}
-
-		instance = null;
-		return false;
+		instance = Volatile.Read(ref _overrideInstance) ?? Volatile.Read(ref _instance);
+		return instance is not null;
 	}
 
-	/// <summary>
-	///     Temporarily overrides the singleton instance with a new instance produced by <paramref name="factory" />.
-	///     Returns a disposable scope that restores the previous state upon disposal.
-	/// </summary>
-	/// <param name="factory">Factory used to create the override instance.</param>
-	/// <returns>An IDisposable scope that restores the previous instance on Dispose.</returns>
-	/// <exception cref="ArgumentNullException">When factory is null.</exception>
+	/// <summary>Creates an owned override that is disposed when its scope closes.</summary>
+	/// <remarks>
+	/// Close scopes in reverse creation order. Out-of-order disposal throws without changing ownership.
+	/// Reset and recreation invalidate outstanding scopes. A factory must return a distinct instance.
+	/// </remarks>
 	public static IDisposable Override(Func<T> factory)
 	{
 		if (factory is null) throw new ArgumentNullException(nameof(factory));
-
 		lock (Sync)
 		{
-			var previous = Volatile.Read(ref _overrideInstance);
-			var current  = CreateWithGuard(factory);
+			RequireLifecycleChange();
+			var current = CreateWithGuard(factory);
+			if (ReferenceEquals(current, _instance) || ReferenceEquals(current, _initializedOverride))
+				throw new InvalidOperationException("The override factory returned an instance already owned by this singleton.");
+			for (var scope = _scope; scope is not null; scope = scope.Parent)
+				if (ReferenceEquals(current, scope.Value))
+					throw new InvalidOperationException("The override factory returned an instance already owned by this singleton.");
+			_scope = new OverrideScope(current, _scope);
 			Volatile.Write(ref _overrideInstance, current);
-			return new OverrideScope(previous, current);
+			return _scope;
 		}
 	}
 
-	/// <summary>
-	///     Configures the creation factory for future singleton instances.
-	/// </summary>
-	/// <param name="factory">A non-null delegate that returns a non-null instance.</param>
-	/// <exception cref="ArgumentNullException">When factory is null.</exception>
-	public static void ConfigureFactory(Func<T> factory) => ConfigureFactoryCore(factory, recreateIfInitialized: false);
+	/// <summary>Sets the factory for future default creation, preserving existing instances.</summary>
+	public static void ConfigureFactory(Func<T> factory) => ConfigureFactoryCore(factory, false);
 
-	/// <summary>
-	///     Configures the creation factory and recreates any initialized singleton instances.
-	/// </summary>
-	/// <param name="factory">A non-null delegate that returns a non-null instance.</param>
-	/// <exception cref="ArgumentNullException">When factory is null.</exception>
-	public static void ConfigureFactoryAndRecreate(Func<T> factory) =>
-		ConfigureFactoryCore(factory, recreateIfInitialized: true);
+	/// <summary>Disposes all owned instances and sets the factory for the next default read.</summary>
+	public static void ConfigureFactoryAndRecreate(Func<T> factory) => ConfigureFactoryCore(factory, true);
 
-	/// <summary>
-	///     Configures the creation factory and optionally recreates initialized singleton instances.
-	/// </summary>
-	/// <param name="factory">A non-null delegate that returns a non-null instance.</param>
-	/// <param name="recreateIfInitialized">Whether to dispose and recreate existing instances.</param>
-	/// <exception cref="ArgumentNullException">When factory is null.</exception>
+	/// <summary>Sets a factory, optionally releasing existing instances first.</summary>
 	[Obsolete("Use ConfigureFactory(Func<T>) or ConfigureFactoryAndRecreate(Func<T>) instead.")]
-	public static void ConfigureFactory(Func<T> factory, bool recreateIfInitialized) =>
-		ConfigureFactoryCore(factory, recreateIfInitialized);
+	public static void ConfigureFactory(Func<T> factory, bool recreateIfInitialized) => ConfigureFactoryCore(factory, recreateIfInitialized);
 
-	private static void ConfigureFactoryCore(Func<T> factory, bool recreateIfInitialized)
+	private static void ConfigureFactoryCore(Func<T> factory, bool recreate)
 	{
 		if (factory is null) throw new ArgumentNullException(nameof(factory));
-
 		lock (Sync)
 		{
+			RequireLifecycleChange();
+			if (recreate) ReleaseInstances(dispose: true);
 			_factory = factory;
-
-			if (recreateIfInitialized)
-			{
-				DisposeIfNeeded(ref _overrideInstance);
-				if (_lazy.IsValueCreated)
-				{
-					var created = _lazy.Value;
-					DisposeIfNeeded(ref created);
-				}
-
-				_overrideInstance = null;
-				_lazy             = NewLazy();
-			}
 		}
 	}
 
-	/// <summary>
-	///     Resets the singleton to its initial state without disposing existing instances.
-	/// </summary>
-	public static void Reset() => ResetCore(disposeInstances: false);
+	/// <summary>Forgets all instances without disposing them and restores the default factory.</summary>
+	public static void Reset() => ResetCore(false);
 
-	/// <summary>
-	///     Disposes existing instances and resets the singleton to its initial state.
-	/// </summary>
-	public static void ResetAndDispose() => ResetCore(disposeInstances: true);
+	/// <summary>Disposes all owned instances and restores the default factory. Disposal exceptions are suppressed.</summary>
+	public static void ResetAndDispose() => ResetCore(true);
 
-	/// <summary>
-	///     Resets the singleton to its initial state and optionally disposes existing instances.
-	/// </summary>
-	/// <param name="disposeInstances">Whether to dispose IDisposable instances before resetting.</param>
+	/// <summary>Resets the factory and optionally disposes owned instances.</summary>
 	[Obsolete("Use Reset() or ResetAndDispose() instead.")]
 	public static void Reset(bool disposeInstances) => ResetCore(disposeInstances);
 
-	private static void ResetCore(bool disposeInstances)
+	private static void ResetCore(bool dispose)
 	{
 		lock (Sync)
 		{
-			if (disposeInstances)
-			{
-				DisposeIfNeeded(ref _overrideInstance);
-				if (_lazy.IsValueCreated)
-				{
-					var created = _lazy.Value;
-					DisposeIfNeeded(ref created);
-				}
-			}
-
-			_overrideInstance = null;
-			_lazy             = NewLazy();
-			_factory          = DefaultFactory;
+			RequireLifecycleChange();
+			ReleaseInstances(dispose);
+			_factory = DefaultFactory;
 		}
 	}
 
-	// -----------------------
-	// Internals and helpers
-	// -----------------------
-
-	private static Lazy<T> NewLazy() =>
-		new(() => CreateWithGuard(_factory), LazyThreadSafetyMode.ExecutionAndPublication);
+	private static void RequireLifecycleChange()
+	{
+		if (_initializingThread != 0 || _releasing)
+			throw new InvalidOperationException("A singleton factory or disposal callback cannot change its lifecycle recursively.");
+	}
 
 	private static T CreateWithGuard(Func<T> creator)
 	{
-		Interlocked.Exchange(ref _initializing, 1);
+		Volatile.Write(ref _initializingThread, Environment.CurrentManagedThreadId);
 		try
 		{
-			var instance = creator();
-			if (instance is null)
-				throw new TypeInitializationException(
-					typeof(T).FullName ?? typeof(T).Name,
-					new InvalidOperationException("Singleton factory returned null.")
-				);
-
-			return instance;
+			return creator() ?? throw new TypeInitializationException(typeof(T).FullName,
+				new InvalidOperationException("Singleton factory returned null."));
 		}
-		catch (MissingMethodException ex)
+		catch (MissingMethodException error)
 		{
-			throw new TypeInitializationException(
-				typeof(T).FullName ?? typeof(T).Name,
-				new InvalidOperationException(
-					$"The type {typeof(T).FullName} must have a private or protected parameterless constructor " +
-					$"or a configured factory to be used with {nameof(Singleton<T>)}.",
-					ex
-				)
-			);
+			throw new TypeInitializationException(typeof(T).FullName,
+				new InvalidOperationException("Provide a parameterless constructor or configure a singleton factory.", error));
 		}
-		finally
-		{
-			Interlocked.Exchange(ref _initializing, 0);
-		}
+		finally { Volatile.Write(ref _initializingThread, 0); }
 	}
 
 	private static T DefaultFactory()
@@ -302,41 +205,68 @@ public abstract class Singleton<T> where T : class
 		return (T)instance;
 	}
 
-	private static void DisposeIfNeeded(ref T? instance)
-	{
-		if (instance is IDisposable d)
-			try
-			{
-				d.Dispose();
-			}
-			catch
-			{
-				/* Swallow to keep Reset robust. */
-			}
 
-		instance = null;
+	// All callers hold Sync. Detach before callbacks so scopes cannot restore released objects.
+	private static void ReleaseInstances(bool dispose)
+	{
+		var current = _instance;
+		var initialized = _initializedOverride;
+		var scope = _scope;
+		Volatile.Write(ref _instance, null);
+		Volatile.Write(ref _overrideInstance, null);
+		_initializedOverride = null;
+		_scope = null;
+		_creationFailure = null;
+		_releasing = true;
+		try
+		{
+			while (scope is not null)
+			{
+				var parent = scope.Parent;
+				var value = scope.Value;
+				scope.Invalidate();
+				if (dispose) DisposeInstance(value);
+				scope = parent;
+			}
+			if (dispose)
+			{
+				DisposeInstance(initialized);
+				DisposeInstance(current);
+			}
+		}
+		finally { _releasing = false; }
 	}
 
-	private sealed class OverrideScope(T? previous, T current) : IDisposable
+	private static void DisposeInstance(T? instance)
 	{
-		private bool _disposed;
+		if (instance is not IDisposable disposable) return;
+		try { disposable.Dispose(); }
+		catch { /* Disposal remains best-effort, including during scope closure. */ }
+	}
+
+	private sealed class OverrideScope(T value, OverrideScope? parent) : IDisposable
+	{
+		internal T? Value { get; private set; } = value;
+		internal OverrideScope? Parent { get; private set; } = parent;
+
+		internal void Invalidate() { Value = null; Parent = null; }
 
 		public void Dispose()
 		{
-			if (_disposed) return;
-
 			lock (Sync)
 			{
-				// Restore only if our override is still the active one
-				if (ReferenceEquals(_overrideInstance, current))
-				{
-					var toDispose = current;
-					DisposeIfNeeded(ref toDispose);
-					Volatile.Write(ref _overrideInstance, previous);
-				}
+				if (Value is null) return;
+				RequireLifecycleChange();
+				if (!ReferenceEquals(_scope, this))
+					throw new InvalidOperationException("Close singleton override scopes in reverse creation order.");
+				var released = Value;
+				_scope = Parent;
+				Volatile.Write(ref _overrideInstance, Parent?.Value ?? _initializedOverride);
+				Invalidate();
+				_releasing = true;
+				try { DisposeInstance(released); }
+				finally { _releasing = false; }
 			}
-
-			_disposed = true;
 		}
 	}
 }

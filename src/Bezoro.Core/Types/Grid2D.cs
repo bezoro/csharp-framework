@@ -94,7 +94,7 @@ public sealed class Grid2D<T> : IDisposable
 		get
 		{
 			ThrowIfDisposed();
-			if ((uint)x >= (uint)Width || (uint)y >= (uint)Height)
+			if (unchecked((uint)x) >= (uint)Width || unchecked((uint)y) >= (uint)Height)
 				ThrowIndexOutOfRange();
 
 			return ref _data![y * Width + x];
@@ -129,7 +129,7 @@ public sealed class Grid2D<T> : IDisposable
 	public Span<T> GetRow(int y)
 	{
 		ThrowIfDisposed();
-		if ((uint)y >= (uint)Height)
+		if (unchecked((uint)y) >= (uint)Height)
 			ThrowRowOutOfRange();
 
 		return _data.AsSpan(y * Width, Width);
@@ -164,7 +164,7 @@ public sealed class Grid2D<T> : IDisposable
 	/// <param name="y">The row index.</param>
 	/// <returns><c>true</c> if the coordinates are valid; otherwise, <c>false</c>.</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public bool IsInBounds(int x, int y) => (uint)x < (uint)Width && (uint)y < (uint)Height;
+	public bool IsInBounds(int x, int y) => unchecked((uint)x) < (uint)Width && unchecked((uint)y) < (uint)Height;
 
 	/// <summary>
 	///     Tries to get the element at the specified coordinates without throwing.

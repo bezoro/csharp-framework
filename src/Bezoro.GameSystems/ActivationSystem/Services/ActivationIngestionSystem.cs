@@ -13,6 +13,7 @@ namespace Bezoro.GameSystems.ActivationSystem.Services;
 /// </summary>
 [Writes(typeof(ActivationEntry))]
 [Writes(typeof(ActivationCancellationRequest))]
+[WritesResource(typeof(ActivationCommandQueue))]
 public sealed class ActivationIngestionSystem : ISystem
 {
 	/// <inheritdoc />

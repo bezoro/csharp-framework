@@ -8,6 +8,56 @@ namespace Bezoro.Chess.UCI.Protocol.Tests.API;
 public sealed class UciPositionAnalysisCoordinatorRobustnessTests
 {
     [Fact]
+    public async Task CompletedCache_EvictsOldestPositionAtConfiguredCapacity()
+    {
+        await using var coordinator = new UciPositionAnalysisCoordinator(
+            (_, _) => Task.FromResult(new PositionAnalysisResult(default, [])), maxCachedPositions: 2);
+        foreach (string key in new[] { "first", "second", "third" })
+        {
+            coordinator.Enqueue(key, [], 'w', 'w', []);
+            await coordinator.GetAnalysisAsync(key);
+        }
+        coordinator.TryGetAnalysis("first", out _).Should().BeFalse();
+        coordinator.TryGetAnalysis("second", out _).Should().BeTrue();
+        coordinator.TryGetAnalysis("third", out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PendingBudget_RejectsAnotherPositionWithoutCancelingAcceptedWork()
+    {
+        var release = new TaskCompletionSource<PositionAnalysisResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var coordinator = new UciPositionAnalysisCoordinator((_, _) => release.Task, maxPendingPositions: 1);
+        coordinator.Enqueue("first", [], 'w', 'w', []);
+        var accepted = coordinator.GetAnalysisAsync("first");
+        Action enqueue = () => coordinator.Enqueue("second", [], 'w', 'w', []);
+        enqueue.Should().Throw<InvalidOperationException>().WithMessage("*pending-position limit*");
+        accepted.IsCompleted.Should().BeFalse();
+        release.SetResult(new(default, []));
+        await accepted;
+        coordinator.TryGetAnalysis("second", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_CancelsWaitersAndWaitsForRetiredWorker()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<PositionAnalysisResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new UciPositionAnalysisCoordinator((_, _) => { entered.SetResult(); return release.Task; });
+        coordinator.Enqueue("first", [], 'w', 'w', []);
+        var waiting = coordinator.GetAnalysisAsync("first");
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var disposing = coordinator.DisposeAsync().AsTask();
+        try
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
+            disposing.IsCompleted.Should().BeFalse();
+        }
+        finally { release.TrySetResult(new(default, [])); }
+        await disposing.WaitAsync(TimeSpan.FromSeconds(5));
+        await coordinator.DisposeAsync();
+    }
+
+    [Fact]
     public async Task ExplicitBasePosition_IsSentWithFullMoveHistory()
     {
         var (transport, output) = UciEngineClientTestHelpers.CreateMockTransport();

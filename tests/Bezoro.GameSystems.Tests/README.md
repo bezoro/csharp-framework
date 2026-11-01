@@ -45,3 +45,5 @@ Tests use the .NET 10 SDK selected by [global.json](../../global.json). They run
 - `NumericSafetyAcceptanceTests` exercises invalid input axes, mutable movement settings, multiplication and integration overflow, stale sequences, and exact hold boundaries through public ECS outcomes.
 
 Invalid-delta tests that call a system directly are separate from `World.Tick`/`FixedTick` validation. The scheduler rejects invalid deltas before normal world execution. These tests establish numeric behavior; they do not measure frame time or engine allocations.
+
+Regression coverage includes cross-queue activation handles, callback-target release after selection/cancellation, input dequeue budgets and control reuse, finite streaming configuration and large-distance overflow, health validation before mutation, and complete timer transition ordering.

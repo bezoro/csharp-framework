@@ -10,14 +10,14 @@ using Bezoro.Chess.UCI.Protocol.Internal;
 namespace Bezoro.Chess.UCI.Protocol.API;
 
 /// <summary>
-///     Coordinates a playable match using separate playing, snapshot, and full-strength analysis clients, plus local
+///     Coordinates a playable match using optional separate playing and full-strength analysis clients, plus local
 ///     board-state ownership for legal moves, promotion flow, clocks, and result adjudication.
 /// </summary>
 /// <remarks>
 ///     Serialize calls that mutate a session. The session rejects stale asynchronous results after a position change,
 ///     but concurrent callers must coordinate access to match state. Immutable snapshots can be retained by consumers.
 /// </remarks>
-public sealed class UciPlayableMatchSession
+public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 {
 	private readonly MoveClassificationCoordinator  _classifications = new();
     private readonly List<PlayableMatchClockCheckpoint> _clockHistory = [];
@@ -28,8 +28,6 @@ public sealed class UciPlayableMatchSession
 	private readonly List<string>                    _repetitionKeys = [];
 	private Fen? _cachedLegalMovesFen;
 	private ImmutableArray<string> _cachedLegalMoves;
-	private readonly UciEngineClient?               _analysisClient;
-	private readonly UciEngineClient?               _moveListClient;
 	private readonly UciEngineClient?               _playingClient;
 	private readonly UciPositionAnalysisCoordinator? _positionAnalysis;
 	private readonly PlayableMatchClaimableDrawPolicy _claimableDrawPolicy;
@@ -47,6 +45,7 @@ public sealed class UciPlayableMatchSession
 	private          PlayableMatchResult            _forcedResult;
 	private          PlayableMatchResult            _lastResult;
 	private          PendingPromotionRequest?       _pendingPromotion;
+	private          bool                           _disposed;
 
 	/// <summary>
 	///     Occurs whenever the session emits a canonical protocol-side event.
@@ -88,13 +87,12 @@ public sealed class UciPlayableMatchSession
 	public UciPlayableMatchSession(
 		UciEngineClient            playingClient,
 		UciEngineClient            analysisClient,
-		UciEngineClient            moveListClient,
 		char                       perspectiveColor,
 		MatchSideControllerKind    whiteController,
 		MatchSideControllerKind    blackController,
 		int                        engineMoveTimeMs       = 1_000,
-		int                        moveListAnalysisTimeMs = 3_000,
-		int                        moveListFallbackTimeMs = 250,
+		int                        analysisMoveTimeMs     = 3_000,
+		int                        analysisFallbackMoveTimeMs = 250,
 		PlayableMatchClaimableDrawPolicy claimableDrawPolicy = PlayableMatchClaimableDrawPolicy.Automatic,
 		PlayableMatchDrawOfferPolicy drawOfferPolicy = PlayableMatchDrawOfferPolicy.ExpireOnMove,
 		PlayableMatchControlledMoveFallbackPolicy controlledMoveFallbackPolicy = PlayableMatchControlledMoveFallbackPolicy.UseLocalFallback,
@@ -102,8 +100,9 @@ public sealed class UciPlayableMatchSession
 		Func<DateTimeOffset>?      utcNowProvider         = null)
 	{
 		_playingClient    = playingClient ?? throw new ArgumentNullException(nameof(playingClient));
-		_analysisClient   = analysisClient ?? throw new ArgumentNullException(nameof(analysisClient));
-		_moveListClient   = moveListClient ?? throw new ArgumentNullException(nameof(moveListClient));
+		if (analysisClient is null) throw new ArgumentNullException(nameof(analysisClient));
+		if (ReferenceEquals(playingClient, analysisClient))
+			throw new ArgumentException("Playing and analysis require distinct dedicated clients.", nameof(analysisClient));
 		_engineMoveTimeMs = ValidatePositive(engineMoveTimeMs, nameof(engineMoveTimeMs));
 		PerspectiveColor  = NormalizeColor(perspectiveColor, nameof(perspectiveColor));
 		if (whiteController is not (MatchSideControllerKind.Manual or MatchSideControllerKind.Engine))
@@ -125,9 +124,9 @@ public sealed class UciPlayableMatchSession
 		_timeControl      = timeControl;
 		_timeControl?.Validate();
 		_positionAnalysis = new(
-			_moveListClient,
-			ValidatePositive(moveListAnalysisTimeMs, nameof(moveListAnalysisTimeMs)),
-			ValidatePositive(moveListFallbackTimeMs, nameof(moveListFallbackTimeMs))
+			analysisClient,
+			ValidatePositive(analysisMoveTimeMs, nameof(analysisMoveTimeMs)),
+			ValidatePositive(analysisFallbackMoveTimeMs, nameof(analysisFallbackMoveTimeMs))
 		);
 	}
 
@@ -138,11 +137,10 @@ public sealed class UciPlayableMatchSession
 	public UciPlayableMatchSession(
 		UciEngineClient           playingClient,
 		UciEngineClient           analysisClient,
-		UciEngineClient           moveListClient,
 		char                      playerColor,
 		int                       engineMoveTimeMs       = 1_000,
-		int                       moveListAnalysisTimeMs = 3_000,
-		int                       moveListFallbackTimeMs = 250,
+		int                       analysisMoveTimeMs = 3_000,
+		int                       analysisFallbackMoveTimeMs = 250,
 		PlayableMatchClaimableDrawPolicy claimableDrawPolicy = PlayableMatchClaimableDrawPolicy.Automatic,
 		PlayableMatchDrawOfferPolicy drawOfferPolicy = PlayableMatchDrawOfferPolicy.ExpireOnMove,
 		PlayableMatchControlledMoveFallbackPolicy controlledMoveFallbackPolicy = PlayableMatchControlledMoveFallbackPolicy.UseLocalFallback,
@@ -151,13 +149,12 @@ public sealed class UciPlayableMatchSession
 		: this(
 			playingClient,
 			analysisClient,
-			moveListClient,
 			perspectiveColor: playerColor,
 			whiteController: playerColor == 'w' ? MatchSideControllerKind.Manual : MatchSideControllerKind.Engine,
 			blackController: playerColor == 'b' ? MatchSideControllerKind.Manual : MatchSideControllerKind.Engine,
 			engineMoveTimeMs,
-			moveListAnalysisTimeMs,
-			moveListFallbackTimeMs,
+			analysisMoveTimeMs,
+			analysisFallbackMoveTimeMs,
 			claimableDrawPolicy,
 			drawOfferPolicy,
 			controlledMoveFallbackPolicy,
@@ -314,6 +311,7 @@ public sealed class UciPlayableMatchSession
 	/// </exception>
 	public void UndoMoves(int count = 1)
 	{
+		ThrowIfDisposed();
 		ValidatePositive(count, nameof(count));
 		if (_playedMoves.Count < count)
 			throw new InvalidOperationException("Cannot undo more moves than have been played.");
@@ -383,8 +381,9 @@ public sealed class UciPlayableMatchSession
 		RaiseEvent(PlayableMatchEventKind.PositionLoaded, state: _hasCurrentState ? _currentState : null);
 	}
 
-	private async Task LoadMatchCoreAsync(PlayableMatchSetup setup, CancellationToken ct)
+	private Task LoadMatchCoreAsync(PlayableMatchSetup setup, CancellationToken ct)
 	{
+		ThrowIfDisposed();
 		ct.ThrowIfCancellationRequested();
 		var currentFen = setup.ResolveCurrentFen();
 		var clockRestore = CreateClockRestore(currentFen, setup.Clock);
@@ -396,13 +395,7 @@ public sealed class UciPlayableMatchSession
 			checkpoint = PlayableMatchClockKernel.Restore(_timeControl.Value, currentFen.ActiveColor, clockRestore.Value);
 		}
 
-		// Finish validation and external work before replacing the local match.
-		if (_playingClient is not null && _analysisClient is not null && _moveListClient is not null)
-			await Task.WhenAll(
-				_playingClient.UciNewGameAsync(ct),
-				_analysisClient.UciNewGameAsync(ct),
-				_moveListClient.UciNewGameAsync(ct)
-			).ConfigureAwait(false);
+		// Validate before replacing the local match. Engines synchronize only on explicit search requests.
 		ct.ThrowIfCancellationRequested();
 
 		_positionRevision++;
@@ -428,6 +421,7 @@ public sealed class UciPlayableMatchSession
 		ResetBackgroundState();
 		_hasCurrentState = false;
 		_currentState = default;
+		return Task.CompletedTask;
 	}
 
 	/// <summary>
@@ -467,6 +461,8 @@ public sealed class UciPlayableMatchSession
 		{
 			if (_playingClient is null)
 				throw new InvalidOperationException("No engine client is configured for controlled moves.");
+			await _playingClient.SetPositionAsync(_baseFen, _playedMoves, ct).ConfigureAwait(false);
+			EnsurePositionRevision(revision);
 			result = await _playingClient.GoAsync(new() { MoveTimeMs = _engineMoveTimeMs }, ct).ConfigureAwait(false);
 			move = result.BestMove.ToLowerInvariant();
 		}
@@ -503,6 +499,7 @@ public sealed class UciPlayableMatchSession
 	/// </returns>
 	public async Task<EngineMoveResult?> PlayControlledMoveIfNeededAsync(CancellationToken ct = default)
 	{
+		ThrowIfDisposed();
 		var state = _hasCurrentState ? _currentState : await RefreshAsync(ct).ConfigureAwait(false);
 		if (state.Result.IsTerminal ||
 			state.LegalMoves.IsDefaultOrEmpty ||
@@ -520,9 +517,10 @@ public sealed class UciPlayableMatchSession
 	public Task<ImmutableDictionary<string, MoveClassification>> WaitForCurrentMoveClassificationsAsync(
 		CancellationToken ct = default)
 	{
+		ThrowIfDisposed();
+		ct.ThrowIfCancellationRequested();
 		var state = CurrentState;
-		if (!HasEngineClients)
-			_classifications.Enqueue(state.PositionKey, state.Fen, state.LegalMoves);
+		_classifications.Enqueue(state.PositionKey, state.Fen, state.LegalMoves);
 		return _classifications.WaitAsync(state.PositionKey, ct);
 	}
 
@@ -530,30 +528,18 @@ public sealed class UciPlayableMatchSession
 	///     Refreshes the current board snapshot, legal moves, live classifications, and non-blocking player-relative
 	///     advantage.
 	/// </summary>
-	public async Task<PlayableMatchState> RefreshAsync(CancellationToken ct = default)
+	public Task<PlayableMatchState> RefreshAsync(CancellationToken ct = default)
 	{
-		long revision = _positionRevision;
-		Fen currentFen = BuildCurrentFen();
-
 		ct.ThrowIfCancellationRequested();
-		if (_playingClient is not null && _analysisClient is not null)
-			await Task.WhenAll(
-				_playingClient.SetPositionAsync(_baseFen, _playedMoves, ct),
-				_analysisClient.SetPositionAsync(_baseFen, _playedMoves, ct)
-			).ConfigureAwait(false);
-
-		EnsurePositionRevision(revision);
-		return RefreshLocalState(currentFen);
+		return Task.FromResult(Refresh());
 	}
 
 	/// <summary>
-	///     Refreshes a local session synchronously, without allocating a task or contacting an engine.
+	///     Refreshes the match synchronously, without allocating a task, contacting an engine, or starting analysis.
 	/// </summary>
-	/// <exception cref="InvalidOperationException">Engine clients are configured; use <see cref="RefreshAsync" />.</exception>
 	public PlayableMatchState Refresh()
 	{
-		if (HasEngineClients)
-			throw new InvalidOperationException("Use RefreshAsync to synchronize the configured engine clients.");
+		ThrowIfDisposed();
 		return RefreshLocalState(BuildCurrentFen());
 	}
 
@@ -563,13 +549,8 @@ public sealed class UciPlayableMatchSession
 		string positionKey = currentFen.Raw;
 
 		UpdateMoveHistory(positionKey);
-		if (HasEngineClients)
-			_classifications.Enqueue(positionKey, currentFen, legalMoves);
-		if (HasEngineClients)
+		if (_classifications.HasKnownPositions)
 			EnrichMoveHistoryClassifications();
-
-		if (legalMoves.Length > 0)
-			_positionAnalysis?.Enqueue(positionKey, _baseFen, _playedMoves, currentFen.ActiveColor, PerspectiveColor, legalMoves);
 
 		var advantage = _moveHistory.ResolveCurrentAdvantage(
 			positionKey,
@@ -620,11 +601,14 @@ public sealed class UciPlayableMatchSession
 	/// </summary>
 	public async Task<PositionAnalysisResult> GetLegalMoveAnalysisAsync(CancellationToken ct = default)
 	{
+		ThrowIfDisposed();
 		if (_positionAnalysis is null)
 			throw new InvalidOperationException("No analysis engine is configured for this local session.");
 		ct.ThrowIfCancellationRequested();
 		long revision = _positionRevision;
-		string positionKey = CurrentState.PositionKey;
+		var state = CurrentState;
+		string positionKey = state.PositionKey;
+		_positionAnalysis.Enqueue(positionKey, _baseFen, _playedMoves, state.Fen.ActiveColor, PerspectiveColor, state.LegalMoves);
 		var analysis = await _positionAnalysis.GetAnalysisAsync(positionKey, ct).ConfigureAwait(false);
 		EnsurePositionRevision(revision);
 		var classifications = _classifications.GetKnown(positionKey);
@@ -696,6 +680,7 @@ public sealed class UciPlayableMatchSession
 	/// <param name="promotionPiece">Promotion suffix such as <c>q</c>, <c>r</c>, <c>b</c>, or <c>n</c>.</param>
 	public void ChoosePromotion(char promotionPiece)
 	{
+		ThrowIfDisposed();
 		if (!_pendingPromotion.HasValue)
 			throw new InvalidOperationException("There is no pending promotion to complete.");
 
@@ -746,6 +731,7 @@ public sealed class UciPlayableMatchSession
 	/// </summary>
 	public void DeclineDraw()
 	{
+		ThrowIfDisposed();
 		if (!_drawOfferedBy.HasValue)
 			throw new InvalidOperationException("There is no opposing draw offer to decline.");
 
@@ -783,6 +769,7 @@ public sealed class UciPlayableMatchSession
 	/// </summary>
 	public void PauseClock()
 	{
+		ThrowIfDisposed();
         if (!_timeControl.HasValue || _clockHistory.Count == 0 || _clockHistory[^1].PausedAtUtc.HasValue)
 			return;
 
@@ -796,6 +783,7 @@ public sealed class UciPlayableMatchSession
 	/// </summary>
 	public void ResumeClock()
 	{
+		ThrowIfDisposed();
         if (_forcedResult.IsTerminal || !_timeControl.HasValue || _clockHistory.Count == 0 || !_clockHistory[^1].PausedAtUtc.HasValue)
 			return;
 
@@ -809,6 +797,7 @@ public sealed class UciPlayableMatchSession
 	/// </summary>
 	public void CancelAnalysis()
 	{
+		ThrowIfDisposed();
 		_positionAnalysis?.Cancel();
 		_classifications.Cancel();
 	}
@@ -820,6 +809,8 @@ public sealed class UciPlayableMatchSession
 	/// <param name="ct">Cancellation token.</param>
 	public async Task ProcessAsync(PlayableMatchRequest request, CancellationToken ct = default)
 	{
+		ThrowIfDisposed();
+		ct.ThrowIfCancellationRequested();
 		if (request.SchemaVersion != 1)
 			throw new InvalidOperationException($"Unsupported playable match request schema version '{request.SchemaVersion}'.");
 
@@ -891,6 +882,7 @@ public sealed class UciPlayableMatchSession
 		IEnumerable<PlayableMatchRequest> requests,
 		CancellationToken                 ct = default)
 	{
+		ThrowIfDisposed();
 		if (requests is null)
 			throw new ArgumentNullException(nameof(requests));
 
@@ -1144,6 +1136,7 @@ public sealed class UciPlayableMatchSession
 
 	private void EnsureMatchIsPlayable()
 	{
+		ThrowIfDisposed();
 		if (_forcedResult.IsTerminal || CurrentState.Result.IsTerminal)
 			throw new InvalidOperationException("The match has already ended.");
 	}
@@ -1442,6 +1435,7 @@ public sealed class UciPlayableMatchSession
 	/// </summary>
 	public async Task<PlayableMatchState> PlayUntilTerminalAsync(int maxPlies = int.MaxValue, CancellationToken ct = default)
 	{
+		ThrowIfDisposed();
 		if (maxPlies <= 0)
 			throw new ArgumentOutOfRangeException(nameof(maxPlies), "Value must be greater than zero.");
 
@@ -1462,6 +1456,29 @@ public sealed class UciPlayableMatchSession
 		}
 
 		return CurrentState;
+	}
+
+	/// <summary>Cancels optional analysis and releases session resources. Engine clients remain caller-owned.</summary>
+	public void Dispose()
+	{
+		if (_disposed) return;
+		_disposed = true;
+		_positionAnalysis?.Dispose();
+		_classifications.Dispose();
+	}
+
+	/// <summary>Cancels analysis and joins its workers before the caller disposes the engine clients.</summary>
+	public async ValueTask DisposeAsync()
+	{
+		Dispose();
+		await Task.WhenAll(
+			_positionAnalysis?.DisposeAsync().AsTask() ?? Task.CompletedTask,
+			_classifications.ActiveWorker ?? Task.CompletedTask).ConfigureAwait(false);
+	}
+
+	private void ThrowIfDisposed()
+	{
+		if (_disposed) throw new ObjectDisposedException(nameof(UciPlayableMatchSession));
 	}
 
 	private static char Opposite(char color) => color == 'w' ? 'b' : 'w';

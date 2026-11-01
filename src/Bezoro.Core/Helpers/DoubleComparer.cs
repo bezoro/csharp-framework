@@ -41,11 +41,12 @@ public static class DoubleComparer
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static bool AreEqual(double a, double b, double epsilon = DEFAULT_DOUBLE_EPSILON)
 	{
-		if (epsilon < 0) throw new ArgumentOutOfRangeException(nameof(epsilon), "Epsilon must be non-negative");
+		if (epsilon < 0 || double.IsNaN(epsilon) || double.IsInfinity(epsilon)) throw new ArgumentOutOfRangeException(nameof(epsilon), "Epsilon must be non-negative");
 
 		// ReSharper disable once CompareOfFloatsByEqualityOperator
 		if (a == b) return true; // Fast path for exact matches and equal infinities (intentional)
 		if (double.IsNaN(a) || double.IsNaN(b)) return false;
+		if (double.IsInfinity(a) || double.IsInfinity(b)) return false;
 
 		return Math.Abs(a - b) <= epsilon;
 	}
@@ -67,15 +68,16 @@ public static class DoubleComparer
 		double absoluteEpsilon = DEFAULT_DOUBLE_EPSILON,
 		double relativeEpsilon = DEFAULT_DOUBLE_RELATIVE_EPSILON)
 	{
-		if (absoluteEpsilon < 0)
+		if (absoluteEpsilon < 0 || double.IsNaN(absoluteEpsilon) || double.IsInfinity(absoluteEpsilon))
 			throw new ArgumentOutOfRangeException(nameof(absoluteEpsilon), "Epsilon must be non-negative");
 
-		if (relativeEpsilon < 0)
+		if (relativeEpsilon < 0 || double.IsNaN(relativeEpsilon) || double.IsInfinity(relativeEpsilon))
 			throw new ArgumentOutOfRangeException(nameof(relativeEpsilon), "Epsilon must be non-negative");
 
 		// ReSharper disable once CompareOfFloatsByEqualityOperator
 		if (a == b) return true; // Fast path for exact matches and equal infinities (intentional)
 		if (double.IsNaN(a) || double.IsNaN(b)) return false;
+		if (double.IsInfinity(a) || double.IsInfinity(b)) return false;
 
 		double diff   = Math.Abs(a - b);
 		double absA   = Math.Abs(a);
@@ -84,6 +86,11 @@ public static class DoubleComparer
 
 		// Use absolute epsilon for near-zero values
 		if (maxAbs <= absoluteEpsilon) return diff <= absoluteEpsilon;
+
+		// Opposite finite extremes can overflow their difference and threshold.
+		// Normalize before subtracting in that case; the relative distance is at most two.
+		if (double.IsInfinity(diff))
+			return Math.Abs(a / maxAbs - b / maxAbs) <= relativeEpsilon + DOUBLE_ULP_EPSILON;
 
 		// Use relative epsilon with ULP cushion for larger numbers
 		double threshold = relativeEpsilon * maxAbs;
@@ -107,16 +114,16 @@ public static class DoubleComparer
 		double absoluteEpsilon = DEFAULT_DOUBLE_EPSILON,
 		double relativeEpsilon = DEFAULT_DOUBLE_RELATIVE_EPSILON)
 	{
-		if (absoluteEpsilon < 0)
+		if (absoluteEpsilon < 0 || double.IsNaN(absoluteEpsilon) || double.IsInfinity(absoluteEpsilon))
 			throw new ArgumentOutOfRangeException(nameof(absoluteEpsilon), "Epsilon must be non-negative");
 
-		if (relativeEpsilon < 0)
+		if (relativeEpsilon < 0 || double.IsNaN(relativeEpsilon) || double.IsInfinity(relativeEpsilon))
 			throw new ArgumentOutOfRangeException(nameof(relativeEpsilon), "Epsilon must be non-negative");
 
 		// ReSharper disable once CompareOfFloatsByEqualityOperator
 		if (a == b) return true; // Fast path for exact matches and equal infinities (intentional)
 		if (double.IsNaN(a) || double.IsNaN(b)) return false;
-		if (double.IsInfinity(a) || double.IsInfinity(b)) return false; // Different infinities or infinity vs finite
+		if (double.IsInfinity(a) || double.IsInfinity(b)) return false;
 
 		double diff   = Math.Abs(a - b);
 		double absA   = Math.Abs(a);
@@ -125,6 +132,11 @@ public static class DoubleComparer
 
 		// Use absolute epsilon for numbers close to zero
 		if (maxAbs <= absoluteEpsilon) return diff <= absoluteEpsilon;
+
+		// Opposite finite extremes can overflow their difference and threshold.
+		// Normalize before subtracting in that case; the relative distance is at most two.
+		if (double.IsInfinity(diff))
+			return Math.Abs(a / maxAbs - b / maxAbs) <= relativeEpsilon + DOUBLE_ULP_EPSILON;
 
 		// Use relative epsilon with ULP cushion for larger numbers
 		return diff <= (relativeEpsilon + DOUBLE_ULP_EPSILON) * maxAbs;
@@ -139,7 +151,7 @@ public static class DoubleComparer
 		double b,
 		double absoluteEpsilon = DEFAULT_DOUBLE_EPSILON,
 		double relativeEpsilon = DEFAULT_DOUBLE_RELATIVE_EPSILON) =>
-		a > b && !AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon);
+		!AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon) && a > b;
 
 	/// <summary>
 	///     Determines if the first double is greater than or equal to the second using robust comparison.
@@ -150,7 +162,7 @@ public static class DoubleComparer
 		double b,
 		double absoluteEpsilon = DEFAULT_DOUBLE_EPSILON,
 		double relativeEpsilon = DEFAULT_DOUBLE_RELATIVE_EPSILON) =>
-		a > b || AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon);
+		AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon) || a > b;
 
 	/// <summary>
 	///     Determines if the first double is less than the second using robust comparison.
@@ -161,7 +173,7 @@ public static class DoubleComparer
 		double b,
 		double absoluteEpsilon = DEFAULT_DOUBLE_EPSILON,
 		double relativeEpsilon = DEFAULT_DOUBLE_RELATIVE_EPSILON) =>
-		a < b && !AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon);
+		!AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon) && a < b;
 
 	/// <summary>
 	///     Determines if the first double is less than or equal to the second using robust comparison.
@@ -172,14 +184,18 @@ public static class DoubleComparer
 		double b,
 		double absoluteEpsilon = DEFAULT_DOUBLE_EPSILON,
 		double relativeEpsilon = DEFAULT_DOUBLE_RELATIVE_EPSILON) =>
-		a < b || AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon);
+		AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon) || a < b;
 
 	/// <summary>
 	///     Determines if a double value is effectively zero.
 	/// </summary>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool IsZero(double value, double epsilon = DEFAULT_DOUBLE_EPSILON) =>
-		Math.Abs(value) <= epsilon;
+	public static bool IsZero(double value, double epsilon = DEFAULT_DOUBLE_EPSILON)
+	{
+		if (epsilon < 0 || double.IsNaN(epsilon) || double.IsInfinity(epsilon))
+			throw new ArgumentOutOfRangeException(nameof(epsilon), "Epsilon must be finite and nonnegative.");
+		return Math.Abs(value) <= epsilon;
+	}
 
 	/// <summary>
 	///     Returns the sign of a double value, treating values close to zero as zero.

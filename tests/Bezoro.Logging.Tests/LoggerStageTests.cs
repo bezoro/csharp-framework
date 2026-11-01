@@ -25,7 +25,10 @@ public sealed class LoggerStageTests
 			return 42;
 		});
 		LoggerSettings.SequenceNumber = SequenceNumberConfig.On;
-		Logger.Log("prime");
+		Action<LogPayload> primeSink = _ => { };
+		Logger.OnLog += primeSink;
+		try { Logger.Log("prime"); }
+		finally { Logger.OnLog -= primeSink; }
 		var payloads = new List<LogPayload>();
 		Action<LogPayload> handler = payloads.Add;
 		Logger.OnLog += handler;
@@ -208,7 +211,10 @@ public sealed class LoggerStageTests
 	private static void PrimeStage(string stage)
 	{
 		LoggerSettings.Stage = StageConfig.Create(() => stage);
-		Logger.Log("prime");
+		Action<LogPayload> primeSink = _ => { };
+		Logger.OnLog += primeSink;
+		try { Logger.Log("prime"); }
+		finally { Logger.OnLog -= primeSink; }
 	}
 
 	private static long ParseSequenceNumber(LogPayload payload)

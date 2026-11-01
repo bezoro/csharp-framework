@@ -44,16 +44,20 @@ public sealed class ActivationProcessingSystem : ISystem
 		if (world is null) throw new ArgumentNullException(nameof(world));
 		EnsureResources(world);
 
-		var entriesByHandle = BuildEntryIndex(world);
-		ApplyCancellations(world, context.CommandStream, entriesByHandle);
+		if (world.Query<ActivationCancellationQuery>().Any())
+		{
+			var entriesByHandle = BuildEntryIndex(world);
+			ApplyCancellations(world, context.CommandStream, entriesByHandle);
+		}
 
 		var pendingEntries = CollectPendingEntries(world, out var activatedCount);
+		int pendingEntryCount = pendingEntries?.Count ?? 0;
 		ref var runtime = ref world.WriteResource<ActivationRuntimeState>();
-		if (pendingEntries.Count > 0)
+		if (pendingEntryCount > 0)
 			runtime.CompletionPublished = false;
 
-		if (pendingEntries.Count > 1)
-			pendingEntries.Sort(static (left, right) =>
+		if (pendingEntryCount > 1)
+			pendingEntries!.Sort(static (left, right) =>
 				{
 					var priorityComparison = right.Priority.CompareTo(left.Priority);
 					return priorityComparison != 0
@@ -68,26 +72,25 @@ public sealed class ActivationProcessingSystem : ISystem
 		var maxActivationsPerTick = config.MaxActivationsPerTick <= 0
 										? int.MaxValue
 										: config.MaxActivationsPerTick;
-		var targetActivationCount = Math.Min(maxActivationsPerTick, pendingEntries.Count);
+		var targetActivationCount = Math.Min(maxActivationsPerTick, pendingEntryCount);
 
 		var activatedThisTick = 0;
 		for (var i = 0; i < targetActivationCount; i++)
 		{
-			var candidate = pendingEntries[i];
+			var candidate = pendingEntries![i];
 			if (!world.TryWrite<ActivationEntry>(candidate.EntryEntity, out var entryRef))
 				continue;
 
 			ref var entry = ref entryRef.Value;
-			if (entry.State != ActivationState.Pending)
+			if (!entry.TryActivate(out var callback))
 				continue;
 
-			entry.State = ActivationState.Activated;
-			dispatchQueue.Enqueue(entry.Callback);
+			dispatchQueue.Enqueue(callback);
 			activatedThisTick++;
 		}
 
 		activatedCount += activatedThisTick;
-		var pendingCount = pendingEntries.Count - activatedThisTick;
+		var pendingCount = pendingEntryCount - activatedThisTick;
 		runtime.SetCounts(activatedCount, pendingCount);
 
 		PublishCompletionIfNeeded(world, runtime);
@@ -120,14 +123,15 @@ public sealed class ActivationProcessingSystem : ISystem
 		runtime.CompletionPublished = false;
 	}
 
-	private static List<PendingActivationCandidate> CollectPendingEntries(World world, out int activatedCount)
+	private static List<PendingActivationCandidate>? CollectPendingEntries(World world, out int activatedCount)
 	{
-		var pendingEntries = new List<PendingActivationCandidate>();
+		List<PendingActivationCandidate>? pendingEntries = null;
 		var activatedCountLocal = 0;
 
 		world.Query<ActivationEntryQuery>().ForEachRead<ActivationEntry>(
 			(Entity entryEntity, in ActivationEntry entry) =>
 			{
+				if (!entry.Handle.IsValid) return;
 				if (entry.State == ActivationState.Activated)
 				{
 					activatedCountLocal++;
@@ -137,7 +141,7 @@ public sealed class ActivationProcessingSystem : ISystem
 				if (entry.State != ActivationState.Pending)
 					return;
 
-				pendingEntries.Add(new(entryEntity, entry.Priority, entry.Handle.Id));
+				(pendingEntries ??= new()).Add(new(entryEntity, entry.Priority, entry.Handle.Id));
 			}
 		);
 
@@ -173,7 +177,7 @@ public sealed class ActivationProcessingSystem : ISystem
 					world.TryWrite<ActivationEntry>(entryEntity, out var entryRef) &&
 					entryRef.Value.State == ActivationState.Pending)
 				{
-					entryRef.Value.State = ActivationState.Cancelled;
+					entryRef.Value.CancelPending();
 				}
 
 				commands.Destroy(requestEntity);

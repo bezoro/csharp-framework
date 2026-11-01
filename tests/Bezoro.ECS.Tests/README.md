@@ -1,60 +1,35 @@
 # Bezoro.ECS.Tests
 
-Unit and integration tests for `Bezoro.ECS` runtime, scheduling, source generation integration, and API contracts.
+Runtime, source-generator, and API-contract tests for ECS ownership, storage, queries, commands, resources, and scheduling.
 
-## Types
-
-| Type                                            | Description                                                                                                                 |
-|-------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `WorldRuntimeTests`                             | Shared test fixture host for private helper query specs, test-only component types, and jobs used by partial runtime tests. |
-| `WorldRuntimePlaybackTests`                     | Command stream playback behavior for structural transitions, managed lanes, and cross-world guard rails.                    |
-| `WorldRuntimeQueryTests`                        | Query compilation/execution behavior, cursor semantics, and typed foreach/job mutation paths.                               |
-| `WorldParallelEntityJobTests`                   | Parallel entity-aware job coverage for entity versions, chunk traversal, validation order, and worker failures.             |
-| `WorldRuntimeAccessorTests`                     | Component accessor semantics (`Has`, `TryGet`) and cache correctness across archetype transitions.                          |
-| `WorldRuntimeAllocationTests`                   | Hot-path allocation assertions after warmup for accessor, cursor, foreach, run, and playback flows.                         |
-| `WorldRuntimeRelationTests`                     | Relation API lifecycle and relation-filter query behavior.                                                                  |
-| `WorldRuntimeLifecycleTests`                    | Entity lifecycle semantics (`Reset`, despawn/respawn versioning, `IsAlive` invariants).                                     |
-| `WorldRuntimeOverflowTests`                     | Capacity and overflow policy behavior for playback and command recording.                                                   |
-| `WorldApiContractTests`                         | Public API contracts for `World`/`IWorld`, canonical `SystemContext.CommandStream`, compatibility identity and behavior, exact obsolete metadata, and legacy world-options adapter behavior. |
-| `SystemManagerTests`                            | Scheduling behavior, access-conflict batching, and phase/stage execution semantics.                                         |
-| `SystemManagerErgonomicInferenceTests`          | Scheduler inference coverage for ergonomic APIs such as `QueryView`, direct resource methods, and generated job extensions. |
-| `WorldRelationIndexTests`                       | Internal relation-index lifecycle coverage for relation type-id reuse and target release cleanup.                            |
-| `WorldResourceStoreTests`                       | Internal resource-store lifecycle coverage for disposal and snapshot boxing round-trips.                                     |
-| `QueryGeneratorTests`                           | Compiled query usage and filtering behavior from a consumer perspective.                                                    |
-| `GeneratedQueryAndJobSourceGenIntegrationTests` | Source-generated query-spec and job-extension integration against runtime execution APIs.                                   |
-| `GeneratedSystemMetadataResolverTests`          | Generated system metadata discovery, resolver behavior, and legacy direct-access read/write classification.                 |
-
-## Quick Start
+## Run
 
 ```bash
-dotnet test tests/Bezoro.ECS.Tests/Bezoro.ECS.Tests.csproj
+dotnet test tests/Bezoro.ECS.Tests/Bezoro.ECS.Tests.csproj -c Release --artifacts-path /workspace/scratch/api-review/ecs/artifacts
+dotnet test tests/Bezoro.ECS.Tests/Bezoro.ECS.Tests.csproj -c Release --artifacts-path /workspace/scratch/api-review/ecs/checked-artifacts -p:CheckForOverflowUnderflow=true
 ```
 
-## Design Notes
+Build `src/Bezoro.ECS/Bezoro.ECS.csproj` separately to cover both .NET 10 and .NET Standard 2.1. The analyzer builds as .NET Standard 2.0. Keep artifact directories separate when validating concurrently.
 
-- Tests are consumer-first and validate ECS ergonomics as exposed by the public API.
-- Runtime tests prioritize correctness for structural changes, deterministic playback, and fixed-capacity behavior.
-- Snapshot restore coverage includes fail-closed defaults, explicit allow-list enforcement, malformed payload rejection, and no-mutation-on-rejection behavior.
-- Source-generation integration tests ensure generated code stays aligned with runtime contracts.
+## Contracts covered
 
-## Release Gates
+| Area | Evidence |
+| --- | --- |
+| Native/managed storage | Bounds before unsafe access, disposed columns, unsupported Marshal layouts, generic value types, archetype compaction and transitions. |
+| Cursor lifetime | Copies share disposal, old copies cannot release a reused lease, callback/job pinning, default-handle errors, indexed identity access across chunks/archetypes. |
+| Structural exclusion | Direct delegates, sequential/parallel jobs, active cursors, and concurrent attribute-only system batches reject invalidation before storage changes. |
+| Commands | Stream/world ownership, per-stream/per-recording temporary identity, sentinels, lazy identity epochs, exhaustion before recording/type registration, payload overflow diagnostics, failure cleanup, lazy command-buffer rental, and scheduler context epochs. |
+| Playback oracle | 7,680 seeded mixed managed/unmanaged set/remove commands match a separate sequential reference model across small chunks and repeated transitions. |
+| Resources | Idempotent disposal, all-resource cleanup after exceptions, replacement identity, caller ownership after rejection, factory/disposal reentrancy, stable restored boxes under concurrent first access. |
+| Change tracking | Mutable access, read-only traversal, incremental query windows, disjoint parallel writers, unique versions beyond the 32-bit boundary, zero-allocation steady-state paths. |
+| Scheduling | Phase/stage validation, declared-order precedence with resource conflicts, unknown-access exclusivity, explicit `NoWorldAccess` parallelism, nested scheduling, interrupted joins and worker failures. |
+| Relations | Incoming-edge cleanup and exhaustion of retained per-target marker IDs, including after Reset. |
+| Snapshots | Deny-by-default types, explicit allow-lists, malformed payload rejection before mutation, reader/writer contracts, active-borrow exclusion. |
 
-- `WorldApiContractTests` protects the intended public authoring surface, including all 16 generic `World.Run...` instance overloads, their exact non-error obsolete messages, and the four non-obsolete `World.ForEach` overloads. Member-level reflection covers obsolete members that the public type exporter does not track.
-- Arity-one compatibility tests prove the retained sequential, entity-aware, parallel, and parallel entity-aware `World` forwarders still preserve mutation and entity delivery.
-- `SystemContext` coverage protects the canonical command-stream constructor and property, exact null validation, scalar/world values, scheduler stream lifecycle, and both canonical-property and compatibility-wrapper identity with the original command stream.
-- Legacy world-options coverage characterizes exact chunk-capacity mapping, ignored byte-size hints, retained `WorldConfig` defaults, and preserved null and parallelism validation behavior.
-- Runtime and scheduler tests protect the three retained aliases as behavior-preserving forwarders, including mutable-write tracking and legacy access-metadata inference.
-- `SystemManagerTests` and `SystemManagerErgonomicInferenceTests` protect scheduler conflict detection for both attribute-driven and inferred access metadata.
-- `WorldAdvancedApiTests` protects snapshot fail-closed behavior, allow-list enforcement, no-mutation-on-rejection semantics, and query-iteration exclusion.
-- `WorldErgonomicApiTests` protects direct typed `QueryView` traversal across chunks, recycled entity versions, managed mutation, missing-component callback ordering, empty-result type-registration behavior, callback validation order, active-iteration restrictions, and read-only change tracking.
-- `WorldParallelEntityJobTests` protects parallel entity-aware jobs across recycled entity slots and multiple chunks, shared-scratch cursor coexistence, validation order, and exact worker-exception propagation.
-- `WorldRuntimeQueryTests` characterizes scalar overwrites for managed and unmanaged components, including replacement values, known-transition validation, and exactly-once `Changed` tracking.
-- `WorldRuntimeAllocationTests` protects hot-path allocation expectations after warmup, including exact zero-allocation steady-state managed `QueryView.ForEachRead(...)` and mutable `ForEach(...)` traversal.
-- `GeneratedQueryAndJobSourceGenIntegrationTests` protects exact-handle routing, generated call ordering, foreign-handle validation, and the non-obsolete generator-backed ergonomic API that application code is expected to use.
+`SourceGeneratorCompilationTests` runs all four generators through Roslyn and compiles their output. Cases include generic and nested generic jobs, constraints, record queries, escaped identifiers, hint/helper collisions, effective accessibility, unsupported-declaration diagnostics, cursor/accessor access inference, effective overrides, inherited generic and explicit interface updates, and a base compiled in a separate assembly. Metadata tests emit assemblies and inspect the generated contracts. Inferred-only systems remain exclusive regardless of helper/constructor/initializer shape, while explicit declarations retain the parallel path; direct structural calls remain exclusive despite component annotations.
 
-## Test Conventions
+The temporary-identity boundary collection disables test parallelism while injecting/restoring the global epoch boundary. Other concurrency tests join their workers before returning.
 
-- Method naming follows `Method_WhenCondition_ShouldExpectation`.
-- Runtime coverage is split into focused partial files under `Services/WorldRuntime*Tests.cs` for maintainability.
-- `World` instances are created with `using var` to keep disposal behavior explicit and consistent.
-- Assertions use FluentAssertions for readable failure messages and uniform style.
+Allocation tests warm measured paths before checking steady-state allocations. Their zero-byte contracts do not establish throughput. Scheduler probes use synchronization to detect overlap; benchmark timing belongs in `benchmarks/Bezoro.ECS.Benchmarks`.
+
+Compatibility-only tests were removed with the obsolete APIs. Behavioral coverage now exercises `WorldConfig`, `CommandStream`, `Read`/`Write`, and `QueryView`; no test requires a removed forwarder or observer stub.

@@ -41,11 +41,12 @@ public static class FloatComparer
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static bool AreEqual(float a, float b, float epsilon = DEFAULT_FLOAT_EPSILON)
 	{
-		if (epsilon < 0) throw new ArgumentOutOfRangeException(nameof(epsilon), "Epsilon must be non-negative");
+		if (epsilon < 0 || float.IsNaN(epsilon) || float.IsInfinity(epsilon)) throw new ArgumentOutOfRangeException(nameof(epsilon), "Epsilon must be non-negative");
 
 		// ReSharper disable once CompareOfFloatsByEqualityOperator
 		if (a == b) return true; // Fast path for exact matches and equal infinities (intentional)
 		if (float.IsNaN(a) || float.IsNaN(b)) return false;
+		if (float.IsInfinity(a) || float.IsInfinity(b)) return false;
 
 		return MathF.Abs(a - b) <= epsilon;
 	}
@@ -67,15 +68,16 @@ public static class FloatComparer
 		float absoluteEpsilon = DEFAULT_FLOAT_EPSILON,
 		float relativeEpsilon = DEFAULT_FLOAT_RELATIVE_EPSILON)
 	{
-		if (absoluteEpsilon < 0)
+		if (absoluteEpsilon < 0 || float.IsNaN(absoluteEpsilon) || float.IsInfinity(absoluteEpsilon))
 			throw new ArgumentOutOfRangeException(nameof(absoluteEpsilon), "Epsilon must be non-negative");
 
-		if (relativeEpsilon < 0)
+		if (relativeEpsilon < 0 || float.IsNaN(relativeEpsilon) || float.IsInfinity(relativeEpsilon))
 			throw new ArgumentOutOfRangeException(nameof(relativeEpsilon), "Epsilon must be non-negative");
 
 		// ReSharper disable once CompareOfFloatsByEqualityOperator
 		if (a == b) return true; // Fast path for exact matches and equal infinities (intentional)
 		if (float.IsNaN(a) || float.IsNaN(b)) return false;
+		if (float.IsInfinity(a) || float.IsInfinity(b)) return false;
 
 		float diff   = MathF.Abs(a - b);
 		float absA   = MathF.Abs(a);
@@ -84,6 +86,11 @@ public static class FloatComparer
 
 		// Use absolute epsilon for near-zero values
 		if (maxAbs <= absoluteEpsilon) return diff <= absoluteEpsilon;
+
+		// Opposite finite extremes can overflow their difference and threshold.
+		// Normalize before subtracting in that case; the relative distance is at most two.
+		if (float.IsInfinity(diff))
+			return MathF.Abs(a / maxAbs - b / maxAbs) <= relativeEpsilon + FLOAT_ULP_EPSILON;
 
 		// Use relative epsilon with ULP cushion for larger numbers
 		float threshold = relativeEpsilon * maxAbs;
@@ -107,16 +114,16 @@ public static class FloatComparer
 		float absoluteEpsilon = DEFAULT_FLOAT_EPSILON,
 		float relativeEpsilon = DEFAULT_FLOAT_RELATIVE_EPSILON)
 	{
-		if (absoluteEpsilon < 0)
+		if (absoluteEpsilon < 0 || float.IsNaN(absoluteEpsilon) || float.IsInfinity(absoluteEpsilon))
 			throw new ArgumentOutOfRangeException(nameof(absoluteEpsilon), "Epsilon must be non-negative");
 
-		if (relativeEpsilon < 0)
+		if (relativeEpsilon < 0 || float.IsNaN(relativeEpsilon) || float.IsInfinity(relativeEpsilon))
 			throw new ArgumentOutOfRangeException(nameof(relativeEpsilon), "Epsilon must be non-negative");
 
 		// ReSharper disable once CompareOfFloatsByEqualityOperator
 		if (a == b) return true; // Fast path for exact matches and equal infinities (intentional)
 		if (float.IsNaN(a) || float.IsNaN(b)) return false;
-		if (float.IsInfinity(a) || float.IsInfinity(b)) return false; // Different infinities or infinity vs finite
+		if (float.IsInfinity(a) || float.IsInfinity(b)) return false;
 
 		float diff   = MathF.Abs(a - b);
 		float absA   = MathF.Abs(a);
@@ -125,6 +132,11 @@ public static class FloatComparer
 
 		// Use absolute epsilon for numbers close to zero
 		if (maxAbs <= absoluteEpsilon) return diff <= absoluteEpsilon;
+
+		// Opposite finite extremes can overflow their difference and threshold.
+		// Normalize before subtracting in that case; the relative distance is at most two.
+		if (float.IsInfinity(diff))
+			return MathF.Abs(a / maxAbs - b / maxAbs) <= relativeEpsilon + FLOAT_ULP_EPSILON;
 
 		// Use relative epsilon with ULP cushion for larger numbers
 		return diff <= (relativeEpsilon + FLOAT_ULP_EPSILON) * maxAbs;
@@ -139,7 +151,7 @@ public static class FloatComparer
 		float b,
 		float absoluteEpsilon = DEFAULT_FLOAT_EPSILON,
 		float relativeEpsilon = DEFAULT_FLOAT_RELATIVE_EPSILON) =>
-		a > b && !AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon);
+		!AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon) && a > b;
 
 	/// <summary>
 	///     Determines if the first float is greater than or equal to the second using robust comparison.
@@ -150,7 +162,7 @@ public static class FloatComparer
 		float b,
 		float absoluteEpsilon = DEFAULT_FLOAT_EPSILON,
 		float relativeEpsilon = DEFAULT_FLOAT_RELATIVE_EPSILON) =>
-		a > b || AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon);
+		AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon) || a > b;
 
 	/// <summary>
 	///     Determines if the first float is less than the second using robust comparison.
@@ -161,7 +173,7 @@ public static class FloatComparer
 		float b,
 		float absoluteEpsilon = DEFAULT_FLOAT_EPSILON,
 		float relativeEpsilon = DEFAULT_FLOAT_RELATIVE_EPSILON) =>
-		a < b && !AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon);
+		!AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon) && a < b;
 
 	/// <summary>
 	///     Determines if the first float is less than or equal to the second using robust comparison.
@@ -172,14 +184,18 @@ public static class FloatComparer
 		float b,
 		float absoluteEpsilon = DEFAULT_FLOAT_EPSILON,
 		float relativeEpsilon = DEFAULT_FLOAT_RELATIVE_EPSILON) =>
-		a < b || AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon);
+		AreEqualRobust(a, b, absoluteEpsilon, relativeEpsilon) || a < b;
 
 	/// <summary>
 	///     Determines if a float value is effectively zero.
 	/// </summary>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool IsZero(float value, float epsilon = DEFAULT_FLOAT_EPSILON) =>
-		MathF.Abs(value) <= epsilon;
+	public static bool IsZero(float value, float epsilon = DEFAULT_FLOAT_EPSILON)
+	{
+		if (epsilon < 0 || float.IsNaN(epsilon) || float.IsInfinity(epsilon))
+			throw new ArgumentOutOfRangeException(nameof(epsilon), "Epsilon must be finite and nonnegative.");
+		return MathF.Abs(value) <= epsilon;
+	}
 
 	/// <summary>
 	///     Returns the sign of a float value, treating values close to zero as zero.

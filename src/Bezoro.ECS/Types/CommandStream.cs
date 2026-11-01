@@ -6,13 +6,15 @@ namespace Bezoro.ECS.Types;
 
 /// <summary>
 ///     Fixed-capacity deferred command stream for structural mutations in <see cref="World" />.
+///     Command storage is allocated on the first recorded command and retained until disposal.
 /// </summary>
 public sealed class CommandStream : IDisposable
 {
+	private static long _nextTemporaryGeneration;
 	private readonly int                      _commandCapacity;
 	private readonly int                      _componentTypeCapacity;
 	private readonly int                      _payloadCapacityPerType;
-	private readonly RecordedCommand[]        _commands;
+	private          RecordedCommand[]?       _commands;
 	private readonly WorldOverflowPolicy      _overflowPolicy;
 	private          bool                     _disposed;
 	private          bool                     _isPlayingBack;
@@ -21,10 +23,10 @@ public sealed class CommandStream : IDisposable
 	private          int                      _batchTouchedMarkerWordCount;
 	private          int                      _commandCount;
 	private          int                      _highWatermark;
-	private          int                      _nextTemporaryId = -1;
+	private          int                      _nextTemporaryId = -3;
 	private          int                      _overflowCount;
 	private          int                      _payloadStoreTypeCount;
-	private          int                      _temporaryResolveGeneration = 1;
+	private          int                      _temporaryResolveGeneration;
 	private          int[]?                   _batchEntityIds;
 	private          int[]?                   _batchPayloadIndices;
 	private          int[]?                   _batchTouchedMarkerWordIndices;
@@ -44,7 +46,6 @@ public sealed class CommandStream : IDisposable
 		_componentTypeCapacity  = componentTypeCapacity;
 		_payloadCapacityPerType = payloadCapacityPerType;
 		_overflowPolicy         = overflowPolicy;
-		_commands               = ArrayPool<RecordedCommand>.Shared.Rent(commandCapacity);
 	}
 
 	/// <summary>
@@ -79,8 +80,9 @@ public sealed class CommandStream : IDisposable
 		ThrowIfDisposed();
 		if (!CanRecordCommand())
 			throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
+		EnsureTemporaryGeneration();
 
-		if (!TryRecord(new(RecordedCommandType.CreateEntity, new(_nextTemporaryId--, 0), -1, -1), out var command))
+		if (!TryRecord(new(RecordedCommandType.CreateEntity, new(_nextTemporaryId--, _temporaryResolveGeneration), -1, -1), out var command))
 			throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
 
 		return command.Entity;
@@ -97,18 +99,22 @@ public sealed class CommandStream : IDisposable
 		ThrowIfDisposed();
 		if (!CanRecordCommand())
 			throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
+		EnsureTemporaryGeneration();
 
 		int typeId = Owner.GetOrCreateComponentTypeId<T>();
 		var store  = GetOrCreatePayloadStore<T>(typeId);
+		if (store.IsFull) _overflowCount++;
 		if (!store.TryAdd(in component, out int payloadIndex))
+		{
 			throw new InvalidOperationException(
 				$"Payload capacity for component '{typeof(T).Name}' was exceeded."
 			);
+		}
 
 		if (!TryRecord(
 				new(
 					RecordedCommandType.CreateEntityWithComponent,
-					new(_nextTemporaryId--, 0),
+					new(_nextTemporaryId--, _temporaryResolveGeneration),
 					typeId,
 					payloadIndex
 				),
@@ -154,7 +160,9 @@ public sealed class CommandStream : IDisposable
 		}
 
 		_payloadStoreTypeCount = 0;
-		ArrayPool<RecordedCommand>.Shared.Return(_commands);
+		if (_commands is { } commands)
+			ArrayPool<RecordedCommand>.Shared.Return(commands);
+		_commands = null;
 		if (_resolvedTemporaryEntities is { })
 			ArrayPool<Entity>.Shared.Return(_resolvedTemporaryEntities);
 
@@ -219,16 +227,16 @@ public sealed class CommandStream : IDisposable
 	}
 
 	/// <summary>
-	///     Records a deferred unmanaged component set command.
+	///     Records a deferred component set command.
 	/// </summary>
 	/// <remarks>
 	///     If the stream or payload store is full the command is silently dropped and the overflow counter is incremented.
 	///     Use <see cref="GetDiagnostics" /> to detect lost commands.
 	/// </remarks>
-	/// <typeparam name="T">Unmanaged component type.</typeparam>
+	/// <typeparam name="T">Component value type, including structs containing references.</typeparam>
 	/// <param name="entity">Entity to modify.</param>
 	/// <param name="component">Component value.</param>
-	public void Set<T>(Entity entity, in T component) where T : unmanaged
+	public void Set<T>(Entity entity, in T component) where T : struct
 	{
 		ThrowIfDisposed();
 		if (!CanRecordCommand())
@@ -236,35 +244,15 @@ public sealed class CommandStream : IDisposable
 
 		int typeId = Owner.GetOrCreateComponentTypeId<T>();
 		var store  = GetOrCreatePayloadStore<T>(typeId);
+		if (store.IsFull) _overflowCount++;
 		if (!store.TryAdd(in component, out int payloadIndex))
+		{
 			return;
+		}
 
 		TryRecord(new(RecordedCommandType.SetComponent, entity, typeId, payloadIndex), out _);
 	}
 
-	/// <summary>
-	///     Records a deferred managed-lane component set command.
-	/// </summary>
-	/// <remarks>
-	///     If the stream or payload store is full the command is silently dropped and the overflow counter is incremented.
-	///     Use <see cref="GetDiagnostics" /> to detect lost commands.
-	/// </remarks>
-	/// <typeparam name="T">Managed-lane component type.</typeparam>
-	/// <param name="entity">Entity to modify.</param>
-	/// <param name="component">Component value.</param>
-	public void SetManaged<T>(Entity entity, in T component) where T : struct
-	{
-		ThrowIfDisposed();
-		if (!CanRecordCommand())
-			return;
-
-		int typeId = Owner.GetOrCreateComponentTypeId<T>();
-		var store  = GetOrCreatePayloadStore<T>(typeId);
-		if (!store.TryAdd(in component, out int payloadIndex))
-			return;
-
-		TryRecord(new(RecordedCommandType.SetComponent, entity, typeId, payloadIndex), out _);
-	}
 
 	internal void PlaybackInternal()
 	{
@@ -281,7 +269,7 @@ public sealed class CommandStream : IDisposable
 			var index = 0;
 			while (index < _commandCount)
 			{
-				var command = _commands[index];
+				var command = _commands![index];
 				switch (command.Type)
 				{
 					case RecordedCommandType.CreateEntity:
@@ -367,7 +355,7 @@ public sealed class CommandStream : IDisposable
 		if (markerBits is null || touchedMarkerWordIndices is null)
 			throw new InvalidOperationException("Batch marker buffers are not initialized.");
 
-		if ((uint)entityId >= (uint)Owner.EntityCapacity)
+		if (unchecked((uint)entityId) >= unchecked((uint)Owner.EntityCapacity))
 			return false;
 
 		int  wordIndex  = entityId >> 5;
@@ -397,7 +385,8 @@ public sealed class CommandStream : IDisposable
 			return false;
 		}
 
-		recordedCommand            = command;
+		_commands ??= ArrayPool<RecordedCommand>.Shared.Rent(_commandCapacity);
+		recordedCommand             = command;
 		_commands[_commandCount++] = command;
 		if (_commandCount > _highWatermark)
 			_highWatermark = _commandCount;
@@ -433,6 +422,8 @@ public sealed class CommandStream : IDisposable
 	{
 		if (entity.Id >= 0)
 			return entity;
+		if (entity.Version != _temporaryResolveGeneration)
+			throw new InvalidOperationException("Temporary entity belongs to another command stream or recording generation.");
 
 		int    index                              = GetTemporaryEntityIndex(entity.Id);
 		int[]? resolvedTemporaryGenerationByIndex = _resolvedTemporaryGenerationByIndex;
@@ -452,11 +443,11 @@ public sealed class CommandStream : IDisposable
 
 	private int GetTemporaryEntityIndex(int temporaryEntityId)
 	{
-		int index = -temporaryEntityId - 1;
+		long index = -(long)temporaryEntityId - 3;
 		if (index < 0 || index >= _commandCapacity)
 			throw new InvalidOperationException($"Invalid temporary entity id '{temporaryEntityId}'.");
 
-		return index;
+		return (int)index;
 	}
 
 	private int PlaybackRemoveRun(int startIndex)
@@ -464,7 +455,7 @@ public sealed class CommandStream : IDisposable
 		EnsureBatchEntityBuffers();
 		int[]  batchEntityIds        = _batchEntityIds!;
 		uint[] batchEntityMarkerBits = _batchEntityMarkerBits!;
-		var    first                 = _commands[startIndex];
+		var    first                 = _commands![startIndex];
 		var    firstEntity           = ResolveEntity(first.Entity);
 		Owner.DescribeRemoveTransition(
 			firstEntity,
@@ -478,7 +469,7 @@ public sealed class CommandStream : IDisposable
 		var runCount  = 0;
 		while (readIndex < _commandCount)
 		{
-			var command = _commands[readIndex];
+			var command = _commands![readIndex];
 			if (command.Type != RecordedCommandType.RemoveComponent ||
 				command.ComponentTypeId != first.ComponentTypeId)
 				break;
@@ -532,7 +523,7 @@ public sealed class CommandStream : IDisposable
 		EnsureBatchPayloadIndexBuffer();
 		int[] batchEntityIds      = _batchEntityIds!;
 		int[] batchPayloadIndices = _batchPayloadIndices!;
-		var   first               = _commands[startIndex];
+		var   first               = _commands![startIndex];
 		ValidatePayloadStoreTypeId(first.ComponentTypeId);
 		var payloadStoresByTypeId = _payloadStoresByTypeId;
 		var payloadStore = payloadStoresByTypeId is { }
@@ -557,7 +548,7 @@ public sealed class CommandStream : IDisposable
 		var runCount  = 0;
 		while (readIndex < _commandCount)
 		{
-			var command = _commands[readIndex];
+			var command = _commands![readIndex];
 			if (command.Type != RecordedCommandType.SetComponent ||
 				command.ComponentTypeId != first.ComponentTypeId)
 				break;
@@ -611,22 +602,30 @@ public sealed class CommandStream : IDisposable
 		_batchTouchedMarkerWordCount = 0;
 	}
 
-	private void BeginTemporaryResolveGeneration()
+	private void EnsureTemporaryGeneration()
 	{
-		if (_temporaryResolveGeneration == int.MaxValue)
+		if (_temporaryResolveGeneration != 0) return;
+		long observed = Volatile.Read(ref _nextTemporaryGeneration);
+		while (true)
 		{
-			if (_resolvedTemporaryGenerationByIndex is { })
-				Array.Clear(
-					_resolvedTemporaryGenerationByIndex,
-					0,
-					_resolvedTemporaryGenerationByIndex.Length
-				);
-
-			_temporaryResolveGeneration = 1;
-			return;
+			if (observed < 0 || observed >= uint.MaxValue)
+				throw new InvalidOperationException("The process has exhausted temporary entity identities; identities cannot be recycled safely.");
+			long next = observed + 1;
+			long previous = Interlocked.CompareExchange(ref _nextTemporaryGeneration, next, observed);
+			if (previous == observed)
+			{
+				_temporaryResolveGeneration = ValidateTemporaryGeneration(next);
+				return;
+			}
+			observed = previous;
 		}
+	}
 
-		_temporaryResolveGeneration++;
+	internal static int ValidateTemporaryGeneration(long generation)
+	{
+		if (generation <= 0 || generation > uint.MaxValue)
+			throw new InvalidOperationException("The process has exhausted temporary entity identities; identities cannot be recycled safely.");
+		return unchecked((int)generation);
 	}
 
 	private void EnsureBatchEntityBuffers()
@@ -668,14 +667,13 @@ public sealed class CommandStream : IDisposable
 		_resolvedTemporaryEntities          = ArrayPool<Entity>.Shared.Rent(_commandCapacity);
 		_resolvedTemporaryGenerationByIndex = ArrayPool<int>.Shared.Rent(_commandCapacity);
 		Array.Clear(_resolvedTemporaryGenerationByIndex, 0, _resolvedTemporaryGenerationByIndex.Length);
-		_temporaryResolveGeneration = 1;
 	}
 
 	private void ResetInternal()
 	{
 		_commandCount    = 0;
-		_nextTemporaryId = -1;
-		BeginTemporaryResolveGeneration();
+		_nextTemporaryId = -3;
+		_temporaryResolveGeneration = 0;
 		var    payloadStoresByTypeId = _payloadStoresByTypeId;
 		int[]? payloadStoreTypeIds   = _payloadStoreTypeIds;
 		if (payloadStoresByTypeId is null || payloadStoreTypeIds is null)
@@ -696,7 +694,7 @@ public sealed class CommandStream : IDisposable
 
 	private void ValidatePayloadStoreTypeId(int typeId)
 	{
-		if ((uint)typeId >= (uint)_componentTypeCapacity)
+		if (unchecked((uint)typeId) >= unchecked((uint)_componentTypeCapacity))
 			throw new InvalidOperationException($"Invalid component type id '{typeId}' for this command stream.");
 	}
 }

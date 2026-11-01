@@ -65,4 +65,21 @@ The definition stores approximately 16 bytes per expanded node plus condition-pr
 
 Ticks and stops inspect the active path, not every node in the definition. No per-node progress/generation arrays, tasks, timers, closures or locks are retained. Creation, compilation, exception handling and application jobs are outside the allocation-free steady-state claim. Owner identities and 64-bit action serials are never reused; exhaustion throws rather than reviving an old token.
 
+## Resolve named action occurrences
+
+When another runtime needs to bind a particular action, retain its construction expression in a variable and compile through `BehaviorTreeCompilation`:
+
+```csharp
+var reload = BehaviorNode.Action(actionId: 10);
+var compilation = new BehaviorTreeCompilation(BehaviorNode.Sequence(
+    BehaviorNode.Condition(predicateId: 0), reload));
+BehaviorTreeDefinition definition = compilation.Definition;
+BehaviorActionHandle reloadAction = compilation.GetAction(reload);
+int nodeId = compilation.Resolve(reloadAction);
+```
+
+The handle identifies that occurrence even when preceding branches change size. `GetAction` requires an Action expression that occurs exactly once in this construction graph. Declare separate Action expressions when two occurrences share an application action ID. Reusing the same expression twice is ambiguous and throws. An action copied from a compiled `Subtree` has no construction-expression identity in the outer compilation. Model a separately bound subtree as its own runtime through [Behaviors](../Bezoro.Behaviors/README.md), or use explicit compiled IDs when loading an established occurrence mapping.
+
+`Resolve` rejects default handles and handles from another compilation. The resolver owns the action-expression map. The definition and runners retain no expression graph or map; release the compilation and handles after setup. A standalone `BehaviorTreeDefinition` does not create this map. `TreeBehaviorBuilder` in the optional composition module accepts these handles and stores only compact node IDs in runtime bindings.
+
 See the [tests](../../tests/Bezoro.BehaviorTrees.Tests/README.md) and [benchmarks](../../benchmarks/Bezoro.BehaviorTrees.Benchmarks/README.md). Managed compilation and tests do not establish Unity player, IL2CPP or Godot export behavior.

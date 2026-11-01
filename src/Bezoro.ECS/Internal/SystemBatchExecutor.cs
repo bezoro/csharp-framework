@@ -8,6 +8,12 @@ internal sealed class SystemBatchExecutor(int maxDegreeOfParallelism)
 {
 	private const    int MAX_CATCH_UP_TICKS      = 3;
 	private readonly int _maxDegreeOfParallelism = maxDegreeOfParallelism;
+	// A world rejects overlapping updates. Workers only read this batch until the scheduler joins them.
+	// Capacity tracks active systems; skipped systems do not reserve execution storage.
+	private SystemExecution[] _executions = [];
+	private int _executionCount;
+	private World? _executionWorld;
+	private Action<int>? _executeSystem;
 
 	public void UpdatePhase(
 		World                                          world,
@@ -24,15 +30,24 @@ internal sealed class SystemBatchExecutor(int maxDegreeOfParallelism)
 
 			for (var i = 0; i < stageBatches.Count; i++)
 			{
-				var batch = BuildExecutionBatch(
-					world, loopPhase, stageBatches[i], setEnabledByType, setRunConditionsByType, deltaTime
-				);
+				try
+				{
+					BuildExecutionBatch(
+						world, loopPhase, stageBatches[i], setEnabledByType, setRunConditionsByType, deltaTime
+					);
 
-				if (batch.Systems.Count == 0)
-					continue;
+					if (_executionCount == 0)
+						continue;
 
-				var streams = ExecuteBatch(batch, world);
-				FlushStreams(world, streams);
+					ExecuteBatch(world);
+					FlushStreams(world);
+				}
+				finally
+				{
+					DisposeStreams();
+					Array.Clear(_executions, 0, _executionCount);
+					_executionCount = 0;
+				}
 			}
 		}
 	}
@@ -75,35 +90,34 @@ internal sealed class SystemBatchExecutor(int maxDegreeOfParallelism)
 		return true;
 	}
 
-	private static void ExecuteSystem(SystemExecution execution, World world, CommandStream[] streams, int index)
+	private static void ExecuteSystem(SystemExecution execution, World world)
 	{
-		var stream = world.CreateCommandStream();
-		streams[index] = stream;
-		var context = new SystemContext(execution.DeltaTime, execution.State.Stage, world, stream);
-		execution.State.System.Update(in context);
-	}
-
-	private static void FlushStreams(World world, CommandStream[] streams)
-	{
+		var state = execution.State;
+		long epoch = state.BeginExecution();
 		try
 		{
-			for (var i = 0; i < streams.Length; i++)
-			{
-				var stream = streams[i];
-				if (stream is not null && stream.HasCommands)
-					world.Playback(stream);
-			}
+			var context = new SystemContext(execution.DeltaTime, state.Stage, world, state, epoch);
+			state.System.Update(in context);
 		}
-		finally
+		finally { state.EndExecution(); }
+	}
+
+	private void ExecuteSystemAtIndex(int index) => ExecuteSystem(_executions[index], _executionWorld!);
+
+	private void FlushStreams(World world)
+	{
+		for (var i = 0; i < _executionCount; i++)
 		{
-			DisposeStreams(streams);
+			var stream = _executions[i].State.RecordedCommandStream;
+			if (stream is not null && stream.HasCommands)
+				world.Playback(stream);
 		}
 	}
 
-	private static void DisposeStreams(CommandStream[] streams)
+	private void DisposeStreams()
 	{
-		foreach (var stream in streams)
-			stream?.Dispose();
+		for (var i = 0; i < _executionCount; i++)
+			_executions[i].State.DisposeCommandStream();
 	}
 
 	private bool ShouldRun(
@@ -130,7 +144,7 @@ internal sealed class SystemBatchExecutor(int maxDegreeOfParallelism)
 		}
 
 		state.Accumulator += deltaTime;
-		float maxAccumulator = settings.IntervalSeconds * MAX_CATCH_UP_TICKS;
+		double maxAccumulator = (double)settings.IntervalSeconds * MAX_CATCH_UP_TICKS;
 		if (state.Accumulator > maxAccumulator)
 			state.Accumulator = maxAccumulator;
 
@@ -145,33 +159,34 @@ internal sealed class SystemBatchExecutor(int maxDegreeOfParallelism)
 		return true;
 	}
 
-	private CommandStream[] ExecuteBatch(SystemBatch batch, World world)
+	private void ExecuteBatch(World world)
 	{
-		if (batch.Systems.Count == 0) return [];
-
-		var streams = new CommandStream[batch.Systems.Count];
+		world.SetConcurrentSystemBatch(_maxDegreeOfParallelism > 1 && _executionCount > 1);
 		try
 		{
-			if (_maxDegreeOfParallelism == 1 || batch.Systems.Count == 1)
-				for (var i = 0; i < batch.Systems.Count; i++)
-					ExecuteSystem(batch.Systems[i], world, streams, i);
+			if (_maxDegreeOfParallelism == 1 || _executionCount == 1)
+			{
+				for (var i = 0; i < _executionCount; i++)
+					ExecuteSystem(_executions[i], world);
+			}
 			else
+			{
+				_executionWorld = world;
 				ParallelWorkScheduler.Execute(
-					batch.Systems.Count,
+					_executionCount,
 					_maxDegreeOfParallelism,
-					i => ExecuteSystem(batch.Systems[i], world, streams, i)
-					);
+					_executeSystem ??= ExecuteSystemAtIndex
+				);
+			}
 		}
-		catch
+		finally
 		{
-			DisposeStreams(streams);
-			throw;
+			_executionWorld = null;
+			world.SetConcurrentSystemBatch(false);
 		}
-
-		return streams;
 	}
 
-	private SystemBatch BuildExecutionBatch(
+	private void BuildExecutionBatch(
 		World                                          world,
 		SystemLoopPhase                                loopPhase,
 		SystemState[]                                  batchStates,
@@ -179,7 +194,7 @@ internal sealed class SystemBatchExecutor(int maxDegreeOfParallelism)
 		IReadOnlyDictionary<Type, ISystemRunCondition> setRunConditionsByType,
 		float                                          deltaTime)
 	{
-		var batch = new SystemBatch();
+		// Conflict checks belong to plan construction. Filtering a planned batch preserves its safety.
 		for (var i = 0; i < batchStates.Length; i++)
 		{
 			var state = batchStates[i];
@@ -189,9 +204,12 @@ internal sealed class SystemBatchExecutor(int maxDegreeOfParallelism)
 				))
 				continue;
 
-			batch.Add(new(state, effectiveDeltaTime));
+			if (_executionCount == _executions.Length)
+			{
+				int capacity = _executionCount == 0 ? 1 : (int)Math.Min((long)_executionCount * 2, batchStates.Length);
+				Array.Resize(ref _executions, capacity);
+			}
+			_executions[_executionCount++] = new(state, effectiveDeltaTime);
 		}
-
-		return batch;
 	}
 }

@@ -7,6 +7,16 @@ namespace Bezoro.GameSystems.Tests.MovementSystem;
 
 public class MovementNumericSafetyAdditionalTests
 {
+	[Fact]
+	public void PositiveDeltaBelowComparisonEpsilon_StillIntegratesVelocity()
+	{
+		using var world = new World();
+		world.AddSystem(new MovementSystemType());
+		var entity = world.Spawn(new Position(), new Velocity { X = 10_000_000f });
+		world.FixedTick(0.0000001f);
+		Assert.Equal(1f, world.Read<Position>(entity).X);
+	}
+
 	[Theory]
 	[InlineData(0, float.NaN)]
 	[InlineData(1, float.NaN)]

@@ -225,7 +225,7 @@ public partial class WorldRuntimeTests
 		using var cursor = world.Execute(query);
 		cursor.MoveNext().Should().BeTrue();
 		cursor.Current.Length.Should().Be(1);
-		cursor.Get<Position>(0).Should().Be(new Position { X = 1, Y = 1 });
+		cursor.Write<Position>(0).Should().Be(new Position { X = 1, Y = 1 });
 	}
 
 
@@ -255,7 +255,7 @@ public partial class WorldRuntimeTests
 		commands.Set(third, new Velocity { X = 1, Y = 0 });
 
 		var fourth = commands.CreateEntity();
-		commands.SetManaged(fourth, new ManagedTag { Payload = new("x") });
+		commands.Set(fourth, new ManagedTag { Payload = new("x") });
 		world.Playback(commands);
 
 		var       handle = world.Compile<AnyPositionOrVelocityQuerySpec>();
@@ -458,15 +458,13 @@ public partial class WorldRuntimeTests
 		}
 
 		ClearChangedWindow();
-		#pragma warning disable CS0618
-		ref var fromWorldGet = ref world.Get<Position>(entity);
-		#pragma warning restore CS0618
+		ref var fromWorldGet = ref world.Write<Position>(entity);
 		fromWorldGet.X += 1;
 		AssertOnlyChangedEntity();
 
 		ClearChangedWindow();
 		var     accessor     = world.GetAccessor<Position>();
-		ref var fromAccessor = ref accessor.Get(entity);
+		ref var fromAccessor = ref accessor.Write(entity);
 		fromAccessor.Y += 1;
 		AssertOnlyChangedEntity();
 
@@ -474,7 +472,7 @@ public partial class WorldRuntimeTests
 		using (var cursor = world.Execute(positionHandle))
 		{
 			cursor.MoveNext().Should().BeTrue();
-			cursor.Get<Position>(0).X += 1;
+			cursor.Write<Position>(0).X += 1;
 		}
 
 		AssertOnlyChangedEntity();
@@ -605,7 +603,7 @@ public partial class WorldRuntimeTests
 			handle, (ref Position position, in Velocity velocity) => { position.X += velocity.X; }
 		);
 
-		cursor.Get<Position>(0).X.Should().Be(2);
+		cursor.Write<Position>(0).X.Should().Be(2);
 	}
 
 	[Fact]
@@ -680,7 +678,7 @@ public partial class WorldRuntimeTests
 		cursor.MoveNext().Should().BeTrue();
 		for (var i = 0; i < cursor.Current.Length; i++)
 		{
-			var updated = cursor.Get<Position>(i);
+			var updated = cursor.Write<Position>(i);
 			updated.X.Should().Be(i + 5);
 			updated.Y.Should().Be(i - 1);
 		}
@@ -723,7 +721,7 @@ public partial class WorldRuntimeTests
 
 		for (var i = 0; i < cursor.Current.Length; i++)
 		{
-			var updated = cursor.Get<Position>(i);
+			var updated = cursor.Write<Position>(i);
 			updated.X.Should().Be(i + 10);
 			updated.Y.Should().Be(i - 2);
 		}
@@ -767,7 +765,7 @@ public partial class WorldRuntimeTests
 
 		for (var i = 0; i < cursor.Current.Length; i++)
 		{
-			var updated = cursor.Get<Position>(i);
+			var updated = cursor.Write<Position>(i);
 			updated.X.Should().Be(i + 3);
 			updated.Y.Should().Be(i + 2);
 		}
@@ -814,7 +812,7 @@ public partial class WorldRuntimeTests
 
 		for (var i = 0; i < cursor.Current.Length; i++)
 		{
-			var updated = cursor.Get<Position>(i);
+			var updated = cursor.Write<Position>(i);
 			updated.X.Should().Be(14); // 1 + 10 + 3
 			updated.Y.Should().Be(25); // 2 + 20 + 3
 		}
@@ -853,7 +851,7 @@ public partial class WorldRuntimeTests
 		var seen = new bool[5];
 		for (var i = 0; i < cursor.Current.Length; i++)
 		{
-			var position = cursor.Get<Position>(i);
+			var position = cursor.Write<Position>(i);
 			var index    = (int)position.X;
 			index.Should().BeInRange(0, 4);
 			seen[index] = true;
@@ -907,12 +905,12 @@ public partial class WorldRuntimeTests
 			int index  = indexOrder[i];
 			var entity = cursor.Current[index];
 
-			ref var velocity         = ref cursor.Get<Velocity>(index);
+			ref var velocity         = ref cursor.Write<Velocity>(index);
 			var     expectedVelocity = world.Read<Velocity>(entity);
 			velocity.X.Should().Be(expectedVelocity.X);
 			velocity.Y.Should().Be(expectedVelocity.Y);
 
-			ref var position         = ref cursor.Get<Position>(index);
+			ref var position         = ref cursor.Write<Position>(index);
 			var     expectedPosition = world.Read<Position>(entity);
 			position.X.Should().Be(expectedPosition.X);
 			position.Y.Should().Be(expectedPosition.Y);
@@ -952,7 +950,7 @@ public partial class WorldRuntimeTests
 
 		for (var i = 0; i < cursor.Current.Length; i++)
 		{
-			var updated = cursor.Get<Position>(i);
+			var updated = cursor.Write<Position>(i);
 			updated.X.Should().Be(i + 6);
 			updated.Y.Should().Be(i - 3);
 		}
@@ -993,7 +991,7 @@ public partial class WorldRuntimeTests
 			cursor.MoveNext().Should().BeTrue();
 			var yValues = new float[cursor.Current.Length];
 			for (var i = 0; i < cursor.Current.Length; i++)
-				yValues[i] = cursor.Get<Position>(i).Y;
+				yValues[i] = cursor.Write<Position>(i).Y;
 
 			return (order, yValues);
 		}
@@ -1134,7 +1132,7 @@ public partial class WorldRuntimeTests
 		cursor.MoveNext().Should().BeTrue();
 		for (var i = 0; i < cursor.Current.Length; i++)
 		{
-			var updated = cursor.Get<Position>(i);
+			var updated = cursor.Write<Position>(i);
 			updated.X.Should().Be(i + 2);
 			updated.Y.Should().Be(i + 4);
 		}
@@ -1175,7 +1173,7 @@ public partial class WorldRuntimeTests
 		cursor.MoveNext().Should().BeTrue();
 		for (var i = 0; i < cursor.Current.Length; i++)
 		{
-			var updated = cursor.Get<Position>(i);
+			var updated = cursor.Write<Position>(i);
 			updated.Y.Should().Be((i * 10) + 3);
 		}
 	}

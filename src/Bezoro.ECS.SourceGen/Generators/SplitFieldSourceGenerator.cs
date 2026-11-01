@@ -11,6 +11,10 @@ namespace Bezoro.ECS.SourceGen.Generators;
 [Generator]
 public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 {
+	private static readonly DiagnosticDescriptor UnsupportedDeclaration = new(
+		"BECSG004", "Unsupported split-field declaration",
+		"Split component '{0}' requires an accessible non-generic struct and accessible mutable non-pointer fields with non-negative group IDs",
+		"Usage", DiagnosticSeverity.Error, true);
 	private const string SPLIT_FIELDS_ATTRIBUTE_NAME = "Bezoro.ECS.Attributes.SplitFieldsAttribute";
 	private const string SPLIT_GROUP_ATTRIBUTE_NAME  = "Bezoro.ECS.Attributes.SplitGroupAttribute";
 
@@ -31,6 +35,11 @@ public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 				for (var i = 0; i < splitModels.Count; i++)
 				{
 					var    model  = splitModels[i];
+					if (model.IsUnsupported)
+					{
+						productionContext.ReportDiagnostic(Diagnostic.Create(UnsupportedDeclaration, model.Location, model.LogicalTypeName));
+						continue;
+					}
 					string source = BuildSource(model);
 					productionContext.AddSource(model.HintName, SourceText.From(source, Encoding.UTF8));
 				}
@@ -54,8 +63,9 @@ public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 	{
 		model = null!;
 		string accessibility = ToAccessibility(type.DeclaredAccessibility);
-		if (string.IsNullOrEmpty(accessibility))
-			return false;
+		for (var owner = type.ContainingType; owner is not null; owner = owner.ContainingType)
+			if (owner.DeclaredAccessibility != Accessibility.Public) accessibility = "internal";
+		bool unsupported = !GeneratedNames.IsAccessible(type) || GeneratedNames.IsOpenType(type) || type.IsRefLikeType;
 
 		var fieldsByGroup = new Dictionary<int, List<FieldModel>>();
 		var members       = type.GetMembers();
@@ -64,8 +74,14 @@ public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 			if (members[i] is not IFieldSymbol field || field.IsStatic)
 				continue;
 
-			if (!TryGetGroupId(field, out int groupId) || groupId < 0)
+			if (!TryGetGroupId(field, out int groupId))
 				continue;
+			if (groupId < 0 || field.IsReadOnly || field.IsFixedSizeBuffer || field.Type.TypeKind is TypeKind.Pointer or TypeKind.FunctionPointer ||
+				field.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal))
+			{
+				unsupported = true;
+				continue;
+			}
 
 			if (!fieldsByGroup.TryGetValue(groupId, out var groupFields))
 			{
@@ -73,10 +89,11 @@ public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 				fieldsByGroup[groupId] = groupFields;
 			}
 
-			groupFields.Add(new(field.Name, field.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
+			groupFields.Add(new(GeneratedNames.Identifier(field.Name), field.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+				ToAccessibility(field.DeclaredAccessibility)));
 		}
 
-		if (fieldsByGroup.Count == 0)
+		if (fieldsByGroup.Count == 0 && !unsupported)
 			return false;
 
 		var groups   = new List<GroupModel>(fieldsByGroup.Count);
@@ -96,14 +113,10 @@ public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 
 		string logicalTypeName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 		string helperTypeName  = GetHelperTypeName(type);
-		string hintName = logicalTypeName
-						  .Replace("global::", string.Empty)
-						  .Replace('.',        '_')
-						  .Replace('<',        '_')
-						  .Replace('>',        '_') +
-						  ".SplitFields.g.cs";
+		string hintName = GeneratedNames.UniqueName(logicalTypeName) + ".SplitFields.g.cs";
 
-		model = new(namespaceName, accessibility, helperTypeName, logicalTypeName, groups, hintName);
+		model = new(namespaceName, accessibility, helperTypeName, logicalTypeName, groups, hintName, unsupported,
+			type.Locations.Length > 0 ? type.Locations[0] : Location.None);
 		return true;
 	}
 
@@ -157,7 +170,7 @@ public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 			for (var fieldIndex = 0; fieldIndex < group.Fields.Count; fieldIndex++)
 			{
 				var field = group.Fields[fieldIndex];
-				builder.Append("        public ").Append(field.TypeName).Append(' ').Append(field.Name).AppendLine(";");
+				builder.Append("        ").Append(field.Accessibility).Append(' ').Append(field.TypeName).Append(' ').Append(field.Name).AppendLine(";");
 			}
 
 			builder.AppendLine("    }");
@@ -311,10 +324,10 @@ public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 			names.Push(current.Name);
 
 		var builder = new StringBuilder();
-		while (names.Count > 0) builder.Append(names.Pop()).Append('_');
+		while (names.Count > 0) builder.Append(names.Pop()).Append('.');
 
-		builder.Append(type.Name).Append("SplitGenerated");
-		return builder.ToString();
+		builder.Append(type.Name);
+		return GeneratedNames.UniqueName(builder.ToString()) + "SplitGenerated";
 	}
 
 	private static string ToAccessibility(Accessibility accessibility) =>
@@ -352,10 +365,11 @@ public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 			CollectSplitTypes(nestedTypes[i], output);
 	}
 
-	private sealed class FieldModel(string name, string typeName)
+	private sealed class FieldModel(string name, string typeName, string accessibility)
 	{
 		public string Name     { get; } = name;
 		public string TypeName { get; } = typeName;
+		public string Accessibility { get; } = accessibility;
 	}
 
 	private sealed class GroupModel(int groupId, List<FieldModel> fields)
@@ -370,7 +384,9 @@ public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 		string           helperTypeName,
 		string           logicalTypeName,
 		List<GroupModel> groups,
-		string           hintName
+		string           hintName,
+		bool             isUnsupported,
+		Location         location
 	)
 	{
 		public List<GroupModel> Groups          { get; } = groups;
@@ -380,5 +396,7 @@ public sealed class SplitFieldSourceGenerator : IIncrementalGenerator
 		public string           LogicalTypeName { get; } = logicalTypeName;
 
 		public string Namespace { get; } = typeNamespace;
+		public bool IsUnsupported { get; } = isUnsupported;
+		public Location Location { get; } = location;
 	}
 }

@@ -33,6 +33,7 @@ internal sealed class UciPonderRuntime : IAsyncDisposable, IDisposable
 
 	public bool IsHealthy => _client.IsHealthy;
 	public bool IsStarted => _client.IsStarted;
+	internal bool HasActiveSearch => Volatile.Read(ref _searchActive) != 0;
 	public int CurrentSearchGeneration => Volatile.Read(ref _searchGeneration);
 
 	public EngineActivity  Activity => _client.Activity;

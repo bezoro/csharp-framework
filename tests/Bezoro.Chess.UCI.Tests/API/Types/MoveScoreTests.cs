@@ -9,6 +9,31 @@ namespace Bezoro.Chess.UCI.Tests.API.Types;
 [TestSubject(typeof(MoveScore))]
 public class MoveScoreTests(ITestOutputHelper output) : UnitTestBase(output)
 {
+	[Theory]
+	[InlineData("info string engine reports score cp 99")]
+	[InlineData("info depth 8 pv e2e4 score cp 99")]
+	[InlineData("unrelated score cp 99")]
+	public void TryParse_DoesNotReadScoresInsideTextOrPrincipalVariations(string line)
+	{
+		MoveScore.TryParse(line, out var score).Should().BeFalse();
+		score.Should().BeNull();
+	}
+
+	[Fact]
+	public void TryParse_UsesTheLastScoreAndAcceptsRepeatedSpaces()
+	{
+		MoveScore.TryParse(" info  depth 8 score mate -2 score cp 34 pv e2e4 ", out var score).Should().BeTrue();
+		score!.Value.ScoreCp.Should().Be(34);
+		score.Value.ScoreMate.Should().BeNull();
+	}
+
+	[Fact]
+	public void FromSearchResult_DefaultResultHasNoScore()
+	{
+		var score = MoveScore.FromSearchResult(default);
+		score.ScoreCp.Should().BeNull();
+		score.ScoreMate.Should().BeNull();
+	}
 	[Fact]
 	public void FromSearchResult_WhenMateScoreAvailable_ShouldUseMate()
 	{

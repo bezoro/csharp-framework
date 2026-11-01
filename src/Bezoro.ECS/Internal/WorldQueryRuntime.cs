@@ -19,55 +19,61 @@ internal sealed class WorldQueryRuntime(
 		out int           chunkMatchCount,
 		bool              advanceObservedChangeVersion = true)
 	{
-		var state = new QueryFillState(chunkMatches, entityCapacity);
-		uint queryVersion = _changeTracker.CurrentChangeVersion;
-		int matchCount = GetOrRefreshMatchingArchetypes(plan);
-		int[] matches = plan.MatchingArchetypeIds;
-		bool requiresChangedFilter = plan.ChangedTypeIds.Length > 0 || plan.AddedTypeIds.Length > 0;
-		for (var i = 0; i < matchCount; i++)
+		lock (plan)
 		{
-			var archetype = _entityStore.Archetypes[matches[i]];
-			bool appended = requiresChangedFilter
-				? TryAppendChangedChunkMatches(plan, matches[i], archetype, ref state)
-				: TryAppendAllChunkMatches(matches[i], archetype, ref state);
-			if (!appended)
-				goto done;
+			var state = new QueryFillState(chunkMatches, entityCapacity);
+			ulong queryVersion = _changeTracker.CurrentChangeVersion;
+			int matchCount = GetOrRefreshMatchingArchetypes(plan);
+			int[] matches = plan.MatchingArchetypeIds;
+			bool requiresChangedFilter = plan.ChangedTypeIds.Length > 0 || plan.AddedTypeIds.Length > 0;
+			for (var i = 0; i < matchCount; i++)
+			{
+				var archetype = _entityStore.Archetypes[matches[i]];
+				bool appended = requiresChangedFilter
+					? TryAppendChangedChunkMatches(plan, matches[i], archetype, ref state)
+					: TryAppendAllChunkMatches(matches[i], archetype, ref state);
+				if (!appended)
+					goto done;
+			}
+
+			done:
+			if (advanceObservedChangeVersion)
+				plan.LastObservedChangeVersion = queryVersion;
+
+			chunkMatchCount = state.ChunkMatchCount;
+			_changeTracker.ObserveQueryEntityCount(state.Count);
+			return state.Count;
 		}
-
-		done:
-		if (advanceObservedChangeVersion)
-			plan.LastObservedChangeVersion = queryVersion;
-
-		chunkMatchCount = state.ChunkMatchCount;
-		_changeTracker.ObserveQueryEntityCount(state.Count);
-		return state.Count;
 	}
 
 	public int GetOrRefreshMatchingArchetypes(CompiledQueryPlan plan)
 	{
-		if (plan.ArchetypeCacheVersion == _entityStore.ArchetypeVersion)
-			return plan.MatchingArchetypeCount;
-
-		int[] matches = plan.MatchingArchetypeIds;
-		if (matches.Length < _entityStore.Archetypes.Count)
-			plan.MatchingArchetypeIds = matches = new int[_entityStore.Archetypes.Count];
-
-		var count = 0;
-		for (var i = 0; i < _entityStore.Archetypes.Count; i++)
+		lock (plan)
 		{
-			var archetype = _entityStore.Archetypes[i];
-			if (!ArchetypeMatches(plan, archetype.MaskWords))
-				continue;
+			if (plan.ArchetypeCacheVersion == _entityStore.ArchetypeVersion)
+				return plan.MatchingArchetypeCount;
 
-			if (!ArchetypeMatchesRelationFilter(plan, archetype))
-				continue;
+			int[] matches = plan.MatchingArchetypeIds;
+			if (matches.Length < _entityStore.Archetypes.Count)
+				plan.MatchingArchetypeIds = matches = new int[_entityStore.Archetypes.Count];
 
-			matches[count++] = i;
+			var count = 0;
+			for (var i = 0; i < _entityStore.Archetypes.Count; i++)
+			{
+				var archetype = _entityStore.Archetypes[i];
+				if (!ArchetypeMatches(plan, archetype.MaskWords))
+					continue;
+
+				if (!ArchetypeMatchesRelationFilter(plan, archetype))
+					continue;
+
+				matches[count++] = i;
+			}
+
+			plan.MatchingArchetypeCount = count;
+			plan.ArchetypeCacheVersion = _entityStore.ArchetypeVersion;
+			return count;
 		}
-
-		plan.MatchingArchetypeCount = count;
-		plan.ArchetypeCacheVersion = _entityStore.ArchetypeVersion;
-		return count;
 	}
 
 	public Type[] ResolveTypes(int[] typeIds)

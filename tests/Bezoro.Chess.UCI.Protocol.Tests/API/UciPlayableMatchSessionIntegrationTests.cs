@@ -13,22 +13,21 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	public async Task ApplyHumanMove_WhenOpeningAnalysisExists_ShouldForwardToApplyMoveAndReuseCurrentScore()
 	{
 		await using var playingClient = new UciEngineClient(fixture.StockfishPath);
-		await using var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		await using var moveListClient = new UciEngineClient(fixture.StockfishPath);
 		await Task.WhenAll(
 			playingClient.StartAsync(CancellationToken.None),
-			analysisClient.StartAsync(CancellationToken.None),
+
 			moveListClient.StartAsync(CancellationToken.None)
 		);
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			playerColor: 'w',
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 
 		await session.StartNewGameAsync(CancellationToken.None);
@@ -53,22 +52,21 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	public async Task PlayEngineMoveAsync_WhenParentAnalysisExists_ShouldForwardAndReuseCurrentScore()
 	{
 		await using var playingClient = new UciEngineClient(fixture.StockfishPath);
-		await using var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		await using var moveListClient = new UciEngineClient(fixture.StockfishPath);
 		await Task.WhenAll(
 			playingClient.StartAsync(CancellationToken.None),
-			analysisClient.StartAsync(CancellationToken.None),
+
 			moveListClient.StartAsync(CancellationToken.None)
 		);
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			playerColor: 'w',
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 
 		await session.StartNewGameAsync(CancellationToken.None);
@@ -95,22 +93,21 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	public async Task WaitForCurrentMoveClassificationsAsync_WhenMateMoveExists_ShouldResolveCheckAndMate()
 	{
 		await using var playingClient = new UciEngineClient(fixture.StockfishPath);
-		await using var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		await using var moveListClient = new UciEngineClient(fixture.StockfishPath);
 		await Task.WhenAll(
 			playingClient.StartAsync(CancellationToken.None),
-			analysisClient.StartAsync(CancellationToken.None),
+
 			moveListClient.StartAsync(CancellationToken.None)
 		);
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			playerColor: 'w',
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 
 		await session.LoadMatchAsync(new PlayableMatchSetup(Fen.Parse("7k/5Q2/7K/8/8/8/8/8 w - - 0 1")!.Value, []), CancellationToken.None);
@@ -128,22 +125,21 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	public async Task WaitForCurrentMoveClassificationsAsync_WhenStalemateMoveExists_ShouldResolveStalemate()
 	{
 		await using var playingClient = new UciEngineClient(fixture.StockfishPath);
-		await using var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		await using var moveListClient = new UciEngineClient(fixture.StockfishPath);
 		await Task.WhenAll(
 			playingClient.StartAsync(CancellationToken.None),
-			analysisClient.StartAsync(CancellationToken.None),
+
 			moveListClient.StartAsync(CancellationToken.None)
 		);
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			playerColor: 'w',
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 
 		await session.LoadMatchAsync(new PlayableMatchSetup(Fen.Parse("k7/1QK5/8/8/8/8/8/8 w - - 0 1")!.Value, []), CancellationToken.None);
@@ -160,22 +156,21 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	public async Task UndoMoves_WhenLastMoveIsUndone_ShouldRestorePreviousPositionAndTrimHistory()
 	{
 		await using var playingClient = new UciEngineClient(fixture.StockfishPath);
-		await using var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		await using var moveListClient = new UciEngineClient(fixture.StockfishPath);
 		await Task.WhenAll(
 			playingClient.StartAsync(CancellationToken.None),
-			analysisClient.StartAsync(CancellationToken.None),
+
 			moveListClient.StartAsync(CancellationToken.None)
 		);
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			playerColor: 'w',
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 
 		await session.StartNewGameAsync(CancellationToken.None);
@@ -204,22 +199,21 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	public async Task UndoMoves_WhenPendingUnrefreshedMoveIsUndone_ShouldRestoreCurrentPrefix()
 	{
 		await using var playingClient = new UciEngineClient(fixture.StockfishPath);
-		await using var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		await using var moveListClient = new UciEngineClient(fixture.StockfishPath);
 		await Task.WhenAll(
 			playingClient.StartAsync(CancellationToken.None),
-			analysisClient.StartAsync(CancellationToken.None),
+
 			moveListClient.StartAsync(CancellationToken.None)
 		);
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			playerColor: 'w',
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 
 		await session.StartNewGameAsync(CancellationToken.None);
@@ -244,22 +238,21 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	public async Task UndoMoves_WhenMultipleMovesAreUndone_ShouldRestoreEarlierPrefix()
 	{
 		await using var playingClient = new UciEngineClient(fixture.StockfishPath);
-		await using var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		await using var moveListClient = new UciEngineClient(fixture.StockfishPath);
 		await Task.WhenAll(
 			playingClient.StartAsync(CancellationToken.None),
-			analysisClient.StartAsync(CancellationToken.None),
+
 			moveListClient.StartAsync(CancellationToken.None)
 		);
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			playerColor: 'w',
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 
 		await session.StartNewGameAsync(CancellationToken.None);
@@ -291,24 +284,23 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	public async Task PlayControlledMoveAsync_WhenHumanChoosesBlack_ShouldLetEnginePlayWhiteFirst()
 	{
 		await using var playingClient = new UciEngineClient(fixture.StockfishPath);
-		await using var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		await using var moveListClient = new UciEngineClient(fixture.StockfishPath);
 		await Task.WhenAll(
 			playingClient.StartAsync(CancellationToken.None),
-			analysisClient.StartAsync(CancellationToken.None),
+
 			moveListClient.StartAsync(CancellationToken.None)
 		);
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'b',
 			whiteController: MatchSideControllerKind.Engine,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 
 		session.WhiteController.Should().Be(MatchSideControllerKind.Engine);
@@ -332,24 +324,23 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	public async Task ApplyMove_WhenBothSidesAreManual_ShouldAllowHumanVsHumanPlay()
 	{
 		await using var playingClient = new UciEngineClient(fixture.StockfishPath);
-		await using var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		await using var moveListClient = new UciEngineClient(fixture.StockfishPath);
 		await Task.WhenAll(
 			playingClient.StartAsync(CancellationToken.None),
-			analysisClient.StartAsync(CancellationToken.None),
+
 			moveListClient.StartAsync(CancellationToken.None)
 		);
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 
 		await session.StartNewGameAsync(CancellationToken.None);
@@ -370,24 +361,23 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	public async Task PlayControlledMoveAsync_WhenBothSidesAreEngine_ShouldAllowEngineVsEnginePlay()
 	{
 		await using var playingClient = new UciEngineClient(fixture.StockfishPath);
-		await using var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		await using var moveListClient = new UciEngineClient(fixture.StockfishPath);
 		await Task.WhenAll(
 			playingClient.StartAsync(CancellationToken.None),
-			analysisClient.StartAsync(CancellationToken.None),
+
 			moveListClient.StartAsync(CancellationToken.None)
 		);
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Engine,
 			blackController: MatchSideControllerKind.Engine,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 
 		await session.StartNewGameAsync(CancellationToken.None);
@@ -436,17 +426,16 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 	private UciPlayableMatchSession CreateUnstartedSession()
 	{
 		var playingClient = new UciEngineClient(fixture.StockfishPath);
-		var analysisClient = new UciEngineClient(fixture.StockfishPath);
+
 		var moveListClient = new UciEngineClient(fixture.StockfishPath);
 
 		return new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			playerColor: 'w',
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 500,
-			moveListFallbackTimeMs: 100
+			analysisMoveTimeMs: 500,
+			analysisFallbackMoveTimeMs: 100
 		);
 	}
 }

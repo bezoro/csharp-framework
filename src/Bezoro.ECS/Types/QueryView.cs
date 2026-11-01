@@ -133,7 +133,7 @@ public readonly struct QueryView<TQuery>(World world, QueryHandle<TQuery> handle
 	public bool Any()
 	{
 		using var cursor = _world.Execute(_handle);
-		return cursor.MoveNext() && cursor.Current.Length > 0;
+		return cursor.Count > 0;
 	}
 
 	/// <summary>
@@ -142,7 +142,7 @@ public readonly struct QueryView<TQuery>(World world, QueryHandle<TQuery> handle
 	public int Count()
 	{
 		using var cursor = _world.Execute(_handle);
-		return cursor.MoveNext() ? cursor.Current.Length : 0;
+		return cursor.Count;
 	}
 
 	/// <summary>

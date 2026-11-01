@@ -20,16 +20,16 @@ public partial class WorldRuntimeTests
 		var accessor = world.GetAccessor<Velocity>();
 
 		accessor.Has(entity).Should().BeTrue();
-		accessor.TryGet(entity, out var initial).Should().BeTrue();
+		accessor.TryRead(entity, out var initial).Should().BeTrue();
 		initial.Should().Be(new Velocity { X = 3, Y = 4 });
-		accessor.Get(entity).Should().Be(new Velocity { X = 3, Y = 4 });
+		accessor.Write(entity).Should().Be(new Velocity { X = 3, Y = 4 });
 
 		world.Remove<Velocity>(entity);
 
 		accessor.Has(entity).Should().BeFalse();
-		accessor.TryGet(entity, out var missing).Should().BeFalse();
+		accessor.TryRead(entity, out var missing).Should().BeFalse();
 		missing.Should().Be(default(Velocity));
-		Action getMissing = () => accessor.Get(entity);
+		Action getMissing = () => accessor.Write(entity);
 		getMissing.Should().ThrowExactly<KeyNotFoundException>()
 			.Which.Message.Should().Be(
 				$"Component '{nameof(Velocity)}' was not found for entity '{entity.Id}:{entity.Version}'."
@@ -38,9 +38,9 @@ public partial class WorldRuntimeTests
 		world.Add(entity, new Velocity { X = 7, Y = 8 });
 
 		accessor.Has(entity).Should().BeTrue();
-		accessor.TryGet(entity, out var replacement).Should().BeTrue();
+		accessor.TryRead(entity, out var replacement).Should().BeTrue();
 		replacement.Should().Be(new Velocity { X = 7, Y = 8 });
-		ref var writable = ref accessor.Get(entity);
+		ref var writable = ref accessor.Write(entity);
 		writable.X = 9;
 		writable.Y = 10;
 		world.Read<Velocity>(entity).Should().Be(new Velocity { X = 9, Y = 10 });
@@ -54,9 +54,9 @@ public partial class WorldRuntimeTests
 		var accessor = world.GetAccessor<Position>();
 
 		accessor.Has(stale).Should().BeTrue();
-		accessor.TryGet(stale, out var initial).Should().BeTrue();
+		accessor.TryRead(stale, out var initial).Should().BeTrue();
 		initial.Should().Be(new Position { X = 1, Y = 2 });
-		accessor.Get(stale).Should().Be(new Position { X = 1, Y = 2 });
+		accessor.Write(stale).Should().Be(new Position { X = 1, Y = 2 });
 
 		world.Despawn(stale);
 		var replacement = world.Spawn(new Position { X = 7, Y = 8 });
@@ -64,14 +64,14 @@ public partial class WorldRuntimeTests
 		replacement.Version.Should().NotBe(stale.Version);
 
 		accessor.Has(stale).Should().BeFalse();
-		accessor.TryGet(stale, out var missing).Should().BeFalse();
+		accessor.TryRead(stale, out var missing).Should().BeFalse();
 		missing.Should().Be(default(Position));
-		Action getStale = () => accessor.Get(stale);
+		Action getStale = () => accessor.Write(stale);
 		getStale.Should().ThrowExactly<InvalidOperationException>()
 			.Which.Message.Should().Be($"Entity '{stale.Id}:{stale.Version}' is not alive.");
 
 		accessor.Has(replacement).Should().BeTrue();
-		accessor.TryGet(replacement, out var current).Should().BeTrue();
+		accessor.TryRead(replacement, out var current).Should().BeTrue();
 		current.Should().Be(new Position { X = 7, Y = 8 });
 		world.Read<Position>(replacement).Should().Be(new Position { X = 7, Y = 8 });
 	}
@@ -87,11 +87,11 @@ public partial class WorldRuntimeTests
 		has.Should().ThrowExactly<ObjectDisposedException>()
 			.Which.ObjectName.Should().Be(nameof(World));
 
-		Action tryGet = () => accessor.TryGet(Entity.None, out _);
+		Action tryGet = () => accessor.TryRead(Entity.None, out _);
 		tryGet.Should().ThrowExactly<ObjectDisposedException>()
 			.Which.ObjectName.Should().Be(nameof(World));
 
-		Action get = () => accessor.Get(Entity.None);
+		Action get = () => accessor.Write(Entity.None);
 		get.Should().ThrowExactly<ObjectDisposedException>()
 			.Which.ObjectName.Should().Be(nameof(World));
 	}
@@ -131,7 +131,7 @@ public partial class WorldRuntimeTests
 		world.Playback(remove);
 
 		accessor.Has(entity).Should().BeFalse();
-		accessor.TryGet(entity, out _).Should().BeFalse();
+		accessor.TryRead(entity, out _).Should().BeFalse();
 	}
 
 	[Fact]
@@ -167,11 +167,11 @@ public partial class WorldRuntimeTests
 		var accessor = world.GetAccessor<Position>();
 		for (var i = 0; i < entities.Length; i++)
 		{
-			accessor.TryGet(entities[i], out var position).Should().BeTrue();
+			accessor.TryRead(entities[i], out var position).Should().BeTrue();
 			position.X.Should().Be(i);
 			position.Y.Should().Be(-i);
 
-			ref var writable = ref accessor.Get(entities[i]);
+			ref var writable = ref accessor.Write(entities[i]);
 			writable.X += 10;
 			writable.Y -= 5;
 		}
@@ -226,14 +226,14 @@ public partial class WorldRuntimeTests
 
 		var accessor = world.GetAccessor<Velocity>();
 		accessor.Has(resolvedWithVelocity).Should().BeTrue();
-		accessor.TryGet(resolvedWithVelocity, out var velocity).Should().BeTrue();
+		accessor.TryRead(resolvedWithVelocity, out var velocity).Should().BeTrue();
 		velocity.Should().Be(new Velocity { X = 7, Y = -3 });
 
 		accessor.Has(resolvedWithoutVelocity).Should().BeFalse();
-		accessor.TryGet(resolvedWithoutVelocity, out _).Should().BeFalse();
+		accessor.TryRead(resolvedWithoutVelocity, out _).Should().BeFalse();
 
 		accessor.Has(resolvedWithVelocity).Should().BeTrue();
-		accessor.TryGet(resolvedWithVelocity, out velocity).Should().BeTrue();
+		accessor.TryRead(resolvedWithVelocity, out velocity).Should().BeTrue();
 		velocity.Should().Be(new Velocity { X = 7, Y = -3 });
 	}
 }

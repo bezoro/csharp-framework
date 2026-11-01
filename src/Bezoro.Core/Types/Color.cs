@@ -143,7 +143,7 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 	/// </summary>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static Color FromRgba32(uint rgba) =>
-		new((byte)(rgba >> 24), (byte)(rgba >> 16), (byte)(rgba >> 8), (byte)rgba);
+		unchecked(new((byte)(rgba >> 24), (byte)(rgba >> 16), (byte)(rgba >> 8), (byte)rgba));
 
 	/// <summary>
 	///     Packs color to 0xAARRGGBB (used by .NET System.Drawing).
@@ -156,7 +156,7 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 	/// </summary>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static Color FromArgb32(uint argb) =>
-		new((byte)(argb >> 16), (byte)(argb >> 8), (byte)argb, (byte)(argb >> 24));
+		unchecked(new((byte)(argb >> 16), (byte)(argb >> 8), (byte)argb, (byte)(argb >> 24)));
 
 	/// <summary>
 	///     Packs color to 0xAABBGGRR (little-endian; memory BGRA).
@@ -169,7 +169,7 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 	/// </summary>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static Color FromAbgr32(uint abgr) =>
-		new((byte)abgr, (byte)(abgr >> 8), (byte)(abgr >> 16), (byte)(abgr >> 24));
+		unchecked(new((byte)abgr, (byte)(abgr >> 8), (byte)(abgr >> 16), (byte)(abgr >> 24)));
 
 	/// <summary>
 	///     Calculates approximate relative luminance using sRGB coefficients.
@@ -239,7 +239,7 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 	/// </summary>
 	public string ToString(string? format, IFormatProvider? formatProvider)
 	{
-		Span<char> buffer = stackalloc char[ /*max*/ 11 + 1];
+		Span<char> buffer = stackalloc char[32];
 		if (TryFormat(buffer, out int written, format, formatProvider)) return new(buffer[..written]);
 
 		// Fallback
@@ -261,11 +261,12 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 		ReadOnlySpan<char> format,
 		IFormatProvider?   provider)
 	{
-		string fmt = format.Length == 0 ? "RGB" : new string(format).ToUpperInvariant();
-
-		switch (fmt)
+		int kind = format.Equals("RGBA".AsSpan(), StringComparison.OrdinalIgnoreCase) ? 1
+			: format.Equals("ARGB".AsSpan(), StringComparison.OrdinalIgnoreCase) ? 2
+			: format.Equals("CSS".AsSpan(), StringComparison.OrdinalIgnoreCase) ? 3 : 0;
+		switch (kind)
 		{
-			case "RGB":
+			case 0:
 			{
 				if (destination.Length < 7)
 				{
@@ -280,7 +281,7 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 				charsWritten = 7;
 				return true;
 			}
-			case "RGBA":
+			case 1:
 			{
 				if (destination.Length < 9)
 				{
@@ -296,7 +297,7 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 				charsWritten = 9;
 				return true;
 			}
-			case "ARGB":
+			case 2:
 			{
 				if (destination.Length < 9)
 				{
@@ -312,14 +313,31 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 				charsWritten = 9;
 				return true;
 			}
-			case "CSS":
+			case 3:
 			{
 				// rgba(r, g, b, a) with a in [0,1]
-				var s = $"rgba({R}, {G}, {B}, {Af.ToString("0.###", CultureInfo.InvariantCulture)})";
+				Span<char> css = stackalloc char[32];
+				"rgba(".AsSpan().CopyTo(css);
+				int position = 5;
+				R.TryFormat(css.Slice(position), out int length, default, CultureInfo.InvariantCulture);
+				position += length;
+				", ".AsSpan().CopyTo(css.Slice(position));
+				position += 2;
+				G.TryFormat(css.Slice(position), out length, default, CultureInfo.InvariantCulture);
+				position += length;
+				", ".AsSpan().CopyTo(css.Slice(position));
+				position += 2;
+				B.TryFormat(css.Slice(position), out length, default, CultureInfo.InvariantCulture);
+				position += length;
+				", ".AsSpan().CopyTo(css.Slice(position));
+				position += 2;
+				Af.TryFormat(css.Slice(position), out length, "0.###", CultureInfo.InvariantCulture);
+				position += length;
+				css[position++] = ')';
 
-				if (s.AsSpan().TryCopyTo(destination))
+				if (css.Slice(0, position).TryCopyTo(destination))
 				{
-					charsWritten = s.Length;
+					charsWritten = position;
 					return true;
 				}
 
@@ -327,8 +345,7 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 				return false;
 			}
 			default:
-				// Unknown -> default to RGB
-				return TryFormat(destination, out charsWritten, "RGB".AsSpan(), provider);
+				throw new InvalidOperationException();
 		}
 	}
 
@@ -351,7 +368,8 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 			return false;
 		}
 
-		if (s[0] == '#') s = s[1..];
+		bool hasHexPrefix = s[0] == '#';
+		if (hasHexPrefix) s = s[1..];
 
 		// Short forms
 		if (s.Length == 3 || s.Length == 4)
@@ -384,14 +402,14 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 		// Long forms
 		if (s.Length == 6 || s.Length == 8)
 		{
-			if (byte.TryParse(s.Slice(0, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte r) &&
-				byte.TryParse(s.Slice(2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte g) &&
-				byte.TryParse(s.Slice(4, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte b))
+			if (TryHexByte(s.Slice(0, 2), out byte r) &&
+				TryHexByte(s.Slice(2, 2), out byte g) &&
+				TryHexByte(s.Slice(4, 2), out byte b))
 			{
 				byte a = 255;
 
 				if (s.Length == 8 &&
-					!byte.TryParse(s.Slice(6, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out a))
+					!TryHexByte(s.Slice(6, 2), out a))
 				{
 					result = default;
 					return false;
@@ -405,73 +423,38 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 			return false;
 		}
 
-		// CSS rgba(r, g, b, a)
-		if (s.StartsWith("rgba", StringComparison.OrdinalIgnoreCase) ||
-			s.StartsWith("rgb",  StringComparison.OrdinalIgnoreCase))
+		// CSS rgb/rgba require an exact function name and component count.
+		int open = s.IndexOf('(');
+		bool rgba = open == 4 && s.Slice(0, open).Equals("rgba".AsSpan(), StringComparison.OrdinalIgnoreCase);
+		bool rgb = open == 3 && s.Slice(0, open).Equals("rgb".AsSpan(), StringComparison.OrdinalIgnoreCase);
+		if (!hasHexPrefix && (rgb || rgba) && s[s.Length - 1] == ')')
 		{
-			// Simple, permissive CSS parser for rgba/rgba strings
-			int open  = s.IndexOf('(');
-			int close = s.LastIndexOf(')');
-
-			if (open > 0 && close > open)
+			var inner = s.Slice(open + 1, s.Length - open - 2);
+			Span<Range> parts = stackalloc Range[4];
+			int count = 0;
+			int start = 0;
+			for (int index = 0; index <= inner.Length; index++)
 			{
-				var         inner = s.Slice(open + 1, close - open - 1);
-				Span<Range> parts = stackalloc Range[4];
-				var         idx   = 0;
-				var         start = 0;
+				if (index != inner.Length && inner[index] != ',') continue;
+				if (count == parts.Length) { result = default; return false; }
+				parts[count++] = new(start, index);
+				start = index + 1;
+			}
 
-				for (var i = 0; i <= inner.Length && idx < parts.Length; i++)
+			if (count == (rgba ? 4 : 3) &&
+				int.TryParse(inner[parts[0]].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int r) &&
+				int.TryParse(inner[parts[1]].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int g) &&
+				int.TryParse(inner[parts[2]].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int b))
+			{
+				float alpha = 1;
+				if (rgba && (!float.TryParse(inner[parts[3]].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out alpha) ||
+					float.IsNaN(alpha) || float.IsInfinity(alpha)))
 				{
-					if (i == inner.Length || inner[i] == ',')
-					{
-						parts[idx++] = new(start, i);
-						start        = i + 1;
-					}
+					result = default;
+					return false;
 				}
-
-				if (idx == 3 || idx == 4)
-					if (int.TryParse(
-							inner[parts[0]].Trim(),
-							NumberStyles.Integer,
-							CultureInfo.InvariantCulture,
-							out int rr
-						) &&
-						int.TryParse(
-							inner[parts[1]].Trim(),
-							NumberStyles.Integer,
-							CultureInfo.InvariantCulture,
-							out int gg
-						) &&
-						int.TryParse(
-							inner[parts[2]].Trim(),
-							NumberStyles.Integer,
-							CultureInfo.InvariantCulture,
-							out int bb
-						))
-					{
-						var aa = 1f;
-
-						if (idx == 4 &&
-							!float.TryParse(
-								inner[parts[3]].Trim(),
-								NumberStyles.Float,
-								CultureInfo.InvariantCulture,
-								out aa
-							))
-						{
-							result = default;
-							return false;
-						}
-
-						result = new(
-							(byte)Math.Clamp(rr, 0, 255),
-							(byte)Math.Clamp(gg, 0, 255),
-							(byte)Math.Clamp(bb, 0, 255),
-							FloatToByte(aa)
-						);
-
-						return true;
-					}
+				result = new((byte)Math.Clamp(r, 0, 255), (byte)Math.Clamp(g, 0, 255), (byte)Math.Clamp(b, 0, 255), FloatToByte(alpha));
+				return true;
 			}
 		}
 
@@ -503,6 +486,7 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private static byte FloatToByte(float x)
 	{
+		if (float.IsNaN(x) || float.IsInfinity(x)) throw new ArgumentOutOfRangeException(nameof(x), "Color channels must be finite.");
 		// Clamp and round away from zero to reduce rounding bias
 		float v = Math.Clamp(x, 0f, 1f) * 255f;
 		return (byte)MathF.Round(v, MidpointRounding.AwayFromZero);
@@ -518,6 +502,17 @@ public readonly record struct Color(byte R, byte G, byte B, byte A)
 	}
 
 	/// <summary>Tries to parse a single hex nibble from character.</summary>
+	private static bool TryHexByte(ReadOnlySpan<char> text, out byte value)
+	{
+		if (TryHexNibble(text[0], out byte high) && TryHexNibble(text[1], out byte low))
+		{
+			value = (byte)((high << 4) | low);
+			return true;
+		}
+		value = 0;
+		return false;
+	}
+
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private static bool TryHexNibble(char c, out byte nibble)
 	{

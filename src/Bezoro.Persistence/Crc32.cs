@@ -14,7 +14,7 @@ public static class Crc32
     {
         uint state = ~checksum;
         foreach (byte value in data)
-            state = Table[(byte)(state ^ value)] ^ (state >> 8);
+            state = Table[unchecked((byte)(state ^ value))] ^ (state >> 8);
         return ~state;
     }
 

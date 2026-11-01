@@ -192,6 +192,7 @@ public class CSharpCodeBuilder
 	/// <returns>This <see cref="CSharpCodeBuilder" /> instance for chaining.</returns>
 	public CSharpCodeBuilder BeginNamespace(string nameSpace)
 	{
+		if (_isInClass) throw new InvalidOperationException("A namespace cannot begin inside a class.");
 		_namespaceStack.Push(nameSpace);
 		_writer.WriteLine($"namespace {nameSpace}");
 		_writer.BeginScope();
@@ -219,6 +220,7 @@ public class CSharpCodeBuilder
 	/// <exception cref="InvalidOperationException">Thrown if no namespace is being defined.</exception>
 	public CSharpCodeBuilder EndNamespace()
 	{
+		if (_isInClass) throw new InvalidOperationException("End the class before its containing namespace.");
 		if (_namespaceStack.Count == 0) throw new InvalidOperationException("No namespace to end");
 
 		_namespaceStack.Pop();

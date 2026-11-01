@@ -83,7 +83,7 @@ public ref struct GridSpan2D<T>
 	/// <param name="y">The row index.</param>
 	/// <returns><c>true</c> if the coordinates are valid; otherwise, <c>false</c>.</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public readonly bool IsInBounds(int x, int y) => (uint)x < (uint)Width && (uint)y < (uint)Height;
+	public readonly bool IsInBounds(int x, int y) => unchecked((uint)x) < (uint)Width && unchecked((uint)y) < (uint)Height;
 
 	/// <summary>
 	///     Creates a read-only view of this grid span.
@@ -107,7 +107,7 @@ public ref struct GridSpan2D<T>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public readonly Span<T> GetRow(int y)
 	{
-		if ((uint)y >= (uint)Height)
+		if (unchecked((uint)y) >= (uint)Height)
 			throw new ArgumentOutOfRangeException(nameof(y));
 
 		return _data.Slice(y * Width, Width);

@@ -91,10 +91,10 @@ internal static class UciInfoParser
 						int? centipawns = null;
 						int? mate = null;
 						if (type.Equals("cp", StringComparison.OrdinalIgnoreCase) &&
-							int.TryParse(rawValue, out int cpValue))
+							int.TryParse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out int cpValue))
 							centipawns = cpValue;
 						else if (type.Equals("mate", StringComparison.OrdinalIgnoreCase) &&
-								 int.TryParse(rawValue, out int mateValue))
+								 int.TryParse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out int mateValue))
 							mate = mateValue;
 
 						var bound = UciScoreBound.Exact;
@@ -200,7 +200,7 @@ internal static class UciInfoParser
 	private static bool TryReadUInt(string[] tokens, int index, out uint value)
 	{
 		value = 0;
-		return index < tokens.Length && uint.TryParse(tokens[index], out value);
+		return index < tokens.Length && uint.TryParse(tokens[index], NumberStyles.None, CultureInfo.InvariantCulture, out value);
 	}
 
 	private static List<string> ReadTokenSequence(string[] tokens, ref int currentIndex) =>

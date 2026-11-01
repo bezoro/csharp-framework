@@ -27,3 +27,5 @@ dotnet test tests/Bezoro.Logging.Tests/Bezoro.Logging.Tests.csproj -c Release -f
 Tests use the .NET 10 SDK selected by [global.json](../../global.json). They run without Unity or Godot and do not replace validation in engine player builds.
 
 The test project explicitly defines `DEBUG`, so conditional log call sites execute during Release tests. This does not change the Release library's `PerformanceTimer` behavior. Filtering tests establish that the logger avoids formatting hidden messages; call-site argument construction is still the caller's cost when `DEBUG` is defined.
+
+Regression coverage includes disposal in inherited async flows, rejected out-of-order scope disposal, no-subscriber work suppression, success severity filtering, null message formatting, and validated time-window grouping.

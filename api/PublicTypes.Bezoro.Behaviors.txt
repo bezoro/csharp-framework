@@ -10,3 +10,4 @@ Bezoro.Behaviors.StatechartBehavior<TContext> | public sealed class | stable-sha
 Bezoro.Behaviors.StateMachineBehavior<TContext> | public sealed class | stable-shape | StateMachineBehavior.cs
 Bezoro.Behaviors.TreeBehavior<TContext> | public sealed class | stable-shape | TreeBehavior.cs
 Bezoro.Behaviors.TreeBehaviorBinding<TContext> | public readonly struct | stable-shape | TreeBehaviorBinding.cs
+Bezoro.Behaviors.TreeBehaviorBuilder<TContext> | public sealed class | stable-shape | TreeBehaviorBuilder.cs

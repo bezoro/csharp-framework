@@ -10,15 +10,18 @@ var coin = new ItemId(1);
 var catalog = new ItemCatalog(new[] { new ItemDefinition(coin, maximumStackSize: 10) });
 var backpack = new SlotInventory(catalog, capacity: 2);
 var stash = new SlotInventory(catalog, capacity: 1);
-var returning = new StateId(1);
-var finished = new StateId(2);
-var collected = new SignalId(0);
-var deposited = new SignalId(1);
-var quest = new StateMachineDefinition(3, 2, new[]
-{
-    new StateTransition(default, collected, returning),
-    new StateTransition(returning, deposited, finished)
-});
+var questSetup = new StateMachineBuilder();
+var gatheringState = questSetup.State();
+var returningState = questSetup.State();
+var finishedState = questSetup.State();
+var pickupEvent = questSetup.Signal();
+var deposit = questSetup.Signal();
+questSetup.StartIn(gatheringState);
+questSetup.Transition(from: gatheringState, on: pickupEvent, to: returningState);
+questSetup.Transition(from: returningState, on: deposit, to: finishedState);
+var quest = questSetup.Build();
+StateId returning = questSetup.Resolve(returningState), finished = questSetup.Resolve(finishedState);
+SignalId collected = questSetup.Resolve(pickupEvent), deposited = questSetup.Resolve(deposit);
 StateId state = quest.InitialState;
 var world = new PointSpatialIndex<ItemId>(
     new Bounds2D(Vector2.Zero, new Vector2(16, 16)), cellSize: 2, capacity: 8, maximumCells: 64);

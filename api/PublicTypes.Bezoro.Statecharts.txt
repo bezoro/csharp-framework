@@ -9,8 +9,10 @@ Bezoro.Statecharts.ChartTransitionKind | public enum | stable-shape | ChartTrans
 Bezoro.Statecharts.IStatechartHandler<TContext> | public interface | review-contract | IStatechartHandler.cs
 Bezoro.Statecharts.RegionId | public readonly struct | stable-shape | RegionId.cs
 Bezoro.Statecharts.StateActivation | public readonly struct | stable-shape | StateActivation.cs
+Bezoro.Statecharts.StatechartBuilder | public sealed class | stable-shape | StatechartBuilder.cs
 Bezoro.Statecharts.StatechartDefinition | public sealed class | stable-shape | StatechartDefinition.cs
 Bezoro.Statecharts.StatechartDispatchResult | public readonly struct | stable-shape | StatechartDispatchResult.cs
 Bezoro.Statecharts.StatechartHandler<TContext> | public abstract class | review-contract | IStatechartHandler.cs
+Bezoro.Statecharts.StatechartRegion | public readonly struct | stable-shape | StatechartRegion.cs
 Bezoro.Statecharts.StatechartRunner<TContext> | public sealed class | stable-shape | StatechartRunner.cs
 Bezoro.Statecharts.StatechartView | public readonly ref struct | stable-shape | StatechartView.cs

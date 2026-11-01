@@ -1,5 +1,6 @@
 using System;
 using Bezoro.ECS.Abstractions;
+using Bezoro.ECS.Attributes;
 using Bezoro.ECS.Services;
 using Bezoro.ECS.Types;
 using FluentAssertions;
@@ -83,6 +84,7 @@ public sealed class WorldSchedulerFailureTests
 		MaxDegreeOfParallelism = 1
 	});
 
+	[NoWorldAccess]
 	private sealed class CapturingSystem : ISystem
 	{
 		public CommandStream? Captured { get; private set; }

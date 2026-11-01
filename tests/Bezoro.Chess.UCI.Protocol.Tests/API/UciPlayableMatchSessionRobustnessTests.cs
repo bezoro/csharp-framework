@@ -189,16 +189,16 @@ public sealed class UciPlayableMatchSessionRobustnessTests
         public static async Task<Match> CreateAsync(bool clocked = false, bool whiteEngine = false, bool claimRequired = false)
         {
             var match = new Match();
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 2; i++)
             {
                 var (transport, output) = UciEngineClientTestHelpers.CreateMockTransport();
                 transport.When(t => t.WriteLineAsync("isready", Arg.Any<CancellationToken>())).Do(_ => output.Writer.TryWrite("readyok"));
                 if (i == 0) (match.PlayingTransport, match.PlayingOutput) = (transport, output);
                 match._clients.Add(await UciEngineClientTestHelpers.StartClientWithHandshakeAsync(transport, output));
             }
-            match.Session = new(match._clients[0], match._clients[1], match._clients[2], 'w',
+            match.Session = new(match._clients[0], match._clients[1], 'w',
                 whiteEngine ? MatchSideControllerKind.Engine : MatchSideControllerKind.Manual, MatchSideControllerKind.Manual,
-                moveListAnalysisTimeMs: 10, moveListFallbackTimeMs: 10,
+                analysisMoveTimeMs: 10, analysisFallbackMoveTimeMs: 10,
                 claimableDrawPolicy: claimRequired ? PlayableMatchClaimableDrawPolicy.ClaimRequired : PlayableMatchClaimableDrawPolicy.Automatic,
                 timeControl: clocked ? new(TimeSpan.FromSeconds(5), TimeSpan.Zero) : null,
                 utcNowProvider: () => match.Now);
@@ -209,7 +209,7 @@ public sealed class UciPlayableMatchSessionRobustnessTests
 
         public async ValueTask DisposeAsync()
         {
-            Session.CancelAnalysis();
+            await Session.DisposeAsync();
             foreach (var client in _clients) await client.DisposeAsync();
         }
     }

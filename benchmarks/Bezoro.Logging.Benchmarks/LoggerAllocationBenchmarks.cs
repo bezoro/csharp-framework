@@ -23,6 +23,9 @@ public class LoggerAllocationBenchmarks
 	private TimestampConfig _timestamp;
 	private LogCategory[] _mutedCategories = [];
 
+	[Params(false, true)]
+	public bool HasSubscriber { get; set; }
+
 	[GlobalSetup]
 	public void Setup()
 	{
@@ -52,7 +55,7 @@ public class LoggerAllocationBenchmarks
 		LoggerSettings.ThreadId = ThreadIdConfig.Off;
 		LoggerSettings.Timestamp = TimestampConfig.Disabled;
 		LoggerSettings.MutedCategories.Clear();
-		Logger.OnLog += _sink;
+		if (HasSubscriber) Logger.OnLog += _sink;
 	}
 
 	[GlobalCleanup]

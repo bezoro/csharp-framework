@@ -95,7 +95,7 @@ public class WorldErgonomicApiTests
 			}
 		);
 
-		cursor.Get<ErgonomicPosition>(0).Should().Be(new ErgonomicPosition { X = 4, Y = 6 });
+		cursor.Write<ErgonomicPosition>(0).Should().Be(new ErgonomicPosition { X = 4, Y = 6 });
 	}
 
 	[Fact]

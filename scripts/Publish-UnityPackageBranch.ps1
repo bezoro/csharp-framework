@@ -23,7 +23,28 @@ if ([string]::IsNullOrWhiteSpace($env:GITHUB_REPOSITORY)) {
 }
 
 $publishRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("bezoro-upm-" + [System.Guid]::NewGuid().ToString("N"))
-$remoteUrl = "https://x-access-token:$($env:GITHUB_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
+$remoteUrl = "https://github.com/$($env:GITHUB_REPOSITORY).git"
+
+# Keep credentials out of remote URLs, command arguments, and temporary Git config files.
+$previousConfigCount = $env:GIT_CONFIG_COUNT
+$configCount = 0
+if (-not [string]::IsNullOrEmpty($previousConfigCount) -and
+    (-not [int]::TryParse($previousConfigCount, [ref]$configCount) -or $configCount -lt 0 -or $configCount -gt [int]::MaxValue - 2)) {
+    throw 'GIT_CONFIG_COUNT must be a nonnegative integer with room for two publication entries.'
+}
+$previousGitConfig = @{}
+$credentials = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$($env:GITHUB_TOKEN)"))
+for ($offset = 0; $offset -lt 2; $offset++) {
+    $keyName = "GIT_CONFIG_KEY_$($configCount + $offset)"
+    $valueName = "GIT_CONFIG_VALUE_$($configCount + $offset)"
+    $previousGitConfig[$keyName] = [Environment]::GetEnvironmentVariable($keyName)
+    $previousGitConfig[$valueName] = [Environment]::GetEnvironmentVariable($valueName)
+    [Environment]::SetEnvironmentVariable($keyName, 'http.https://github.com/.extraheader')
+    # Empty first entry clears inherited checkout headers before adding this token.
+    $value = if ($offset -eq 0) { '' } else { "AUTHORIZATION: basic $credentials" }
+    [Environment]::SetEnvironmentVariable($valueName, $value)
+}
+$env:GIT_CONFIG_COUNT = ($configCount + 2).ToString([Globalization.CultureInfo]::InvariantCulture)
 
 try {
 	& git ls-remote --exit-code --heads $remoteUrl $Branch *> $null
@@ -94,6 +115,10 @@ try {
 	}
 }
 finally {
+	foreach ($entry in $previousGitConfig.GetEnumerator()) {
+		[Environment]::SetEnvironmentVariable($entry.Key, $entry.Value)
+	}
+	$env:GIT_CONFIG_COUNT = $previousConfigCount
 	if (Test-Path $publishRoot) {
 		Remove-Item $publishRoot -Recurse -Force
 	}

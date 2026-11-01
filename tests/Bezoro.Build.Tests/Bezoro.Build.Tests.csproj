@@ -16,4 +16,15 @@
 		<PackageReference Include="xunit.runner.visualstudio" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<ProjectReference Include="../../samples/Bezoro.UnityApiSmoke/Bezoro.UnityApiSmoke.csproj" />
+		<ProjectReference Include="../../src/Bezoro.Core/Bezoro.Core.csproj" />
+		<ProjectReference Include="../../src/Bezoro.ECS/Bezoro.ECS.csproj" />
+		<ProjectReference Include="../../src/Bezoro.GameSystems/Bezoro.GameSystems.csproj" />
+		<ProjectReference Include="../../src/Bezoro.Logging/Bezoro.Logging.csproj" />
+		<ProjectReference Include="../../src/Bezoro.TypingSystem/Bezoro.TypingSystem.csproj" />
+		<ProjectReference Include="../../src/Bezoro.Chess.UCI.Protocol/Bezoro.Chess.UCI.Protocol.csproj" />
+		<ProjectReference Include="../../src/Bezoro.Chess.UCI/Bezoro.Chess.UCI.csproj" />
+	</ItemGroup>
+
 </Project>

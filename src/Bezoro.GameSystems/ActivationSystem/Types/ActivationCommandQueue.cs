@@ -11,7 +11,7 @@ namespace Bezoro.GameSystems.ActivationSystem.Types;
 public sealed class ActivationCommandQueue : IActivationCommandSink
 {
 	private readonly ConcurrentQueue<ActivationCommand> _pendingCommands = new();
-	private          int                                _nextHandleId;
+	private static   long                               _nextHandleId;
 
 	/// <summary>
 	///     Gets an approximate count of pending ingress commands.
@@ -33,8 +33,10 @@ public sealed class ActivationCommandQueue : IActivationCommandSink
 	{
 		if (callback is null) throw new ArgumentNullException(nameof(callback));
 
-		int id = Interlocked.Increment(ref _nextHandleId);
-		var handle = new ActivationHandle(id);
+		long id = Interlocked.Increment(ref _nextHandleId);
+		if (id > int.MaxValue)
+			throw new InvalidOperationException("The activation identifier space is exhausted.");
+		var handle = new ActivationHandle((int)id);
 		_pendingCommands.Enqueue(ActivationCommand.Register(handle, callback, priority));
 		return handle;
 	}

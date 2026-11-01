@@ -1,3 +1,4 @@
+using System;
 using Bezoro.Core.Types;
 using Bezoro.ECS.Types;
 
@@ -21,6 +22,10 @@ public readonly struct HealthMutationRequest
 		uint               value,
 		MaxValueUpdateMode maxUpdateMode = MaxValueUpdateMode.ClampCurrent)
 	{
+		if (kind < HealthMutationKind.Damage || kind > HealthMutationKind.IncreaseHealth)
+			throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported mutation kind.");
+		if (maxUpdateMode is not (MaxValueUpdateMode.ClampCurrent or MaxValueUpdateMode.PreservePercentage))
+			throw new ArgumentOutOfRangeException(nameof(maxUpdateMode), maxUpdateMode, "Unsupported max update mode.");
 		TargetEntity = targetEntity;
 		Kind = kind;
 		Value = value;

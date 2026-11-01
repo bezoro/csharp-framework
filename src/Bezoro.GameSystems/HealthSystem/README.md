@@ -56,7 +56,7 @@ while (events.TryDequeue(out var evt))
 | `EffectiveCurrent` | `Current + ExcessCurrent`, saturated at `uint.MaxValue`. |
 | `BasePercentage`   | Base pool percentage.                                    |
 | `ExcessPercentage` | Excess pool percentage.                                  |
-| `TotalPercentage`  | Combined base + excess percentage.                       |
+| `TotalPercentage`  | Combined base + excess percentage, using wide sums without a temporary array. |
 
 ### MaxValueUpdateMode
 
@@ -79,6 +79,7 @@ while (events.TryDequeue(out var evt))
 
 - Helpers create request entities immediately and defer the health mutation until the system update. Call them on the world thread; they are not thread-safe producer queues.
 - `HealthSystem` consumes request entities in ECS query traversal order and despawns them after processing. Do not rely on a general FIFO guarantee across archetype changes or entity-storage reuse.
+- Request construction rejects undefined mutation and max-update modes before a request entity is created. Max-health updates compute the new current value before changing either field, so a rejected update cannot leave a partially changed cap.
 - Damage supports both excess-first (`Damage`) and base-only (`DirectDamage`).
 - Healing supports both base-only (`Heal`) and overflow-to-excess (`IncreaseHealth`).
 - Events are emitted both through `HealthSystem.Changed` and `HealthEventsResource`.

@@ -8,6 +8,7 @@ internal sealed class WorldSystemRuntime
 {
 	private readonly SystemManager _systemManager;
 	private int _updateDepth;
+	private int _registrationDepth;
 
 	public WorldSystemRuntime(int maxDegreeOfParallelism)
 	{
@@ -15,9 +16,15 @@ internal sealed class WorldSystemRuntime
 	}
 
 	public int PlanBuildCount => _systemManager.PlanBuildCount;
+	public bool IsUpdating => Volatile.Read(ref _updateDepth) != 0;
+	public bool IsRegistering => Volatile.Read(ref _registrationDepth) != 0;
 
-	public void AddSystem(World world, ISystem system, Stage stage) =>
-		_systemManager.RegisterSystem(world, system, stage);
+	public void AddSystem(World world, ISystem system, Stage? stage)
+	{
+		Interlocked.Increment(ref _registrationDepth);
+		try { _systemManager.RegisterSystem(world, system, stage); }
+		finally { Interlocked.Decrement(ref _registrationDepth); }
+	}
 
 	public void ClearSystemSetRunCondition(Type setType) =>
 		_systemManager.ClearSystemSetRunCondition(setType);

@@ -33,7 +33,7 @@ public sealed class RingBuffer<T> : IReadOnlyList<T>
 	{
 		get
 		{
-			if ((uint)index >= (uint)_count) throw new ArgumentOutOfRangeException(nameof(index));
+			if (unchecked((uint)index) >= (uint)_count) throw new ArgumentOutOfRangeException(nameof(index));
 			return _values[PhysicalIndex(index)];
 		}
 	}
@@ -149,7 +149,7 @@ public sealed class RingBuffer<T> : IReadOnlyList<T>
 			get
 			{
 				EnsureUnchanged();
-				if ((uint)_index >= (uint)_buffer._count) throw new InvalidOperationException("The enumerator is not positioned on a value.");
+				if (unchecked((uint)_index) >= (uint)_buffer._count) throw new InvalidOperationException("The enumerator is not positioned on a value.");
 				return _buffer[_index];
 			}
 		}

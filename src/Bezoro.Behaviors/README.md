@@ -11,27 +11,29 @@ using Bezoro.Behaviors;
 using Bezoro.BehaviorTrees;
 using Bezoro.StateMachines;
 
-var waiting = new StateId(0);
-var ready = new StateId(1);
-var reloadFinished = new SignalId(0);
-var reloadDefinition = new StateMachineDefinition(2, 1, new[]
-{
-    new StateTransition(waiting, reloadFinished, ready)
-});
+var reloadStates = new StateMachineBuilder();
+var waiting = reloadStates.State();
+var ready = reloadStates.State();
+var reloadFinished = reloadStates.Signal();
+reloadStates.StartIn(waiting);
+reloadStates.Transition(from: waiting, on: reloadFinished, to: ready);
+var reloadDefinition = reloadStates.Build();
 
 // actions and context are supplied by the application.
 // actions implements IBehaviorTreeHandler<AiContext> and keeps progress in the context.
 var reloadAction = new TreeBehavior<AiContext>(
     new BehaviorTreeDefinition(BehaviorNode.Action(10)), actions);
 var reloadMachine = new StateMachineBehavior<AiContext>(reloadDefinition,
-    bindings: new[] { new StateBehaviorBinding<AiContext>(waiting, reloadAction, reloadFinished) },
-    successStates: new[] { ready });
+    bindings: new[] { new StateBehaviorBinding<AiContext>(
+        reloadStates.Resolve(waiting), reloadAction, reloadStates.Resolve(reloadFinished)) },
+    successStates: new[] { reloadStates.Resolve(ready) });
 
-var combatDefinition = new BehaviorTreeDefinition(BehaviorNode.Sequence(
-    BehaviorNode.Action(100), BehaviorNode.Action(200)));
-// Preorder IDs are Sequence=0, first Action=1, second Action=2.
-var combat = new TreeBehavior<AiContext>(combatDefinition, actions,
-    new[] { new TreeBehaviorBinding<AiContext>(1, reloadMachine) });
+var reload = BehaviorNode.Action(100);
+var combatTree = new BehaviorTreeCompilation(BehaviorNode.Sequence(
+    reload, BehaviorNode.Action(200)));
+var combatBuilder = new TreeBehaviorBuilder<AiContext>(combatTree, actions);
+combatBuilder.Bind(combatTree.GetAction(reload), reloadMachine);
+var combat = combatBuilder.Build();
 
 combat.Start(ref context);
 var budget = new BehaviorBudget(64);
@@ -41,7 +43,9 @@ BehaviorStatus result = combat.Tick(ref context, ref budget);
 combat.Stop(ref context);
 ```
 
-`TreeBehaviorBinding` identifies a compiled node occurrence, rather than its application action ID. Reusing an immutable subtree creates distinct occurrences, and each bound mutable child needs its own runtime. Bound actions delegate their complete lifecycle to the child. Unbound actions and predicates use the host `IBehaviorTreeHandler`.
+`TreeBehaviorBuilder` resolves named actions through their originating compilation and converts them into compact runtime bindings. Default or foreign handles, repeated bindings, and duplicate children throw before changing the builder. A successful `Build` consumes the builder because the new runtime exclusively owns its children. A failed `Build` leaves the builder available and adopts no children. The resulting runtime retains neither the builder nor the compilation and its expression map. Release construction objects after setup.
+
+The lower-level `TreeBehaviorBinding` constructor accepts an explicit compiled node ID for loaders with an established mapping. Its layout remains a child reference and an integer, 16 bytes on the tested x64 host. No handle or source-definition reference is added to each runtime binding. Both APIs identify a compiled node occurrence. Reusing an immutable subtree creates distinct occurrences, and each bound mutable child needs its own runtime. Bound actions delegate their complete lifecycle to the child. Unbound actions and predicates use the host `IBehaviorTreeHandler`.
 
 `StateBehaviorBinding` associates a child with a state ID. `StatechartBehavior` starts it when that state enters and stops it before the host's exit callback. The host's entry callback runs before the child starts. Hierarchical parent states and orthogonal regions can each own children. `StateMachineBehavior` provides the same binding policy for a flat `StateMachineDefinition`; its external self transition stops and restarts the child.
 

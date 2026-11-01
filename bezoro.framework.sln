@@ -128,6 +128,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bezoro.Behaviors.Benchmarks
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bezoro.Behaviors.ConsoleDemo", "samples\Bezoro.Behaviors.ConsoleDemo\Bezoro.Behaviors.ConsoleDemo.csproj", "{44BECF26-EE69-44CE-8F15-F3755DAF714E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bezoro.Events.Benchmarks", "benchmarks\Bezoro.Events.Benchmarks\Bezoro.Events.Benchmarks.csproj", "{A3373161-84E1-4390-B043-8C62C4DE5BAF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -858,6 +860,18 @@ Global
 		{44BECF26-EE69-44CE-8F15-F3755DAF714E}.Release|x64.Build.0 = Release|Any CPU
 		{44BECF26-EE69-44CE-8F15-F3755DAF714E}.Release|x86.ActiveCfg = Release|Any CPU
 		{44BECF26-EE69-44CE-8F15-F3755DAF714E}.Release|x86.Build.0 = Release|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Debug|x64.Build.0 = Debug|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Debug|x86.Build.0 = Debug|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Release|x64.ActiveCfg = Release|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Release|x64.Build.0 = Release|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Release|x86.ActiveCfg = Release|Any CPU
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -923,5 +937,6 @@ Global
 		{A2650FE8-8943-44BA-ADEF-FFE4D374E5FB} = {B789E9C7-9962-4479-A3D3-2EE0E841F876}
 		{10F566AE-A23F-41F5-B499-E7569BF0BAB3} = {66320409-64EC-F7C5-3DEF-65E7510DAAD1}
 		{44BECF26-EE69-44CE-8F15-F3755DAF714E} = {B789E9C7-9962-4479-A3D3-2EE0E841F876}
+		{A3373161-84E1-4390-B043-8C62C4DE5BAF} = {66320409-64EC-F7C5-3DEF-65E7510DAAD1}
 	EndGlobalSection
 EndGlobal

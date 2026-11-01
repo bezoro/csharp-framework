@@ -5,6 +5,10 @@ namespace Bezoro.Chess.UCI.Protocol.API.Types;
 /// </summary>
 public readonly struct UciClientOptions()
 {
+	/// <summary>Maximum number of recent PV snapshots retained in a completed search result. Default is 4096.</summary>
+	/// <remarks>Live protocol events still receive every line. Fire-and-forget searches retain no PV history.</remarks>
+	public int MaxCapturedPrincipalVariations { get; init; } = 4096;
+
 	/// <summary>
 	///     Timeout used while waiting for <c>readyok</c>.
 	/// </summary>

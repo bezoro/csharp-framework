@@ -19,6 +19,11 @@ public readonly struct PerformanceTimer : IDisposable
 	public PerformanceTimer(string operationName, LogCategory? category, object? contextObject)
 	{
 #if DEBUG
+		if (!Logger.IsEnabled(LogLevel.Info, category))
+		{
+			this = default;
+			return;
+		}
 		_operationName  = operationName;
 		_category       = category;
 		_contextObject  = contextObject;
@@ -33,6 +38,7 @@ public readonly struct PerformanceTimer : IDisposable
 	public void Dispose()
 	{
 #if DEBUG
+		if (_operationName is null || !Logger.IsEnabled(LogLevel.Info, _category)) return;
 		long   elapsed   = Stopwatch.GetTimestamp() - _startTimestamp;
 		double elapsedMs = elapsed * 1000.0 / Stopwatch.Frequency;
 
@@ -43,7 +49,7 @@ public readonly struct PerformanceTimer : IDisposable
 	}
 
 #if DEBUG
-	private readonly string       _operationName;
+	private readonly string?      _operationName;
 	private readonly LogCategory? _category;
 	private readonly object?      _contextObject;
 	private readonly long         _startTimestamp;

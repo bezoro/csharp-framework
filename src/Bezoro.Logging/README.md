@@ -86,7 +86,7 @@ LoggerSettings.MutedCategories.Add(LogCategory.Debug);
 LoggerSettings.MutedCategories.Add(LogCategory.Profiling);
 ```
 
-Disabled, below-minimum, and muted-category messages return before message formatting or collection enumeration. Call-site expressions still execute whenever `DEBUG` is defined: `Logger.Log(BuildExpensiveMessage())` calls the builder before the logger can inspect its filter. Conditional compilation removes the whole call, including its arguments, when that call site's compilation omits `DEBUG`.
+Messages with no subscribers, disabled logging, below-minimum levels, or muted categories return before message formatting, collection enumeration, metadata providers, or stage tracking. Call-site expressions still execute whenever `DEBUG` is defined: `Logger.Log(BuildExpensiveMessage())` calls the builder before the logger can inspect its filter. Conditional compilation removes the whole call, including its arguments, when that call site's compilation omits `DEBUG`. Guard expensive builders with `if (Logger.IsEnabled(LogLevel.Info, LogCategory.Loading))` when runtime filters also need to skip argument construction. `IsEnabled` is a snapshot of filters and subscriber presence.
 
 ### Metadata options
 
@@ -151,7 +151,7 @@ using (Logger.BeginTimer("LoadLevel", LogCategory.Loading))
 
 `Logger.BeginTimer` itself is not conditional. When the Bezoro.Logging assembly is
 compiled with `DEBUG`, the returned `PerformanceTimer` captures a start timestamp
-and logs from `Dispose`. Otherwise, the timer stores no state and `Dispose` performs
+when the Info level and category have an active sink, and logs from `Dispose` if still enabled. A filtered timer or `default(PerformanceTimer)` does no disposal work. Otherwise, a Release timer stores no state and `Dispose` performs
 no work. Direct `Logger.Log*` calls are conditional and are omitted when `DEBUG` is
 not defined in the compilation containing each call site.
 
@@ -231,7 +231,7 @@ When handling log events, you receive a `LogPayload` with:
 | --- | --- |
 | `Logger` | Emits conditional log records, exceptions, and performance timings through `OnLog`. |
 | `LoggerSettings` | Configures enablement, metadata, grouping, styling, and async context. |
-| `LogPayload` | Carries an init-only snapshot delivered to log subscribers. Referenced objects and collections are not guaranteed to be immutable. |
+| `LogPayload` | Carries required constructor values and optional init-only metadata delivered to subscribers. Referenced objects and collections are not guaranteed to be immutable. |
 | `LogLevel` / `LogCategory` | Classifies severity and subsystem. |
 | `GroupingConfig` | Selects caller, category, thread, async-context, or time-window grouping. |
 | `PerformanceTimer` | Measures and logs a scoped operation duration when the Bezoro.Logging assembly is compiled with `DEBUG`. |
@@ -291,12 +291,21 @@ Metadata providers also execute on the logging caller's thread. Use cached frame
 - `Logger.Log*` calls use `Conditional("DEBUG")`; each call is controlled by the `DEBUG` symbol in the compilation containing that call site.
 - `Logger.BeginTimer` remains a normal call in all builds, while its timer captures and logs only when the Bezoro.Logging assembly is compiled with `DEBUG`.
 - Output is event-driven; applications own console, file, Unity, or telemetry sinks.
-- Async context flows through `AsyncLocal`. Create and dispose nested scopes in their owning async flow and in reverse creation order. Ordinary sibling async branches maintain separate current contexts. Do not dispose one shared scope from multiple flows or dispose parent scopes before their children.
+- Async context flows through `AsyncLocal`. Create and dispose nested scopes in their owning async flow and in reverse creation order. Ordinary sibling async branches maintain separate current contexts. Disposing a scope in a child flow does not mark the parent flow's scope disposed. Out-of-order disposal in the same flow throws before changing its context. Repeated disposal in a flow where the scope is no longer current is a no-op. Context names must contain a non-whitespace character.
 - `Logger` owns filtering, stage transitions, sequence/time/thread/frame capture, and synchronous dispatch; the internal formatter deterministically maps captured input, settings, and context into `LogPayload`.
 - Configuration and the subscriber list are process-global. Set configuration before concurrent logging, or synchronize changes externally, especially mutation of `MutedCategories`.
 - Subscriber and metadata-provider exceptions propagate to the logging caller. Wrap application sinks when a sink failure must not interrupt gameplay.
+- Disabled sequence metadata does not advance its shared counter. Disabled thread metadata avoids thread-id lookup unless thread grouping needs it. Filename extraction runs only for messages that include a detail line.
 - Formatting retained logs, collection arguments, and async-context hierarchies can allocate. This logger does not promise zero allocation.
 - Timers compiled in Release without `DEBUG` do not collect timings. Direct calls made by a caller that defines `DEBUG` still invoke the library even when its DLL was built in Release.
+
+## Migration
+
+`LogLevel.Success` now sorts below `Warning`. Its numeric value and the numeric values of `Warning`, `Error`, and `Exception` changed; serialize level names or update stored numeric values. A warning-or-higher minimum suppresses success messages.
+
+`LogPayload` now takes its four required values in `new LogPayload(level, message, formattedMessage, severityEmoji)`. These properties are get-only; optional metadata remains init-only. This constructor works in C# 9 consumers of the precompiled DLL and rejects null display values or undefined levels. There is no C# 11 `required` construction barrier.
+
+`GroupingConfig` now uses validated factories and get-only properties. Use `GroupingConfig.Create`; time-window grouping requires positive milliseconds and cannot divide by zero during logging. Unobserved log calls no longer execute providers or advance stage tracking. To prime stage state deliberately, register a sink before logging. Null object messages format as `"null"`.
 
 ## Build and validation
 

@@ -39,7 +39,7 @@ public sealed class UnityPackagePublishScriptTests
 
     private sealed class PublishFixture : IDisposable
     {
-        private const string Remote = "https://x-access-token:fixture-token@github.com/fixture/repository.git";
+        private const string Remote = "https://github.com/fixture/repository.git";
         private readonly string _root = Path.Combine(Path.GetTempPath(), "bezoro-publish", Guid.NewGuid().ToString("N"));
         private readonly string _bareRepository;
         private readonly string _package;
@@ -48,16 +48,13 @@ public sealed class UnityPackagePublishScriptTests
 
         public PublishFixture()
         {
-            var repository = new DirectoryInfo(AppContext.BaseDirectory);
-            while (repository is not null && !File.Exists(Path.Combine(repository.FullName, "bezoro.framework.sln")))
-                repository = repository.Parent;
-            if (repository is null) throw new InvalidOperationException("Repository not found.");
+            string repository = RepositoryPaths.FindRoot();
 
             Directory.CreateDirectory(_root);
             _bareRepository = Path.Combine(_root, "repository.git");
             _package = Path.Combine(_root, "package");
             _gitConfig = Path.Combine(_root, "gitconfig");
-            _script = Path.Combine(repository.FullName, "scripts", "Publish-UnityPackageBranch.ps1");
+            _script = Path.Combine(repository, "scripts", "Publish-UnityPackageBranch.ps1");
             Directory.CreateDirectory(_package);
             File.WriteAllText(_gitConfig, string.Empty);
             Git("init", "--bare", _bareRepository);

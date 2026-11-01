@@ -145,11 +145,16 @@ public static class FloatExtensions
 	/// </exception>
 	public static float Map(this float value, float fromMin, float fromMax, float toMin, float toMax)
 	{
-		float range = fromMax - fromMin;
-		if (FloatComparer.IsZero(range))
+		if (float.IsNaN(value) || float.IsInfinity(value)) throw new ArgumentOutOfRangeException(nameof(value));
+		if (float.IsNaN(fromMin) || float.IsInfinity(fromMin)) throw new ArgumentOutOfRangeException(nameof(fromMin));
+		if (float.IsNaN(fromMax) || float.IsInfinity(fromMax)) throw new ArgumentOutOfRangeException(nameof(fromMax));
+		if (float.IsNaN(toMin) || float.IsInfinity(toMin)) throw new ArgumentOutOfRangeException(nameof(toMin));
+		if (float.IsNaN(toMax) || float.IsInfinity(toMax)) throw new ArgumentOutOfRangeException(nameof(toMax));
+		double range = (double)fromMax - fromMin;
+		if (range == 0)
 			throw new ArgumentException("Source range cannot be zero (fromMin equals fromMax).", nameof(fromMax));
 
-		return (value - fromMin) / range * (toMax - toMin) + toMin;
+		return (float)(((double)value - fromMin) / range * ((double)toMax - toMin) + toMin);
 	}
 
 	/// <summary>

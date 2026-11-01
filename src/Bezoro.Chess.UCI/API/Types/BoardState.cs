@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using Bezoro.Core.Extensions;
 using Bezoro.Chess.UCI.API.Common.Enums;
 
@@ -85,9 +86,9 @@ public readonly record struct BoardState()
 		return file is >= 'a' and <= 'h' && rank is >= '1' and <= '8';
 	}
 
-	private static List<Position> BuildPositionsFromFen(Fen fen)
+	private static ImmutableArray<Position> BuildPositionsFromFen(Fen fen)
 	{
-		var    positions = new List<Position>(64);
+		var    positions = ImmutableArray.CreateBuilder<Position>(64);
 		string placement = fen.PiecePlacement;
 
 		static string BuildSquare(int fileIndex, int rankIndex) => $"{(char)('a' + fileIndex)}{rankIndex}";
@@ -148,6 +149,6 @@ public readonly record struct BoardState()
 			file = 0;
 		}
 
-		return positions;
+		return positions.MoveToImmutable();
 	}
 }

@@ -17,9 +17,9 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task ApplyMove_WhenCaptureIsPlayed_ShouldEmitRichMovePayload()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
-		var session = CreateManualSession(playingClient, analysisClient, moveListClient);
+		var session = CreateManualSession(playingClient, moveListClient);
 		var events = new List<PlayableMatchEvent>();
 		session.EventOccurred += events.Add;
 
@@ -47,9 +47,9 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task ChoosePromotion_WhenPromotionCompletes_ShouldEmitEventsInContractOrder()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
-		var session = CreateManualSession(playingClient, analysisClient, moveListClient);
+		var session = CreateManualSession(playingClient, moveListClient);
 		var eventKinds = new List<PlayableMatchEventKind>();
 		session.EventOccurred += e => eventKinds.Add(e.Kind);
 
@@ -73,18 +73,17 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task RefreshAsync_WhenClaimableThreefoldExistsUnderClaimRequiredPolicy_ShouldExposeClaimableResult()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10,
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10,
 			claimableDrawPolicy: PlayableMatchClaimableDrawPolicy.ClaimRequired
 		);
 
@@ -107,18 +106,17 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task ProcessAsync_WhenClaimDrawIsRequested_ShouldAdjudicateClaimableDraw()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10,
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10,
 			claimableDrawPolicy: PlayableMatchClaimableDrawPolicy.ClaimRequired
 		);
 
@@ -140,9 +138,9 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task ProcessAsync_WhenResignAndDrawRequestsAreUsed_ShouldEmitTerminalResults()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
-		var session = CreateManualSession(playingClient, analysisClient, moveListClient);
+		var session = CreateManualSession(playingClient, moveListClient);
 		var events = new List<PlayableMatchEvent>();
 		session.EventOccurred += events.Add;
 
@@ -179,18 +177,17 @@ public sealed class UciPlayableMatchSessionEventContractTests
 		]);
 
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10,
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10,
 			timeControl: new(TimeSpan.FromSeconds(30), TimeSpan.Zero, TimeSpan.FromSeconds(3)),
 			utcNowProvider: () => times.Dequeue()
 		);
@@ -214,18 +211,17 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task PlayUntilTerminalAsync_WhenBothSidesAreEngine_ShouldPlayToCompletion()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Engine,
 			blackController: MatchSideControllerKind.Engine,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10
 		);
 
 		await session.LoadMatchAsync(new PlayableMatchSetup(Fen.Parse("7k/5Q2/7K/8/8/8/8/8 w - - 0 1")!.Value, []), CancellationToken.None);
@@ -242,18 +238,17 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task ApplyMove_WhenDrawOfferPolicyExpiresOnMove_ShouldClearPendingOffer()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10,
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10,
 			drawOfferPolicy: PlayableMatchDrawOfferPolicy.ExpireOnMove
 		);
 
@@ -272,18 +267,17 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task ApplyMove_WhenDrawOfferPolicyPersistsUntilResponse_ShouldKeepPendingOffer()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10,
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10,
 			drawOfferPolicy: PlayableMatchDrawOfferPolicy.PersistUntilResponse
 		);
 
@@ -302,18 +296,17 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task PlayControlledMoveAsync_WhenFallbackPolicyIsThrow_ShouldPropagateSearchFailure()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Engine,
 			blackController: MatchSideControllerKind.Engine,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10,
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10,
 			controlledMoveFallbackPolicy: PlayableMatchControlledMoveFallbackPolicy.Throw
 		);
 
@@ -331,9 +324,9 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task ProcessBatchAsync_WhenRequestsAreApplied_ShouldReturnOrderedEmittedEvents()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
-		var session = CreateManualSession(playingClient, analysisClient, moveListClient);
+		var session = CreateManualSession(playingClient, moveListClient);
 
 		var batchEvents = await session.ProcessBatchAsync(
 			[
@@ -358,9 +351,9 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	public async Task ApplyMove_WhenMoveMates_ShouldEmitMoveAppliedBeforeResultChanged()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
-		var session = CreateManualSession(playingClient, analysisClient, moveListClient);
+		var session = CreateManualSession(playingClient, moveListClient);
 		var events = new List<PlayableMatchEvent>();
 		session.EventOccurred += events.Add;
 
@@ -380,18 +373,17 @@ public sealed class UciPlayableMatchSessionEventContractTests
 
 	private static UciPlayableMatchSession CreateManualSession(
 		UciEngineClient playingClient,
-		UciEngineClient analysisClient,
+
 		UciEngineClient moveListClient)
 		=> new(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10
 		);
 
 	private static async Task<UciEngineClient> CreateStartedClientAsync()

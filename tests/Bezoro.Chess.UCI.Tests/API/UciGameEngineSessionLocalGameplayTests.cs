@@ -7,6 +7,37 @@ namespace Bezoro.Chess.UCI.Tests.API;
 
 public sealed class UciGameEngineSessionLocalGameplayTests
 {
+	[Fact]
+	public async Task BishopUnderpromotionFromBFile_AppliesAndPublishesTheFullNotation()
+	{
+		await using var session = new UciGameEngineSession();
+		await session.LoadMatchAsync(new(Fen.Parse("7k/1P5r/8/8/8/8/8/K7 w - - 0 1")!.Value));
+		GameMoveEvent? applied = null;
+		session.MoveMade += move => applied = move;
+		await session.MakeMoveAsync("b7b8b");
+		Assert.Equal("b7b8b", Assert.Single(session.PlayedMoves));
+		Assert.NotNull(applied);
+		Assert.Equal(PieceColor.White, applied.Value.PromotionPiece!.Value.Color);
+		Assert.Equal(PieceType.Bishop, applied.Value.PromotionPiece.Value.Type);
+	}
+	[Fact]
+	public async Task NewGame_ImmediatelyRestoresLegalMovesAndClockWithoutAnEngine()
+	{
+		await using var session = new UciGameEngineSession(options: UciCoordinatorOptions.Default with
+		{
+			TimeControl = new(TimeSpan.FromMinutes(5), TimeSpan.Zero)
+		});
+		await session.MakeMoveAsync("e2e4");
+		await session.ResignAsync();
+		await session.NewGameAsync();
+		Assert.False(session.State.IsGameOver);
+		Assert.Equal(20, session.LegalMoves.Count);
+		Assert.NotNull(session.State.Clock);
+		Assert.False(session.State.Clock.Value.IsPaused);
+		Assert.Equal('w', session.State.Clock.Value.ActiveColor);
+		await session.MakeMoveAsync("d2d4");
+		Assert.Equal("d2d4", Assert.Single(session.PlayedMoves));
+	}
 	private static UciGameEngineSession CreateSession(UciCoordinatorOptions? options = null, Func<DateTimeOffset>? now = null,
 		SynchronizationContext? context = null) => new(
 		new UciEngineClient("engine-must-never-be-started"),

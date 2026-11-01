@@ -10,7 +10,7 @@ public class TypingStateIsCompleteTests
 	[Fact]
 	public void IsComplete_WhenTargetLengthIsLessThanCorrectCount_ShouldThrowArgumentOutOfRangeException()
 	{
-		var state = new TypingState(4, 5, 0);
+		var state = new TypingState(5);
 
 		var action = () => state.IsComplete(4);
 
@@ -20,7 +20,7 @@ public class TypingStateIsCompleteTests
 	[Fact]
 	public void IsComplete_WhenTargetLengthIsLessThanPosition_ShouldThrowArgumentOutOfRangeException()
 	{
-		var state = new TypingState(4, 5, 0);
+		var state = new TypingState(5);
 
 		var action = () => state.IsComplete(3);
 
@@ -30,7 +30,7 @@ public class TypingStateIsCompleteTests
 	[Fact]
 	public void IsComplete_WhenTargetLengthIsNotReached_ShouldReturnFalse()
 	{
-		var state = new TypingState(3, 4, 0);
+		var state = new TypingState(4);
 
 		state.IsComplete(5).Should().BeFalse();
 	}
@@ -38,7 +38,7 @@ public class TypingStateIsCompleteTests
 	[Fact]
 	public void IsComplete_WhenTargetLengthIsReached_ShouldReturnTrue()
 	{
-		var state = new TypingState(4, 5, 0);
+		var state = new TypingState(5);
 
 		state.IsComplete(5).Should().BeTrue();
 	}

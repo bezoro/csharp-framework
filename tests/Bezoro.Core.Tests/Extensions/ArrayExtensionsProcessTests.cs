@@ -21,7 +21,7 @@ public class ArrayExtensionsSearchTests
 		var    processedElements = new List<int>();
 
 		// Act
-		await array.Process(
+		await array.ProcessAsync(
 			(element, _, _, _) =>
 			{
 				processedElements.Add(element);
@@ -42,7 +42,7 @@ public class ArrayExtensionsSearchTests
 		var        processedElements = new List<string>();
 
 		// Act
-		await array.Process(
+		await array.ProcessAsync(
 			(element, _, _, _) =>
 			{
 				processedElements.Add(element!);
@@ -64,7 +64,7 @@ public class ArrayExtensionsSearchTests
 		using var cts               = new CancellationTokenSource();
 
 		// Act
-		await array.Process(
+		await Assert.ThrowsAnyAsync<OperationCanceledException>(() => array.ProcessAsync(
 			async (element, _, _, ct) =>
 			{
 				if (element == 3) await cts.CancelAsync();
@@ -72,7 +72,7 @@ public class ArrayExtensionsSearchTests
 				processedElements.Add(element);
 			},
 			cts.Token
-		);
+		));
 
 		// Assert
 		processedElements.Should().BeEquivalentTo([1, 2]);

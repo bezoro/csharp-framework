@@ -16,19 +16,18 @@ public sealed class UciPlayableMatchSessionProtocolTests
 	public async Task RefreshAsync_WhenEngineDoesNotProvideDisplayBoardOrPerft_ShouldUseLocalBoardState()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10
 		);
 
 		await session.StartNewGameAsync(CancellationToken.None);
@@ -45,19 +44,18 @@ public sealed class UciPlayableMatchSessionProtocolTests
 	public async Task ApplyMove_WhenPromotionChoiceIsMissing_ShouldRaisePendingPromotionInsteadOfApplyingMove()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10
 		);
 		var events = new List<PlayableMatchEvent>();
 		session.EventOccurred += events.Add;
@@ -79,12 +77,11 @@ public sealed class UciPlayableMatchSessionProtocolTests
 	public async Task ChoosePromotion_WhenPendingPromotionExists_ShouldApplyMoveAndRaiseEvents()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 
 		var session = CreateSession(
 			playingClient,
-			analysisClient,
 			moveListClient
 		);
 		var events = new List<PlayableMatchEvent>();
@@ -109,19 +106,18 @@ public sealed class UciPlayableMatchSessionProtocolTests
 	public async Task LoadMatchAsync_WhenSetupIncludesMovesAndClock_ShouldReturnRefreshedState()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10,
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10,
 			timeControl: new(
 				TimeSpan.FromSeconds(30),
 				TimeSpan.FromSeconds(1),
@@ -152,12 +148,11 @@ public sealed class UciPlayableMatchSessionProtocolTests
 	public async Task RefreshAsync_WhenPositionIsStalemate_ShouldExposeMatchResult()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 
 		var session = CreateSession(
 			playingClient,
-			analysisClient,
 			moveListClient
 		);
 
@@ -174,19 +169,18 @@ public sealed class UciPlayableMatchSessionProtocolTests
 	public async Task RefreshAsync_WhenPositionIsThreefoldRepetition_ShouldExposeDrawResult()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10
 		);
 
 		await session.StartNewGameAsync(CancellationToken.None);
@@ -216,19 +210,18 @@ public sealed class UciPlayableMatchSessionProtocolTests
 		]);
 
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 
 		var session = new UciPlayableMatchSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10,
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10,
 			timeControl: new(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(2)),
 			utcNowProvider: () => times.Dequeue()
 		);
@@ -249,12 +242,11 @@ public sealed class UciPlayableMatchSessionProtocolTests
 	public async Task ProcessAsync_WhenCommandsAreApplied_ShouldRouteThroughSerializableRequestModel()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 
 		var session = CreateSession(
 			playingClient,
-			analysisClient,
 			moveListClient
 		);
 		var events = new List<PlayableMatchEvent>();
@@ -276,16 +268,15 @@ public sealed class UciPlayableMatchSessionProtocolTests
 
 	private static UciPlayableMatchSession CreateSession(
 		UciEngineClient playingClient,
-		UciEngineClient analysisClient,
+
 		UciEngineClient moveListClient)
 		=> new(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			playerColor: 'w',
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10
 		);
 
 	private static async Task<UciEngineClient> CreateStartedClientAsync()

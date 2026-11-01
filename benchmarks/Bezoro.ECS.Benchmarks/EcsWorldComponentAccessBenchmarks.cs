@@ -1,3 +1,4 @@
+using System;
 using BenchmarkDotNet.Attributes;
 using Bezoro.ECS.Abstractions;
 using Bezoro.ECS.Services;
@@ -31,13 +32,13 @@ public class EcsWorldComponentAccessBenchmarks
 		return sum;
 	}
 
-	[Benchmark(Description = "World accessor sequential component read via TryGet")]
-	public float SequentialAccessorTryGetRead()
+	[Benchmark(Description = "World accessor sequential component read via TryRead")]
+	public float SequentialAccessorTryRead()
 	{
 		var sum = 0f;
 		for (var i = 0; i < _entities.Length; i++)
 		{
-			if (_positionAccessor.TryGet(_entities[i], out var position))
+			if (_positionAccessor.TryRead(_entities[i], out var position))
 				sum += position.X + position.Y;
 		}
 
@@ -59,13 +60,13 @@ public class EcsWorldComponentAccessBenchmarks
 		return sum;
 	}
 
-	[Benchmark(Description = "World accessor sequential component ref-write via Get")]
-	public float SequentialAccessorGetWrite()
+	[Benchmark(Description = "World accessor sequential component ref-write via Write")]
+	public float SequentialAccessorWrite()
 	{
 		var sum = 0f;
 		for (var i = 0; i < _entities.Length; i++)
 		{
-			ref var position = ref _positionAccessor.Get(_entities[i]);
+			ref var position = ref _positionAccessor.Write(_entities[i]);
 			position.X += 0.125f;
 			position.Y -= 0.125f;
 			sum += position.X;
@@ -85,8 +86,8 @@ public class EcsWorldComponentAccessBenchmarks
 		return _world.EntityCount;
 	}
 
-	[Benchmark(Description = "World query cursor sequential Get<T> write")]
-	public float QueryCursorSequentialGetWrite()
+	[Benchmark(Description = "World query cursor sequential Write<T>")]
+	public float QueryCursorSequentialWrite()
 	{
 		using var cursor = _world.Execute(_positionQueryHandle);
 		if (!cursor.MoveNext())
@@ -95,7 +96,7 @@ public class EcsWorldComponentAccessBenchmarks
 		var sum = 0f;
 		for (var i = 0; i < EntityCount; i++)
 		{
-			ref var position = ref cursor.Get<Position>(i);
+			ref var position = ref cursor.Write<Position>(i);
 			position.X += 0.125f;
 			position.Y -= 0.125f;
 			sum += position.X;
@@ -109,6 +110,31 @@ public class EcsWorldComponentAccessBenchmarks
 	{
 		_queryView.Run<IntegrateJob, Position, Velocity>(new(0.016f));
 		return _world.EntityCount;
+	}
+
+	[Benchmark(Description = "Cursor window: 64 indexed entity/component reads")]
+	public float CursorIndexedWindow()
+	{
+		using var cursor = _world.Execute(_positionQueryHandle);
+		cursor.MoveNext();
+		float sum = 0;
+		int end = Math.Min(cursor.Count, 64);
+		for (var index = 0; index < end; index++)
+			sum += cursor.GetEntity(index).Id + cursor.Read<Position>(index).X;
+		return sum;
+	}
+
+	[Benchmark(Description = "Cursor window: materialize all handles, then read 64")]
+	public float CursorMaterializedWindow()
+	{
+		using var cursor = _world.Execute(_positionQueryHandle);
+		cursor.MoveNext();
+		var entities = cursor.Current;
+		float sum = 0;
+		int end = Math.Min(entities.Length, 64);
+		for (var index = 0; index < end; index++)
+			sum += entities[index].Id + cursor.Read<Position>(index).X;
+		return sum;
 	}
 
 	[GlobalSetup]

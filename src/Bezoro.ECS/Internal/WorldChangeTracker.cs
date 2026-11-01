@@ -5,70 +5,76 @@ namespace Bezoro.ECS.Internal;
 
 internal sealed class WorldChangeTracker(WorldEntityStore entityStore, WorldConfig config)
 {
-	private readonly Dictionary<long, uint> _addedVersionByEntityType = [];
-	private readonly Dictionary<long, uint> _changeVersionByEntityType = [];
+	private readonly Dictionary<long, ulong> _addedVersionByEntityType = [];
+	private readonly Dictionary<long, ulong> _changeVersionByEntityType = [];
 	private readonly WorldConfig _config = config;
 	private readonly WorldEntityStore _entityStore = entityStore;
-	private uint _componentChangeVersion;
+	private readonly object _sync = new();
+	private ulong _componentChangeVersion;
 	private int _queryHighWatermark;
 	private int _queryOverflowCount;
 	private bool _trackRefWriteChanges;
 
-	public uint CurrentChangeVersion => _componentChangeVersion;
+	public ulong CurrentChangeVersion { get { lock (_sync) return _componentChangeVersion; } }
 
 	public int QueryHighWatermark => _queryHighWatermark;
 
 	public int QueryOverflowCount => _queryOverflowCount;
 
-	public uint AdvanceComponentChangeVersion()
+	public ulong AdvanceComponentChangeVersion()
 	{
-		_componentChangeVersion++;
-		if (_componentChangeVersion == 0)
-			_componentChangeVersion = 1;
-
-		return _componentChangeVersion;
+		lock (_sync) return ++_componentChangeVersion;
 	}
 
 	public void Clear()
 	{
-		_addedVersionByEntityType.Clear();
-		_changeVersionByEntityType.Clear();
+		lock (_sync)
+		{
+			_addedVersionByEntityType.Clear();
+			_changeVersionByEntityType.Clear();
+		}
 	}
 
 	public void ClearEntityComponentVersions(int entityId, int typeCount)
 	{
-		for (var typeId = 0; typeId < typeCount; typeId++)
+		lock (_sync)
 		{
-			long key = ComposeEntityTypeKey(entityId, typeId);
-			_addedVersionByEntityType.Remove(key);
-			_changeVersionByEntityType.Remove(key);
+			for (var typeId = 0; typeId < typeCount; typeId++)
+			{
+				long key = ComposeEntityTypeKey(entityId, typeId);
+				_addedVersionByEntityType.Remove(key);
+				_changeVersionByEntityType.Remove(key);
+			}
 		}
 	}
 
 	public bool EntityMatchesChangedFilters(CompiledQueryPlan plan, int entityId)
 	{
-		uint lastObservedVersion = plan.LastObservedChangeVersion;
-		for (var i = 0; i < plan.AddedTypeIds.Length; i++)
+		lock (_sync)
 		{
-			long key = ComposeEntityTypeKey(entityId, plan.AddedTypeIds[i]);
-			if (!_addedVersionByEntityType.TryGetValue(key, out uint addedVersion))
-				return false;
+			ulong lastObservedVersion = plan.LastObservedChangeVersion;
+			for (var i = 0; i < plan.AddedTypeIds.Length; i++)
+			{
+				long key = ComposeEntityTypeKey(entityId, plan.AddedTypeIds[i]);
+				if (!_addedVersionByEntityType.TryGetValue(key, out ulong addedVersion))
+					return false;
 
-			if (addedVersion <= lastObservedVersion)
-				return false;
+				if (addedVersion <= lastObservedVersion)
+					return false;
+			}
+
+			for (var i = 0; i < plan.ChangedTypeIds.Length; i++)
+			{
+				long key = ComposeEntityTypeKey(entityId, plan.ChangedTypeIds[i]);
+				if (!_changeVersionByEntityType.TryGetValue(key, out ulong changeVersion))
+					return false;
+
+				if (changeVersion <= lastObservedVersion)
+					return false;
+			}
+
+			return true;
 		}
-
-		for (var i = 0; i < plan.ChangedTypeIds.Length; i++)
-		{
-			long key = ComposeEntityTypeKey(entityId, plan.ChangedTypeIds[i]);
-			if (!_changeVersionByEntityType.TryGetValue(key, out uint changeVersion))
-				return false;
-
-			if (changeVersion <= lastObservedVersion)
-				return false;
-		}
-
-		return true;
 	}
 
 	public void EnableRefWriteTracking(CompiledQueryPlan plan)
@@ -79,29 +85,35 @@ internal sealed class WorldChangeTracker(WorldEntityStore entityStore, WorldConf
 
 	public void HandleQueryOverflow()
 	{
-		_queryOverflowCount++;
+		Interlocked.Increment(ref _queryOverflowCount);
 		if (_config.OverflowPolicy == WorldOverflowPolicy.FailFast)
 			throw new InvalidOperationException(
 				$"Query result capacity '{_config.QueryResultCapacity}' was exceeded."
 			);
 	}
 
-	public void MarkComponentAdded(int entityId, int typeId, uint version) =>
-		_addedVersionByEntityType[ComposeEntityTypeKey(entityId, typeId)] = version;
+	public void MarkComponentAdded(int entityId, int typeId, ulong version)
+	{
+		lock (_sync) _addedVersionByEntityType[ComposeEntityTypeKey(entityId, typeId)] = version;
+	}
 
-	public void MarkComponentChanged(int entityId, int typeId, uint version) =>
-		_changeVersionByEntityType[ComposeEntityTypeKey(entityId, typeId)] = version;
+	public void MarkComponentChanged(int entityId, int typeId, ulong version)
+	{
+		lock (_sync) _changeVersionByEntityType[ComposeEntityTypeKey(entityId, typeId)] = version;
+	}
 
 	public void ObserveDirectIterationEntityCount(int processedEntityCount)
-	{
-		if (processedEntityCount > _queryHighWatermark)
-			_queryHighWatermark = processedEntityCount;
-	}
+		=> ObserveQueryEntityCount(processedEntityCount);
 
 	public void ObserveQueryEntityCount(int count)
 	{
-		if (count > _queryHighWatermark)
-			_queryHighWatermark = count;
+		int observed = Volatile.Read(ref _queryHighWatermark);
+		while (count > observed)
+		{
+			int previous = Interlocked.CompareExchange(ref _queryHighWatermark, count, observed);
+			if (previous == observed) return;
+			observed = previous;
+		}
 	}
 
 	public void TrackPotentialAccessorRefWrite(
@@ -113,10 +125,10 @@ internal sealed class WorldChangeTracker(WorldEntityStore entityStore, WorldConf
 		if (!_trackRefWriteChanges)
 			return;
 
-		if ((uint)rowIndex >= (uint)chunk.Count)
+		if (unchecked((uint)rowIndex) >= unchecked((uint)chunk.Count))
 			return;
 
-		uint changeVersion = AdvanceComponentChangeVersion();
+		ulong changeVersion = AdvanceComponentChangeVersion();
 		chunk.ComponentChangeVersions[columnIndex] = changeVersion;
 		MarkComponentChanged(chunk.EntityIds[rowIndex], typeId, changeVersion);
 	}
@@ -141,7 +153,7 @@ internal sealed class WorldChangeTracker(WorldEntityStore entityStore, WorldConf
 				continue;
 
 			var chunk = archetype.GetChunkUnchecked(match.ChunkIndex);
-			uint changeVersion = AdvanceComponentChangeVersion();
+			ulong changeVersion = AdvanceComponentChangeVersion();
 			chunk.ComponentChangeVersions[columnIndex] = changeVersion;
 			int rowEnd = match.RowStart + match.Count;
 			for (var row = match.RowStart; row < rowEnd; row++)
@@ -174,7 +186,7 @@ internal sealed class WorldChangeTracker(WorldEntityStore entityStore, WorldConf
 				if (chunk.Count == 0)
 					continue;
 
-				uint changeVersion = AdvanceComponentChangeVersion();
+				ulong changeVersion = AdvanceComponentChangeVersion();
 				chunk.ComponentChangeVersions[columnIndex] = changeVersion;
 				for (var row = 0; row < chunk.Count; row++)
 					MarkComponentChanged(chunk.EntityIds[row], typeId, changeVersion);
@@ -182,5 +194,5 @@ internal sealed class WorldChangeTracker(WorldEntityStore entityStore, WorldConf
 		}
 	}
 
-	private static long ComposeEntityTypeKey(int entityId, int typeId) => (long)entityId << 32 | (uint)typeId;
+	private static long ComposeEntityTypeKey(int entityId, int typeId) => (long)entityId << 32 | unchecked((uint)typeId);
 }

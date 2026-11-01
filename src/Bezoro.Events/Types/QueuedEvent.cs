@@ -1,9 +1,16 @@
+using Bezoro.Events.Services;
+
 namespace Bezoro.Events.Types;
 
 /// <summary>
-///     Type-erased wrapper for a queued event, capturing the dispatch action.
+///     Type-erased queued dispatch. The typed implementation owns its value without a closure or delegate.
 /// </summary>
-internal sealed class QueuedEvent(Action dispatchAction)
+internal abstract class QueuedEvent
 {
-	public void Dispatch() => dispatchAction();
+	public abstract void Dispatch();
+}
+
+internal sealed class QueuedEvent<TEvent>(EventBus bus, TEvent value) : QueuedEvent where TEvent : struct
+{
+	public override void Dispatch() => bus.Publish(value);
 }

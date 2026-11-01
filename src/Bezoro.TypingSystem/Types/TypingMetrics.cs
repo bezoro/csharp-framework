@@ -25,7 +25,14 @@ public sealed class TypingMetrics
 	/// <summary>
 	///     Gets the number of correct characters typed per minute.
 	/// </summary>
-	public double CharactersPerMinute => Elapsed.TotalMinutes <= 0 ? 0d : CorrectInputs / Elapsed.TotalMinutes;
+	public double CharactersPerMinute
+	{
+		get
+		{
+			var minutes = Elapsed.TotalMinutes;
+			return minutes <= 0d ? 0d : CorrectInputs / minutes;
+		}
+	}
 
 	/// <summary>
 	///     Gets the total time elapsed since the metrics tracking started.
@@ -63,6 +70,10 @@ public sealed class TypingMetrics
 	/// <param name="result">The validation result to record.</param>
 	public void Record(TypingResult result)
 	{
+		if (result.Status == TypingValidationStatus.Undefined)
+			throw new ArgumentException("A recorded result must come from validation or a named factory.", nameof(result));
+		if (TotalInputs == uint.MaxValue)
+			throw new InvalidOperationException("Input count cannot exceed UInt32.MaxValue. Reset the metrics first.");
 		TotalInputs++;
 
 		if (result.IsFaulted)

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Bezoro.Chess.UCI.Protocol.API.Common.Extensions;
@@ -12,7 +13,7 @@ namespace Bezoro.Chess.UCI.Protocol.API;
 ///     Coordinates ordered full-strength position analysis over a dedicated client.
 ///     Positions are analyzed in FIFO order, and completed results are cached by position key for later reuse.
 /// </summary>
-public sealed class UciPositionAnalysisCoordinator : IDisposable
+public sealed class UciPositionAnalysisCoordinator : IDisposable, IAsyncDisposable
 {
 	private readonly Func<PositionAnalysisWorkItem, CancellationToken, Task<PositionAnalysisResult>> _analyzePositionAsync;
 	private readonly Action? _beforeWorkerRetires;
@@ -23,10 +24,14 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 	private long _nextAnalysisRevision;
 	private readonly Queue<PositionAnalysisWorkItem> _pendingRequests = new();
 	private readonly Dictionary<string, PositionAnalysisResult> _completedAnalyses = new(StringComparer.Ordinal);
+	private readonly LinkedList<string> _completedOrder = new();
+	private readonly int _maxCachedPositions;
+	private readonly int _maxPendingPositions;
 	private readonly Dictionary<string, TaskCompletionSource<PositionAnalysisResult>> _waiters =
 		new(StringComparer.Ordinal);
 	private CancellationTokenSource _lifetimeCts = new();
 	private Task? _workerTask;
+	private bool _disposed;
 
 	internal Task? ActiveWorker
 	{
@@ -45,14 +50,23 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 	public UciPositionAnalysisCoordinator(
 		UciEngineClient client,
 		int             multiPvMoveTimeMs  = 3_000,
-		int             fallbackMoveTimeMs = 250)
-		: this(CreateAnalyzer(client, multiPvMoveTimeMs, fallbackMoveTimeMs)) { }
+		int             fallbackMoveTimeMs = 250,
+		int             maxCachedPositions = 128,
+		int             maxPendingPositions = 128)
+		: this(CreateAnalyzer(client, multiPvMoveTimeMs, fallbackMoveTimeMs),
+			maxCachedPositions: maxCachedPositions, maxPendingPositions: maxPendingPositions) { }
 
 	internal UciPositionAnalysisCoordinator(
 		Func<PositionAnalysisWorkItem, CancellationToken, Task<PositionAnalysisResult>> analyzePositionAsync,
 		Action? beforeWorkerRetires = null,
-		Action? afterWorkDequeued = null)
+		Action? afterWorkDequeued = null,
+		int maxCachedPositions = 128,
+		int maxPendingPositions = 128)
 	{
+		if (maxCachedPositions <= 0) throw new ArgumentOutOfRangeException(nameof(maxCachedPositions));
+		if (maxPendingPositions <= 0) throw new ArgumentOutOfRangeException(nameof(maxPendingPositions));
+		_maxCachedPositions = maxCachedPositions;
+		_maxPendingPositions = maxPendingPositions;
 		_analyzePositionAsync = analyzePositionAsync ?? throw new ArgumentNullException(nameof(analyzePositionAsync));
 		_beforeWorkerRetires = beforeWorkerRetires;
 		_afterWorkDequeued = afterWorkDequeued;
@@ -92,24 +106,36 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 			throw new ArgumentOutOfRangeException(nameof(playerColor));
 		if (legalMoves.IsDefault)
 			legalMoves = [];
+		ImmutableArray<string> copiedMoves = [.. moves];
 		string context = baseFen.Raw + "|" + sideToMove + playerColor + "|" +
-			string.Join(" ", moves) + "|" + string.Join(" ", legalMoves);
+			string.Join(" ", copiedMoves) + "|" + string.Join(" ", legalMoves);
 		lock (_sync)
 		{
+			ThrowIfDisposed();
 			if (_analysisContexts.TryGetValue(positionKey, out string? priorContext) && priorContext == context &&
 				(_completedAnalyses.ContainsKey(positionKey) || _waiters.ContainsKey(positionKey)))
 				return;
 
+			if (!_waiters.ContainsKey(positionKey) && _waiters.Count >= _maxPendingPositions)
+				throw new InvalidOperationException("The position-analysis queue has reached its configured pending-position limit.");
+
 			if (_waiters.TryGetValue(positionKey, out var priorWaiter))
 				priorWaiter.TrySetCanceled();
 			_completedAnalyses.Remove(positionKey);
+			_completedOrder.Remove(positionKey);
+			// Replacing the same key must also release its obsolete queued history immediately.
+			for (int remaining = _pendingRequests.Count; remaining > 0; remaining--)
+			{
+				var pending = _pendingRequests.Dequeue();
+				if (pending.PositionKey != positionKey) _pendingRequests.Enqueue(pending);
+			}
 			_analysisContexts[positionKey] = context;
 			long revision = ++_nextAnalysisRevision;
 			_analysisRevisions[positionKey] = revision;
 			_pendingRequests.Enqueue(
 				new(
 					positionKey,
-					[.. moves],
+					copiedMoves,
 					sideToMove,
 					playerColor,
 					legalMoves,
@@ -132,6 +158,7 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 	{
 		lock (_sync)
 		{
+			ThrowIfDisposed();
 			if (_completedAnalyses.TryGetValue(positionKey, out analysis))
 				return true;
 		}
@@ -148,6 +175,7 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 	{
 		lock (_sync)
 		{
+			ThrowIfDisposed();
 			if (_completedAnalyses.TryGetValue(positionKey, out var analysis))
 				return Task.FromResult(analysis);
 
@@ -241,6 +269,15 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 						continue;
 
 					_completedAnalyses[request.PositionKey] = analysis;
+					_completedOrder.AddLast(request.PositionKey);
+					while (_completedAnalyses.Count > _maxCachedPositions)
+					{
+						string expiredKey = _completedOrder.First!.Value;
+						_completedOrder.RemoveFirst();
+						_completedAnalyses.Remove(expiredKey);
+						_analysisContexts.Remove(expiredKey);
+						_analysisRevisions.Remove(expiredKey);
+					}
 					if (_waiters.TryGetValue(request.PositionKey, out waiter))
 						_waiters.Remove(request.PositionKey);
 				}
@@ -262,6 +299,8 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 
 					if (_waiters.TryGetValue(request.PositionKey, out waiter))
 						_waiters.Remove(request.PositionKey);
+					_analysisContexts.Remove(request.PositionKey);
+					_analysisRevisions.Remove(request.PositionKey);
 				}
 
 				waiter?.TrySetException(ex);
@@ -272,17 +311,35 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 	/// <summary>
 	///     Cancels queued work and releases coordinator resources.
 	/// </summary>
-	public void Dispose() => Cancel();
+	public void Dispose() => CancelCore(null, dispose: true);
 
-	private void CancelCore(ISet<string>? retainedPositionKeys)
+	/// <summary>Cancels analysis and observes the active worker before the caller releases its engine client.</summary>
+	public async ValueTask DisposeAsync()
+	{
+		Dispose();
+		Task? worker;
+		lock (_sync)
+		{
+			worker = _workerTask;
+		}
+		if (worker is not null) await worker.ConfigureAwait(false);
+	}
+
+	private void CancelCore(ISet<string>? retainedPositionKeys, bool dispose = false)
 	{
 		CancellationTokenSource retiredGeneration;
 		TaskCompletionSource<PositionAnalysisResult>[] waiters;
 
 		lock (_sync)
 		{
+			if (_disposed)
+			{
+				if (dispose) return;
+				ThrowIfDisposed();
+			}
+			_disposed = dispose;
 			retiredGeneration = _lifetimeCts;
-			_lifetimeCts = new();
+			if (!dispose) _lifetimeCts = new();
 			waiters = [.. _waiters.Values];
 			_pendingRequests.Clear();
 			_waiters.Clear();
@@ -290,13 +347,17 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 			if (retainedPositionKeys is null)
 			{
 				_completedAnalyses.Clear();
+				_completedOrder.Clear();
 			}
 			else
 			{
 				foreach (var positionKey in _completedAnalyses.Keys.ToArray())
 				{
 					if (!retainedPositionKeys.Contains(positionKey))
+					{
 						_completedAnalyses.Remove(positionKey);
+						_completedOrder.Remove(positionKey);
+					}
 				}
 			}
 			foreach (string key in _analysisContexts.Keys.ToArray())
@@ -316,10 +377,14 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 		finally
 		{
 			retiredGeneration.Dispose();
+			foreach (var waiter in waiters)
+				waiter.TrySetCanceled();
 		}
+	}
 
-		foreach (var waiter in waiters)
-			waiter.TrySetCanceled();
+	private void ThrowIfDisposed()
+	{
+		if (_disposed) throw new ObjectDisposedException(nameof(UciPositionAnalysisCoordinator));
 	}
 
 	private static Func<PositionAnalysisWorkItem, CancellationToken, Task<PositionAnalysisResult>> CreateAnalyzer(
@@ -333,6 +398,10 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable
 
 		return async (workItem, token) =>
 		{
+			if (client.TryGetOption("UCI_LimitStrength", out var strength) && strength.Type == UciOptionType.Check)
+				await client.SetOptionAsync(strength.Name, "false", token).ConfigureAwait(false);
+			if (client.TryGetOption("Skill Level", out var skill) && skill.Type == UciOptionType.Spin && skill.Max is int maxSkill)
+				await client.SetOptionAsync(skill.Name, maxSkill.ToString(CultureInfo.InvariantCulture), token).ConfigureAwait(false);
 			if (client.TryGetOption("UCI_ShowWDL", out var showWdl) && showWdl.Type == UciOptionType.Check)
 				await client.SetOptionAsync(showWdl.Name, "true", token).ConfigureAwait(false);
 			await client.SetPositionAsync(workItem.BaseFen, workItem.Moves, token).ConfigureAwait(false);

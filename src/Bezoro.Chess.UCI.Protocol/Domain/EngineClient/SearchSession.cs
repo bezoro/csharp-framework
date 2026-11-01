@@ -7,9 +7,9 @@ namespace Bezoro.Chess.UCI.Protocol.Domain.EngineClient;
 ///     Holds shared data for a search session for the duration of an active "go ..." command.
 ///     Tracks output lines and bestmove completion.
 /// </summary>
-internal sealed class SearchSession(bool ponder, bool fireAndForget = false)
+internal sealed class SearchSession(bool ponder, bool fireAndForget = false, int maxCapturedVariations = 4096)
 {
-	private readonly List<PrincipalVariation> _principalVariations = [];
+	private readonly Queue<PrincipalVariation> _principalVariations = new();
 	private readonly object                   _sync                = new();
 	private          UciBestMoveMessage?      _bestMove;
 	private          uint                     _multiPvValue;
@@ -89,7 +89,10 @@ internal sealed class SearchSession(bool ponder, bool fireAndForget = false)
 		lock (_sync)
 		{
 			if (info.PrincipalVariation is { } principalVariation)
-				_principalVariations.Add(principalVariation);
+			{
+				if (_principalVariations.Count >= maxCapturedVariations) _principalVariations.Dequeue();
+				_principalVariations.Enqueue(principalVariation);
+			}
 
 			// UCI reports search-wide cumulative counters, including on lines without a PV.
 			_reachedDepth = Math.Max(_reachedDepth, info.Depth ?? 0);

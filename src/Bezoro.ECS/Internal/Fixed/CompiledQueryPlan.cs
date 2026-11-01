@@ -56,7 +56,7 @@ internal sealed class CompiledQueryPlan(
 
 	public int ArchetypeCacheVersion { get; set; } = -1;
 
-	public uint LastObservedChangeVersion { get; set; }
+	public ulong LastObservedChangeVersion { get; set; }
 
 	public int MatchingArchetypeCount
 	{

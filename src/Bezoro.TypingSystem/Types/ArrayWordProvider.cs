@@ -1,21 +1,22 @@
-using Bezoro.Core.Extensions;
 using Bezoro.Core.Types;
 using Bezoro.TypingSystem.Abstractions;
-using Bezoro.TypingSystem.Extensions;
 
 namespace Bezoro.TypingSystem.Types;
 
 /// <summary>
-///     A word provider that uses an internal array (via <see cref="SwapbackArray{T}" />) to store words.
+///     A mutable word source with atomic consumption of each stored word.
 /// </summary>
 /// <remarks>
 ///     Concurrent calls to <see cref="TryGetNextWord" /> consume each stored word at most once.
 ///     Mutations must be externally synchronized with all other operations on this provider.
 /// </remarks>
-public sealed class ArrayWordProvider : IWordProvider
+public sealed class ArrayWordProvider : IWordSource
 {
 	private readonly SwapbackArray<string> _words;
 	private          int                   _index;
+
+	/// <summary>Creates an empty provider for caller-controlled population or file loading.</summary>
+	public ArrayWordProvider() => _words = new();
 
 	/// <summary>
 	///     Initializes a new instance of the <see cref="ArrayWordProvider" /> class with the specified words.
@@ -23,53 +24,38 @@ public sealed class ArrayWordProvider : IWordProvider
 	/// <param name="words">The collection of words to initialize the provider with.</param>
 	public ArrayWordProvider(IEnumerable<string> words)
 	{
-		words.ThrowIfNull();
+		if (words is null) throw new ArgumentNullException(nameof(words));
 		_words = new(words);
-		if (_words.IsEmpty)
-		{
-			if (words is System.Collections.ICollection)
-				throw new Bezoro.Core.Types.Exceptions.EmptyCollectionException(nameof(words));
-
-			throw new ArgumentException("Sequence cannot be empty.", nameof(words));
-		}
+		for (uint i = 0; i < _words.Count; i++)
+			if (_words[i] is null) throw new ArgumentException("Words cannot contain null strings.", nameof(words));
 	}
 
-	/// <inheritdoc />
-	[Obsolete("Use TryGetNextWord(out ReadOnlyMemory<char>) instead.")]
-	public bool HasMoreWords => Volatile.Read(ref _index) < _words.Count;
+	/// <summary>Total stored words, including consumed words.</summary>
+	public int WordCount => (int)_words.Count;
 
-	/// <inheritdoc />
-	public uint WordCount => _words.Count;
-
-	/// <inheritdoc />
+	/// <summary>Appends an owned copy of the word.</summary>
 	public void AddWord(ReadOnlyMemory<char> word)
 	{
 		_words.Add(word.ToString());
 	}
 
-	/// <inheritdoc />
+	/// <summary>Appends owned copies. Enumeration failure retains words already appended.</summary>
 	public void AddWords(IEnumerable<ReadOnlyMemory<char>> words)
 	{
+		if (words is null) throw new ArgumentNullException(nameof(words));
 		foreach (var word in words) _words.Add(word.ToString());
 	}
 
-	/// <inheritdoc />
-	[Obsolete("Use WordProviderFileExtensions.LoadWordsFromFile instead.")]
-	public void AddWordsFromFile(string filePath) => this.LoadWordsFromFile(filePath);
-
-	/// <inheritdoc />
+	/// <summary>Clears all words and resets consumption.</summary>
 	public void ClearWords()
 	{
 		_words.Clear();
 		_index = 0;
 	}
 
-	/// <inheritdoc />
+	/// <summary>Removes the first matching stored word using swapback, which can reorder unread words.</summary>
 	public void RemoveWord(ReadOnlyMemory<char> word)
 	{
-		word.ThrowIfNull();
-		word.ThrowIfEmpty();
-
 		if (!_words.TryGetIndex(word.ToString(), out uint index))
 			throw new InvalidOperationException("The specified word was not found.");
 
@@ -102,12 +88,5 @@ public sealed class ArrayWordProvider : IWordProvider
 			word = _words[(uint)index].AsMemory();
 			return true;
 		}
-	}
-
-	ReadOnlyMemory<char> IWordProvider.GetNextWord()
-	{
-		if (!TryGetNextWord(out var word)) throw new InvalidOperationException("No more words available.");
-
-		return word;
 	}
 }

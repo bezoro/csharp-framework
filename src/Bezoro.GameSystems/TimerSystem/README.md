@@ -88,13 +88,18 @@ while (eventQueue.TryDequeue(out var evt))
 - Timers are dedicated entities, enabling many timers per gameplay object.
 - `TimerSystem` writes lifecycle events to `TimerEventsResource` for pull-based consumption.
 - `TimerMode.OneShot` despawns timer entities when they finish.
-- Construction requires a positive finite duration and finite initial elapsed time. Finite elapsed values are clamped into the duration. Timer fields remain mutable; callers must maintain valid state when writing them directly.
+- Construction requires a positive finite duration, finite initial elapsed time, and defined state and mode values. Finite elapsed values are clamped into the duration. Timer fields remain mutable; callers must maintain valid state when writing them directly.
 - Non-finite mutable durations or elapsed values suspend advancement instead of falsely emitting `Finished`. Repair the values to resume processing. Direct system updates with non-finite or negative delta skip advancement; ordinary world updates reject invalid delta times before running systems.
 - `Persistent` retains a completed timer entity; it does not repeat automatically. Call `RestartTimer` to reset and run it again.
-- Control helpers change the component immediately on the world thread and retain one pending lifecycle transition for the next system update. Multiple control calls before an update can replace that pending transition.
+- Control helpers change the component immediately on the world thread and preserve every accepted transition in call order. Each event snapshots state, elapsed time, duration, id, and owner at the control call. The system publishes the transitions before advancing timers. Transitions for destroyed entities or removed timer components are discarded.
+- Pending control transitions use one world-owned queue created on the first accepted control call. The queue grows with the number of transitions waiting for an update and can allocate when it grows. It reserves no per-timer queue. Transitions requested from a callback wait until the next update; callbacks cannot make the current drain unlimited. Stop producers and stop world updates before world disposal.
 - Callbacks execute synchronously on the world update thread. Exceptions do not escape the system's event invocation, but one throwing multicast subscriber can prevent later subscribers of that callback from running. The event is already queued in `TimerEventsResource`; drain that resource for independent consumption.
 - World access, timer control, borrowed component refs, and event-queue draining require world-thread ownership. These helpers are not producer-thread queues.
 - Timers accumulate elapsed time as floats. They suit gameplay cooldowns; they are not wall-clock timers or high-resolution scheduling guarantees.
+
+## Migration
+
+Multiple controls before one update now produce multiple events with their original states. Consumers that assumed only the final transition must handle the full accepted sequence. Callbacks for control transitions run before timer advancement across the world.
 
 ## Build
 

@@ -15,6 +15,7 @@ namespace Bezoro.GameSystems.InputSystem.Services;
 [Reads(typeof(MovementInputSettings))]
 [Writes(typeof(MovementIntent))]
 [Writes(typeof(Velocity))]
+[ReadsResource(typeof(InputCommandQueue))]
 public sealed class IntentToVelocitySystem : ISystem
 {
 	private QueryHandle<IntentToVelocityQuerySpec> _query;
@@ -37,19 +38,18 @@ public sealed class IntentToVelocitySystem : ISystem
 	{
 		var world = context.World;
 		ref readonly var queue = ref world.ReadResource<InputCommandQueue>();
-		var now       = queue.SimulationTimestampSeconds;
+		var now       = queue.SimulationTimeSeconds;
 
 		using var cursor = world.Execute(_query);
 		if (!cursor.MoveNext())
 			return;
 
-		var entities = cursor.Current;
-		for (var i = 0; i < entities.Length; i++)
+		for (var i = 0; i < cursor.Count; i++)
 		{
-			var control = cursor.Get<InputControl>(i);
-			var setting = cursor.Get<MovementInputSettings>(i);
-			ref var intent = ref cursor.Get<MovementIntent>(i);
-			ref var velocity = ref cursor.Get<Velocity>(i);
+			ref readonly var control = ref cursor.Read<InputControl>(i);
+			ref readonly var setting = ref cursor.Read<MovementInputSettings>(i);
+			ref var intent = ref cursor.Write<MovementIntent>(i);
+			ref var velocity = ref cursor.Write<Velocity>(i);
 
 			if (float.IsNaN(setting.Speed) || float.IsInfinity(setting.Speed) ||
 				float.IsNaN(setting.HoldDurationSeconds) || float.IsInfinity(setting.HoldDurationSeconds) ||

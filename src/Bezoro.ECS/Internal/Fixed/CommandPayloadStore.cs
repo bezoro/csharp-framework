@@ -15,6 +15,8 @@ internal sealed class CommandPayloadStore<T>(int capacity, WorldOverflowPolicy o
 	private          bool _disposed;
 	private          int  _count;
 
+	public bool IsFull => _count >= _capacity;
+
 	public bool TryAdd(in T payload, out int payloadIndex)
 	{
 		ThrowIfDisposed();
@@ -40,7 +42,7 @@ internal sealed class CommandPayloadStore<T>(int capacity, WorldOverflowPolicy o
 	{
 		ThrowIfDisposed();
 
-		if ((uint)payloadIndex >= (uint)_count)
+		if (unchecked((uint)payloadIndex) >= unchecked((uint)_count))
 			throw new InvalidOperationException(
 				$"Payload index '{payloadIndex}' is out of range for '{typeof(T).Name}'."
 			);

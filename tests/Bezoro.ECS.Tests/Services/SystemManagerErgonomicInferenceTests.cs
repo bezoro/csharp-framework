@@ -188,6 +188,7 @@ internal sealed class ErgonomicConcurrencyProbe(System.TimeSpan firstWorkerWait)
 	}
 }
 
+[ReadsResource(typeof(ErgonomicSchedulerResource))]
 internal sealed class ErgonomicReadResourceSystem(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -199,6 +200,7 @@ internal sealed class ErgonomicReadResourceSystem(ErgonomicConcurrencyProbe prob
 
 internal sealed class ErgonomicSchedulerResource;
 
+[ReadsResource(typeof(ErgonomicSchedulerResource))]
 internal sealed class ErgonomicReadResourceSystemB(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -208,6 +210,7 @@ internal sealed class ErgonomicReadResourceSystemB(ErgonomicConcurrencyProbe pro
 	}
 }
 
+[WritesResource(typeof(ErgonomicSchedulerResource))]
 internal sealed class ErgonomicWriteResourceSystem(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -252,6 +255,7 @@ internal readonly struct ErgonomicRegularJob(ErgonomicConcurrencyProbe probe)
 	}
 }
 
+[Reads(typeof(ErgonomicJobVelocity)), Writes(typeof(ErgonomicJobPosition))]
 internal sealed class ErgonomicEntityAwareJobSystem(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -260,6 +264,7 @@ internal sealed class ErgonomicEntityAwareJobSystem(ErgonomicConcurrencyProbe pr
 	}
 }
 
+[Reads(typeof(ErgonomicJobVelocity)), Writes(typeof(ErgonomicJobPosition))]
 internal sealed class ErgonomicRegularJobSystem(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -268,6 +273,7 @@ internal sealed class ErgonomicRegularJobSystem(ErgonomicConcurrencyProbe probe)
 	}
 }
 
+[Reads(typeof(ErgonomicJobVelocity)), Writes(typeof(ErgonomicJobPosition))]
 internal sealed class ErgonomicEntityAwareWorldJobSystem(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -277,6 +283,7 @@ internal sealed class ErgonomicEntityAwareWorldJobSystem(ErgonomicConcurrencyPro
 	}
 }
 
+[Reads(typeof(ErgonomicJobVelocity)), Writes(typeof(ErgonomicJobPosition))]
 internal sealed class ErgonomicRegularWorldJobSystem(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -286,6 +293,7 @@ internal sealed class ErgonomicRegularWorldJobSystem(ErgonomicConcurrencyProbe p
 	}
 }
 
+[Reads(typeof(ErgonomicJobVelocity)), Writes(typeof(ErgonomicJobPosition))]
 internal sealed class ErgonomicEntityAwareCursorJobSystem(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -299,6 +307,7 @@ internal sealed class ErgonomicEntityAwareCursorJobSystem(ErgonomicConcurrencyPr
 	}
 }
 
+[Reads(typeof(ErgonomicJobVelocity)), Writes(typeof(ErgonomicJobPosition))]
 internal sealed class ErgonomicRegularCursorJobSystem(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -321,6 +330,7 @@ internal struct ErgonomicReadOnlyNote
 	public string Label;
 }
 
+[Reads(typeof(ErgonomicReadOnlyNote))]
 internal sealed class ErgonomicReadOnlyQueryViewSystemA(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -331,6 +341,7 @@ internal sealed class ErgonomicReadOnlyQueryViewSystemA(ErgonomicConcurrencyProb
 	}
 }
 
+[Reads(typeof(ErgonomicReadOnlyNote))]
 internal sealed class ErgonomicReadOnlyQueryViewSystemB(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -341,6 +352,7 @@ internal sealed class ErgonomicReadOnlyQueryViewSystemB(ErgonomicConcurrencyProb
 	}
 }
 
+[Writes(typeof(ErgonomicReadOnlyNote))]
 internal sealed class ErgonomicMutableQueryViewSystem(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -391,6 +403,7 @@ internal readonly struct ErgonomicParallelJobB(ErgonomicConcurrencyProbe probe) 
 	}
 }
 
+[Writes(typeof(ErgonomicParallelA))]
 internal sealed class ErgonomicParallelQueryViewSystemA(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)
@@ -401,6 +414,7 @@ internal sealed class ErgonomicParallelQueryViewSystemA(ErgonomicConcurrencyProb
 	}
 }
 
+[Writes(typeof(ErgonomicParallelB))]
 internal sealed class ErgonomicParallelQueryViewSystemB(ErgonomicConcurrencyProbe probe) : ISystem
 {
 	public void Update(in SystemContext context)

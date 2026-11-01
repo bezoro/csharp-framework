@@ -271,7 +271,7 @@ internal sealed unsafe class ComponentColumn : IDisposable
 	private void ValidateIndex(int index)
 	{
 		EnsureNotDisposed();
-		if ((uint)index >= (uint)Capacity)
+		if (unchecked((uint)index) >= unchecked((uint)Capacity))
 			throw new ArgumentOutOfRangeException(nameof(index));
 	}
 
@@ -281,7 +281,7 @@ internal sealed unsafe class ComponentColumn : IDisposable
 		if (length < 0)
 			throw new ArgumentOutOfRangeException(nameof(length));
 
-		if ((uint)index > (uint)Capacity || length > Capacity - index)
+		if (unchecked((uint)index) > unchecked((uint)Capacity) || length > Capacity - index)
 			throw new ArgumentOutOfRangeException(nameof(index));
 	}
 

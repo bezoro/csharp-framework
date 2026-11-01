@@ -5,6 +5,20 @@ namespace Bezoro.Logging.Types;
 /// </summary>
 public sealed class LogPayload
 {
+	/// <summary>Creates a payload with its required display values, callable from C# 9 consumers.</summary>
+	/// <param name="level">Defined severity or divider level.</param>
+	/// <param name="message">Unformatted message text.</param>
+	/// <param name="formattedMessage">Message ready for the destination sink.</param>
+	/// <param name="severityEmoji">Display marker for the level.</param>
+	public LogPayload(LogLevel level, string message, string formattedMessage, string severityEmoji)
+	{
+		if (level < LogLevel.None || level > LogLevel.Divider) throw new ArgumentOutOfRangeException(nameof(level));
+		Level = level;
+		Message = message ?? throw new ArgumentNullException(nameof(message));
+		FormattedMessage = formattedMessage ?? throw new ArgumentNullException(nameof(formattedMessage));
+		SeverityEmoji = severityEmoji ?? throw new ArgumentNullException(nameof(severityEmoji));
+	}
+
 	/// <summary>
 	///     UTC timestamp when the log was created.
 	/// </summary>
@@ -33,7 +47,7 @@ public sealed class LogPayload
 	/// <summary>
 	///     The severity level of the log.
 	/// </summary>
-	public required LogLevel Level { get; init; }
+	public LogLevel Level { get; }
 
 	/// <summary>
 	///     Visual style hints for rendering (color, bold, etc.).
@@ -48,17 +62,17 @@ public sealed class LogPayload
 	/// <summary>
 	///     Fully formatted log message ready for output.
 	/// </summary>
-	public required string FormattedMessage { get; init; }
+	public string FormattedMessage { get; }
 
 	/// <summary>
 	///     The raw message content.
 	/// </summary>
-	public required string Message { get; init; }
+	public string Message { get; }
 
 	/// <summary>
 	///     Emoji representing the severity level.
 	/// </summary>
-	public required string SeverityEmoji { get; init; }
+	public string SeverityEmoji { get; }
 
 	/// <summary>
 	///     Async context hierarchy joined with <c> &gt; </c> separators.

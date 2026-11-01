@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Bezoro.GameSystems.InputSystem.Abstractions;
@@ -20,9 +21,21 @@ public sealed class InputCommandQueue : IInputCommandSink
 	/// <summary>
 	///     Gets the simulation time accumulated by ingestion updates.
 	/// </summary>
-	public float SimulationTimeSeconds => (float)_simulationTimeSeconds;
+	public double SimulationTimeSeconds => _simulationTimeSeconds;
 
-	internal double SimulationTimestampSeconds => _simulationTimeSeconds;
+	/// <summary>Approximate pending ingress count. Producers may change it concurrently.</summary>
+	public int PendingCommandCount => _pendingCommands.Count;
+
+	/// <summary>Number of retained control snapshots. Read on the world thread.</summary>
+	public int TrackedControlCount => _latestByControl.Count;
+
+	/// <summary>Forgets a control's snapshot and sequence on the world thread.</summary>
+	/// <remarks>Pending commands remain queued and can recreate the control on a later update.</remarks>
+	public bool ForgetControl(int controlId)
+	{
+		if (controlId < 0) throw new ArgumentOutOfRangeException(nameof(controlId));
+		return _latestByControl.Remove(controlId);
+	}
 
 	/// <inheritdoc />
 	public void Enqueue(in InputCommand command) => _pendingCommands.Enqueue(command);
@@ -44,9 +57,9 @@ public sealed class InputCommandQueue : IInputCommandSink
 		_simulationTimeSeconds += deltaTimeSeconds;
 	}
 
-	internal void Drain()
+	internal void Drain(int maxCommands)
 	{
-		while (_pendingCommands.TryDequeue(out var command))
+		for (int i = 0; i < maxCommands && _pendingCommands.TryDequeue(out var command); i++)
 		{
 			if (_latestByControl.TryGetValue(command.ControlId, out var existing) &&
 				command.Sequence <= existing.Sequence)

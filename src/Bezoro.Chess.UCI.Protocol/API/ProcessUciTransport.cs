@@ -604,11 +604,9 @@ public sealed class ProcessUciTransport : IUciTransport
 
 		// For failed start, we can dispose everything immediately - no need to drain output
 		CancelReadLoopAndDisposeStreams();
-		await CleanupWriteLoopAndStdinAsync(false).ConfigureAwait(false);
-		await AwaitReadLoopsCompletionAsync().ConfigureAwait(false);
-
 		var p = Interlocked.Exchange(ref _process, null);
-		await CleanupProcessAsync(p, true).ConfigureAwait(false);
+		await Task.WhenAll(CleanupWriteLoopAndStdinAsync(false), CleanupProcessAsync(p, true)).ConfigureAwait(false);
+		await AwaitReadLoopsCompletionAsync().ConfigureAwait(false);
 
 		_stateManager.ResetStatusIfNeeded();
 	}
@@ -841,11 +839,11 @@ public sealed class ProcessUciTransport : IUciTransport
 
 		try
 		{
-			// Stop new writes first, but keep stdout/stderr open so final engine output can drain.
-			await CleanupWriteLoopAndStdinAsync(sendQuit).ConfigureAwait(false);
-
-			// Wait for graceful exit (or force termination) while the read loops are still alive.
-			await CleanupProcessAsync(p, false).ConfigureAwait(false);
+			// A child that no longer reads stdin can block a pipe write indefinitely. Begin the
+			// bounded process-exit path while joining writes so forced termination releases the pipe.
+			// Keep stdout/stderr open until both operations finish, allowing final output to drain.
+			await Task.WhenAll(CleanupWriteLoopAndStdinAsync(sendQuit), CleanupProcessAsync(p, false))
+				.ConfigureAwait(false);
 		}
 		catch (Exception ex)
 		{

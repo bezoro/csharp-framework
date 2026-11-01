@@ -35,7 +35,12 @@ public static class ArrayExtensions
 		array.ThrowIfNull();
 		b.ThrowIfNull();
 
-		return array.Length == b.Length && array.SequenceEqual(b);
+		if (ReferenceEquals(array, b)) return true;
+		if (array.Length != b.Length) return false;
+		var comparer = EqualityComparer<T>.Default;
+		for (int index = 0; index < array.Length; index++)
+			if (!comparer.Equals(array[index], b[index])) return false;
+		return true;
 	}
 
 	/// <summary>
@@ -98,12 +103,15 @@ public static class ArrayExtensions
 	/// <param name="cancellationToken">A CancellationToken that can be used to cancel the processing.</param>
 	/// <returns>A Task that represents the asynchronous operation.</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static async Task Process<T>(
+	public static async Task ProcessAsync<T>(
 		this T[,]                                  array,
 		Func<T, int, int, CancellationToken, Task> processFunc,
-		CancellationToken                          cancellationToken
+		CancellationToken                          cancellationToken = default
 	)
 	{
+		array.ThrowIfNull();
+		processFunc.ThrowIfNull();
+		cancellationToken.ThrowIfCancellationRequested();
 		int rows = array.GetLength(0);
 		int cols = array.GetLength(1);
 
@@ -111,22 +119,14 @@ public static class ArrayExtensions
 		{
 			for (var x = 0; x < cols; x++)
 			{
-				if (cancellationToken.IsCancellationRequested) return;
+				cancellationToken.ThrowIfCancellationRequested();
 
 				if (array[y, x] is null) continue;
 
-				try
-				{
-					await processFunc(array[y, x], x, y, cancellationToken);
-				}
-				catch (OperationCanceledException)
-				{
-					return;
-				}
-
-				await Task.Yield();
+				await processFunc(array[y, x], x, y, cancellationToken).ConfigureAwait(false);
 			}
 		}
+		cancellationToken.ThrowIfCancellationRequested();
 	}
 
 	/// <summary>
@@ -140,13 +140,14 @@ public static class ArrayExtensions
 	public static async Task ProcessArrayAsync<T>(this T?[] array, Func<T, Task> action)
 	{
 		array.ThrowIfNull();
+		action.ThrowIfNull();
 
 		for (var i = 0; i < array.Length; i++)
 		{
 			var t = array[i];
 			if (t.IsNull()) continue;
 
-			await action(t);
+			await action(t).ConfigureAwait(false);
 		}
 	}
 
@@ -160,6 +161,7 @@ public static class ArrayExtensions
 	public static void ProcessArray<T>(this T?[] array, Action<T> action)
 	{
 		array.ThrowIfNull();
+		action.ThrowIfNull();
 
 		foreach (var t in array)
 		{
@@ -212,7 +214,7 @@ public static class ArrayExtensions
 
 		for (var i = 0; i < array.Length; i++)
 		{
-			bool isMatch = array[i].Equals(element);
+			bool isMatch = EqualityComparer<T>.Default.Equals(array[i], element);
 			if (!isMatch) continue;
 
 			index = i;

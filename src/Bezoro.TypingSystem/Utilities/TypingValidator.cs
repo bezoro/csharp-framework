@@ -20,23 +20,15 @@ public static class TypingValidator
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static TypingResult ValidateInput(
 		ReadOnlySpan<char>      target,
-		byte                    position,
+		int                     position,
 		char                    inputChar,
 		TypingValidatorOptions? options = null)
 	{
-		int targetLength = target.Length;
-		if (targetLength > byte.MaxValue)
-			throw new ArgumentOutOfRangeException(
-				nameof(target),
-				targetLength,
-				"Target length cannot exceed 255 characters."
-			);
-
-		var length = (byte)targetLength;
+		int length = target.Length;
 
 		if (length == 0) return Dispatch(options, TypingResult.EmptyTarget(position, inputChar));
 
-		if (position >= length) return Dispatch(options, TypingResult.PositionOutOfRange(position, length, inputChar));
+		if (position < 0 || position >= length) return Dispatch(options, TypingResult.PositionOutOfRange(position, length, inputChar));
 
 		char expectedChar = target[position];
 

@@ -26,10 +26,11 @@ public static class ArrayHelper
 		ValidateArray(second);
 
 		if (first.Length != second.Length) return false;
+		var comparer = EqualityComparer<T>.Default;
 
 		for (var i = 0; i < first.Length; i++)
 		{
-			if (!Equals(first[i], second[i]))
+			if (!comparer.Equals(first[i], second[i]))
 				return false;
 		}
 

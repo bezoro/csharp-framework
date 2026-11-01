@@ -204,7 +204,7 @@ internal sealed class UciSearchCoordinator(
 			timeout = TimeSpan.FromMilliseconds(Math.Min(timeout.TotalMilliseconds, int.MaxValue));
 		}
 		string cmd     = UciCommandBuilder.BuildGoCommand(parameters);
-		var    session = new SearchSession(parameters.Ponder);
+		var    session = new SearchSession(parameters.Ponder, maxCapturedVariations: _options.MaxCapturedPrincipalVariations);
 
 		if (Interlocked.CompareExchange(ref _activeSession, session, null) is { })
 		{

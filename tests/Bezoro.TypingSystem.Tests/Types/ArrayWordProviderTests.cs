@@ -1,4 +1,3 @@
-using Bezoro.Core.Types.Exceptions;
 using Bezoro.TypingSystem.Abstractions;
 using Bezoro.TypingSystem.Extensions;
 using Bezoro.TypingSystem.Types;
@@ -102,11 +101,29 @@ public class ArrayWordProviderTests
 	}
 
 	[Fact]
-	public void Constructor_WhenWordsAreEmpty_ShouldThrowEmptyCollectionException()
+	public void Constructor_WhenWordsAreEmpty_ShouldSupportLaterPopulation()
 	{
-		Action action = () => _ = new ArrayWordProvider([]);
+		var provider = new ArrayWordProvider([]);
+		provider.TryGetNextWord(out _).Should().BeFalse();
+		provider.AddWord("first".AsMemory());
+		provider.TryGetNextWord(out var word).Should().BeTrue();
+		word.ToString().Should().Be("first");
+	}
 
-		action.Should().Throw<EmptyCollectionException>();
+	[Fact]
+	public void EmptyWord_CanBeRemovedAfterInsertion()
+	{
+		var provider = new ArrayWordProvider();
+		provider.AddWord(ReadOnlyMemory<char>.Empty);
+		provider.RemoveWord(ReadOnlyMemory<char>.Empty);
+		provider.WordCount.Should().Be(0);
+	}
+
+	[Fact]
+	public void Constructor_RejectsNullWordEntries()
+	{
+		Action action = () => new ArrayWordProvider(new[] { "valid", null! });
+		action.Should().Throw<ArgumentException>().WithParameterName("words");
 	}
 
 	[Fact]

@@ -32,7 +32,7 @@ public partial class WorldRuntimeTests
 		using var cursor = world.Execute(query);
 		cursor.MoveNext().Should().BeTrue();
 		cursor.Current.Length.Should().Be(1);
-		cursor.Get<Position>(0).Should().Be(new Position { X = 4, Y = 9 });
+		cursor.Write<Position>(0).Should().Be(new Position { X = 4, Y = 9 });
 	}
 
 
@@ -60,7 +60,7 @@ public partial class WorldRuntimeTests
 		using var cursor = world.Execute(handle);
 		cursor.MoveNext().Should().BeTrue();
 		cursor.Current.Length.Should().Be(1);
-		cursor.Get<Position>(0).Should().Be(new Position { X = 11, Y = -3 });
+		cursor.Write<Position>(0).Should().Be(new Position { X = 11, Y = -3 });
 	}
 
 	[Fact]
@@ -88,7 +88,7 @@ public partial class WorldRuntimeTests
 		cursor.MoveNext().Should().BeTrue();
 		cursor.Current.Length.Should().Be(4);
 		for (var i = 0; i < cursor.Current.Length; i++)
-			cursor.Get<Position>(i).Should().Be(new Position { X = i, Y = -i });
+			cursor.Write<Position>(i).Should().Be(new Position { X = i, Y = -i });
 	}
 
 
@@ -350,16 +350,14 @@ public partial class WorldRuntimeTests
 		using var commands = world.CreateCommandStream();
 		var       entity   = commands.CreateEntity();
 		var       payload  = new Payload("alpha");
-		commands.SetManaged(entity, new ManagedTag { Payload = payload });
+		commands.Set(entity, new ManagedTag { Payload = payload });
 		world.Playback(commands);
 
 		var       positionQuery = world.Compile<ManagedTagQuerySpec>();
 		using var cursor        = world.Execute(positionQuery);
 		cursor.MoveNext().Should().BeTrue();
 
-		#pragma warning disable CS0618
-		world.TryGetManaged(cursor.Current[0], out ManagedTag resolved).Should().BeTrue();
-		#pragma warning restore CS0618
+		world.TryRead(cursor.Current[0], out ManagedTag resolved).Should().BeTrue();
 		resolved.Payload.Should().BeSameAs(payload);
 	}
 
@@ -457,12 +455,12 @@ public partial class WorldRuntimeTests
 
 		var firstPayload = new Payload("first");
 		var firstEntity  = commands.CreateEntity();
-		commands.SetManaged(firstEntity, new ManagedTag { Payload = firstPayload });
+		commands.Set(firstEntity, new ManagedTag { Payload = firstPayload });
 		world.Playback(commands);
 
 		var secondPayload = new Payload("second");
 		var secondEntity  = commands.CreateEntity();
-		commands.SetManaged(secondEntity, new ManagedTag { Payload = secondPayload });
+		commands.Set(secondEntity, new ManagedTag { Payload = secondPayload });
 		world.Playback(commands);
 
 		var       query  = world.Compile<ManagedTagQuerySpec>();

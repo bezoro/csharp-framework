@@ -168,16 +168,12 @@ public class TypingValidatorTests
 	}
 
 	[Fact]
-	public void ValidateInput_WhenTargetExceedsMaximumLength_ShouldThrowArgumentOutOfRangeException()
+	public void ValidateInput_WhenTargetExceedsByteLength_ShouldValidateFullSpan()
 	{
-		string word = new('a', byte.MaxValue + 1);
-
-		Action action = () => TypingValidator.ValidateInput(word.AsSpan(), 0, 'a');
-
-		action.Should()
-			  .Throw<ArgumentOutOfRangeException>()
-			  .WithParameterName("target")
-			  .WithMessage("*Target length cannot exceed 255 characters.*");
+		string word = new('a', 1_000);
+		var result = TypingValidator.ValidateInput(word.AsSpan(), 999, 'a');
+		result.Status.Should().Be(TypingValidationStatus.Completed);
+		result.NextPosition.Should().Be(1_000);
 	}
 
 	[Fact]

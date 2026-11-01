@@ -20,18 +20,12 @@ internal sealed class SystemRegistrationInspector(GeneratedSystemMetadataResolve
 		var writeSet                  = new HashSet<int>();
 		var systemSetTypes            = new HashSet<Type>();
 		List<ISystemRunCondition>? runConditions = null;
-		var hasDeclaredAccessMetadata = false;
 		var type                      = system.GetType();
 		var isExclusive               = false;
+		var hasNoWorldAccessDeclaration = false;
 
 		if (_metadataResolver.TryGet(type, out var metadata))
 		{
-			if (metadata.Reads.Length > 0 ||
-				metadata.Writes.Length > 0 ||
-				metadata.ReadResources.Length > 0 ||
-				metadata.WriteResources.Length > 0 ||
-				metadata.IsExclusive)
-				hasDeclaredAccessMetadata = true;
 
 			for (var i = 0; i < metadata.Reads.Length; i++)
 			{
@@ -72,6 +66,9 @@ internal sealed class SystemRegistrationInspector(GeneratedSystemMetadataResolve
 
 			switch (attribute)
 			{
+				case NoWorldAccessAttribute:
+					hasNoWorldAccessDeclaration = true;
+					continue;
 				case ExclusiveAttribute:
 					isExclusive = true;
 					continue;
@@ -114,11 +111,8 @@ internal sealed class SystemRegistrationInspector(GeneratedSystemMetadataResolve
 			}
 		}
 
-		if (isExclusive || hasAttributeAccessMetadata)
-			hasDeclaredAccessMetadata = true;
-
-		if (!hasDeclaredAccessMetadata)
-			isExclusive = false;
+		if (!hasAttributeAccessMetadata && !hasNoWorldAccessDeclaration)
+			isExclusive = true;
 
 		var beforeSystemTypes = new HashSet<Type>();
 		var afterSystemTypes  = new HashSet<Type>();

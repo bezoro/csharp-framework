@@ -25,9 +25,9 @@ public sealed class UciPlayableMatchSessionClockTests
 	{
 		var now = new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero);
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
-		var session = CreateSession(playingClient, analysisClient, moveListClient, () => now);
+		var session = CreateSession(playingClient, moveListClient, () => now);
 		await session.StartNewGameAsync();
 		await session.RefreshAsync();
 
@@ -53,9 +53,9 @@ public sealed class UciPlayableMatchSessionClockTests
 	{
 		var now = new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero);
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
-		var session = CreateSession(playingClient, analysisClient, moveListClient, () => now);
+		var session = CreateSession(playingClient, moveListClient, () => now);
 		await session.StartNewGameAsync();
 		await session.RefreshAsync();
 
@@ -83,9 +83,9 @@ public sealed class UciPlayableMatchSessionClockTests
 	{
 		var now = new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero);
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
-		var session = CreateSession(playingClient, analysisClient, moveListClient, () => now);
+		var session = CreateSession(playingClient, moveListClient, () => now);
 		await session.StartNewGameAsync();
 		await session.RefreshAsync();
 
@@ -122,11 +122,10 @@ public sealed class UciPlayableMatchSessionClockTests
 	{
 		var now = new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero);
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
 		var session = CreateSession(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			() => now,
 			StagedTimeControl);
@@ -163,9 +162,9 @@ public sealed class UciPlayableMatchSessionClockTests
 	{
 		var now = new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero);
 		await using var playingClient = await CreateStartedClientAsync();
-		await using var analysisClient = await CreateStartedClientAsync();
+
 		await using var moveListClient = await CreateStartedClientAsync();
-		var session = CreateSession(playingClient, analysisClient, moveListClient, () => now);
+		var session = CreateSession(playingClient, moveListClient, () => now);
 		await session.LoadMatchAsync(
 			new(
 				Fen.Default,
@@ -187,20 +186,19 @@ public sealed class UciPlayableMatchSessionClockTests
 
 	private static UciPlayableMatchSession CreateSession(
 		UciEngineClient               playingClient,
-		UciEngineClient               analysisClient,
+
 		UciEngineClient               moveListClient,
 		Func<DateTimeOffset>          utcNowProvider,
 		PlayableMatchTimeControl?     timeControl = null) =>
 		new(
 			playingClient,
-			analysisClient,
 			moveListClient,
 			perspectiveColor: 'w',
 			whiteController: MatchSideControllerKind.Manual,
 			blackController: MatchSideControllerKind.Manual,
 			engineMoveTimeMs: 100,
-			moveListAnalysisTimeMs: 10,
-			moveListFallbackTimeMs: 10,
+			analysisMoveTimeMs: 10,
+			analysisFallbackMoveTimeMs: 10,
 			timeControl: timeControl ?? TimeControl,
 			utcNowProvider: utcNowProvider);
 

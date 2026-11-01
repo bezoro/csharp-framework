@@ -1,59 +1,52 @@
 # Bezoro.ECS.SourceGen
 
-Roslyn incremental source generators for `Bezoro.ECS` compile-time helpers.
+Four Roslyn incremental generators support ECS queries, systems, jobs, and split-field components. The analyzer targets .NET Standard 2.0. Consumer runtime assemblies target .NET 10 and .NET Standard 2.1.
 
-`Bezoro.ECS.SourceGen` exists to support the `Bezoro.ECS` consumer surface. Application code in this solution is expected to depend on `Bezoro.ECS`; the generator project is infrastructure rather than a primary application-facing API.
-
-## Types
-
-| Type                        | Description                                                                                                                                         |
-|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `QuerySourceGenerator`      | Generates `ICompiledQuerySpec` implementations from `[Query]` filter attributes (`[With]`/`[All]`, `[AnyOf]`/`[Any]`, `[Without]`/`[None]`, `[Optional]`, `[Changed]`, `[Added]`). |
-| `ComponentCatalogGenerator` | Emits a compatibility stub; components are lazily registered at runtime.                                                                            |
-| `SystemMetadataGenerator`   | Generates static system metadata catalog from discovered `ISystem` types.                                                                           |
-| `ForEachJobSourceGenerator` | Generates `Run(job)` / `RunParallel(job)` extensions for `QueryView<TSpec>`, plus `Run(job)` extensions for `QueryCursor` and `World`, for accessible `IForEach<T...>` and `IForEachEntity<T...>` job structs (arity 1-4). |
-| `SplitFieldSourceGenerator` | Generates split-group helper types and storage helpers for `[SplitFields]` components with `[SplitGroup]` field annotations.                        |
-
-## Quick Start
-
-Reference `Bezoro.ECS.SourceGen` as an analyzer through `Bezoro.ECS`, then declare a query specification:
+## Declare a query
 
 ```csharp
-using Bezoro.ECS.Attributes;
-
-[Query]
-[With(typeof(Position))]
-internal readonly partial struct MovingEntityQuery;
+[Query, With(typeof(Position)), Without(typeof(Frozen))]
+internal readonly partial struct MovingEntities;
 ```
 
-The generator completes the partial query type with an `ICompiledQuerySpec` implementation consumed by `World.Compile<MovingEntityQuery>()` and `World.Query<MovingEntityQuery>()`.
+`QuerySourceGenerator` implements `ICompiledQuerySpec.Build` with deterministic filters. Supported attributes are `With`/`All`, `Without`/`None`, `AnyOf`/`Any`, `Optional`, `Changed`, and `Added`. Query declarations must be top-level partial structs or record structs. Generic declarations and escaped identifiers are supported. Ref structs, file-local declarations, and nested queries require a manual `ICompiledQuerySpec` instead.
 
-## API Reference
+Component filter types must be closed non-nullable value types that the world can store. The generator reports unsupported declarations at the declaration itself:
 
-The project is analyzer infrastructure and does not expose an application runtime API. Its compile-time contract consists of generated implementations and diagnostics:
-
-| Generator | Generated contract |
+| Diagnostic | Meaning |
 | --- | --- |
-| `QuerySourceGenerator` | Query-spec metadata and `ICompiledQuerySpec` implementation. |
-| `SystemMetadataGenerator` | Static read/write metadata for scheduler planning. |
-| `ForEachJobSourceGenerator` | Typed `Run` and `RunParallel` extension methods for ECS jobs. |
-| `SplitFieldSourceGenerator` | Split-field component helpers and storage metadata. |
-| `ComponentCatalogGenerator` | Compatibility output for runtime component registration. |
+| `BECSG001` | Unsupported ECS attribute on a generated query. The attribute is ignored. |
+| `BECSG002` | Query declaration cannot be completed by the generator. |
+| `BECSG003` | Query filter component cannot be stored in a world. |
+| `BECSG004` | Split component or grouped field cannot be represented by generated helpers. |
 
-## Feature Notes
+## Run a typed job
 
-- `BECSG001` reports unsupported ECS attributes on a query specification.
-- `QueryView<TSpec>` is the canonical generated sequential and parallel job surface.
-- Retained generated `World` job extensions remain non-obsolete and route the supplied handle through an exact-handle `QueryView<TSpec>` without recompiling it. This is distinct from the obsolete generic `World.Run...` instance compatibility methods.
-- `QueryCursor` job extensions remain available for low-level execution over the current cursor batch.
-- Generated code is deterministic and uses fully qualified symbols.
-- Consumer source remains the source of truth; generated files are build artifacts and must not be edited.
+```csharp
+internal readonly struct Integrate(float dt) : IForEach<Position, Velocity>
+{
+    public void Execute(ref Position position, in Velocity velocity) => position.X += velocity.X * dt;
+}
 
-## Design Notes
+world.Query<MovingEntities>().Run(new Integrate(dt));
+```
 
-- Generators avoid reflection on hot paths by precomputing query and metadata structures.
-- Generated code uses fully-qualified symbols for resilient compilation.
-- `SystemMetadataGenerator` infers read/write sets from ECS iteration and direct access calls (`World.Query(...).ForEach(...)`, generated `Run(...)` / `RunParallel(...)` job extensions, `World.Run(...)`, `QueryCursor.ForEach(...)`, `QueryCursor.Run(...)`, `Read/Write/TryWrite`, and explicit resource APIs), in addition to `[Reads(typeof(...))]` / `[Writes(typeof(...))]` attributes. Retained `Get` and `GetResource` aliases infer writes, while `TryGetManaged` infers a read; dormant `LegacyQuery`, `ForEachRw` / `ForEachRW`, direct-world, and cursor recognizers remain supported.
-- `ForEachJobSourceGenerator` keeps the ergonomic callsite as `Run(...)` / `RunParallel(...)` even for entity-aware jobs; the generated code routes those calls to the runtime `RunEntity(...)` / `RunParallelEntity(...)` members.
-- `QuerySourceGenerator` reports `BECSG001` when unsupported ECS attributes are applied to a `[Query]` spec; unsupported attributes are ignored for generated query build code.
-- Output is deterministic and incremental-safe.
+`ForEachJobSourceGenerator` emits `Run(job)` and `RunParallel(job)` extensions for `QueryView`, plus `Run(job)` for `QueryCursor` and an exact-handle `world.Run(handle, job)` extension. Entity-aware interfaces route to `RunEntity`/`RunParallelEntity`. Generic jobs and jobs nested in generic containers preserve type constraints. Generated extensions require public/internal accessibility throughout the containing type chain and exclude file-local/ref-like jobs. A declaration that hides an outer generic parameter with the same name uses the runtime's explicit generic methods instead.
+
+Job interfaces accept one writable component and up to three readonly components. If a job implements several supported interfaces, generated extensions select the greatest arity. Use explicit generic query methods to select another interface.
+
+## Declare system access
+
+`SystemMetadataGenerator` inspects the effective `ISystem.Update` implementation. It handles explicit interface methods, inherited source methods, generic base substitutions, and overrides. Direct `World.Read`/`Write`, resource operations, cursor/accessor `Read`/`Write`/`TryRead`, query delegates, and job calls contribute access metadata. Calls to arbitrary helper method bodies are not analyzed. Inferred types complement the explicit contract and never authorize parallel scheduling by themselves. Direct structural calls always force exclusive execution. Attributes declare the complete access contract for parallel execution.
+
+A base implementation from another assembly has no source body to inspect. Without an explicit access declaration, its derived system is exclusive. Generic or inaccessible system declarations use runtime attributes rather than generated catalogs. Generated and runtime-only systems remain exclusive without explicit `[Reads]`/`[Writes]`/resource attributes or `[NoWorldAccess]`, including systems with known inferred accesses. Declare `[Reads]`, `[Writes]`, resource access, or `[NoWorldAccess]` when appropriate; use `[Exclusive]` for work requiring the owning thread.
+
+Components register lazily at runtime. The old empty `ComponentCatalogGenerator` compatibility stub has been removed.
+
+## Split fields into storage groups
+
+`SplitFieldSourceGenerator` emits group structs and conversion helpers for accessible non-generic `[SplitFields]` components. Apply `[SplitGroup(nonNegativeId)]` to mutable public/internal fields. Readonly, fixed-buffer, pointer, inaccessible, and negative-group fields produce `BECSG004`.
+
+Helpers preserve effective accessibility through containing types and grouped fields. Generated names encode namespace/type boundaries, generic syntax, and underscores distinctly to avoid collisions. Top-level names without special characters retain the usual `ComponentNameSplitGenerated` spelling. Generated files remain build artifacts.
+
+Compilation tests run all four generators against valid and invalid programs, then compile their output with Roslyn. Metadata tests emit assemblies and inspect the resulting contracts, including an inherited base from a separate assembly.

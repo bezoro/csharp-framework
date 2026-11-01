@@ -33,7 +33,7 @@ public class EcsWorldQueryViewBenchmarks
 			var entity = commands.CreateEntity();
 			commands.Set(entity, new Position { X = i, Y = i });
 			commands.Set(entity, new Velocity { X = 1, Y = -1 });
-			commands.SetManaged(entity, new ManagedNote { Label = "note", Count = i });
+			commands.Set(entity, new ManagedNote { Label = "note", Count = i });
 		}
 
 		_world.Playback(commands);

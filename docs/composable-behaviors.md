@@ -65,7 +65,7 @@ Cleanup is attempted once per activation and continues through other started chi
 
 ## Validation evidence
 
-The complete local Linux Release build passed with zero warnings/errors. All **3,154 tests passed across 19 suites**, with no failures or skipped tests, including Stockfish 19 integration. Conditions, Statecharts, BehaviorTrees and Behaviors also passed their module suites with checked arithmetic.
+The initial integration at d336d39f passed its local Linux Release build with zero warnings/errors. All **3,154 tests passed across 19 suites**, with no failures or skipped tests, including Stockfish 19 integration. Conditions, Statecharts, BehaviorTrees and Behaviors also passed their module suites with checked arithmetic. This is historical evidence for that integration; see the [subsequent framework API review](framework-api-review.md) for declarative builders and current validation.
 
 The new suites contain 22 condition, 54 statechart, 43 tree and 54 composition tests. They cover short-circuit order, inactive branches, ancestor exits, parallel regions, budget-one progress, lifecycle failure, stale tokens, ownership, and warmed allocation checks.
 

@@ -37,12 +37,13 @@ public static class InputWorldExtensions
 	///     Registers fixed-tick input systems with their declared stage ordering.
 	/// </summary>
 	/// <param name="world">The ECS world.</param>
-	public static void AddMovementInputPipeline(this World world)
+	/// <param name="maxCommandsPerUpdate">Maximum dequeued commands per fixed update. Zero pauses ingestion.</param>
+	public static void AddMovementInputPipeline(this World world, int maxCommandsPerUpdate = int.MaxValue)
 	{
 		if (world is null)
 			throw new ArgumentNullException(nameof(world));
 
-		var ingestionSystem = new InputIngestionSystem();
+		var ingestionSystem = new InputIngestionSystem(maxCommandsPerUpdate);
 		var intentSystem    = new IntentToVelocitySystem();
 
 		world.AddSystem(ingestionSystem, ingestionSystem.Stage);

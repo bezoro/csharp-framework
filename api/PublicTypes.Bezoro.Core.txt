@@ -63,7 +63,7 @@ Bezoro.Core.Types.IFailureReason | public interface | review-contract | Types/IF
 Bezoro.Core.Types.MaxValueUpdateMode | public enum | stable-shape | Types/MaxValueUpdateMode.cs
 Bezoro.Core.Types.Percent | public readonly struct | stable-shape | Types/Percent.cs
 Bezoro.Core.Types.Pool.ObjectPool<T> | public sealed class | stable-shape | Types/Pool/ObjectPool.cs
-Bezoro.Core.Types.Pool.PooledObjectHandle<T> | public struct | review-mutable-struct | Types/Pool/PooledObjectHandle.cs
+Bezoro.Core.Types.Pool.PooledObjectHandle<T> | public readonly struct | stable-shape | Types/Pool/PooledObjectHandle.cs
 Bezoro.Core.Types.Pool.PoolExhaustedException | public class | review-unsealed-class | Types/Pool/PoolExhaustedException.cs
 Bezoro.Core.Types.PoolOptions | public readonly record struct | stable-shape | Types/PoolOptions.cs
 Bezoro.Core.Types.PoolPolicy<T> | public sealed class | stable-shape | Types/PoolPolicy.cs

@@ -158,11 +158,11 @@ public readonly record struct UIntVector2(uint X, uint Y) : IFormattable
 	public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
 	{
 		provider ??= CultureInfo.InvariantCulture;
-		string fmt = format.Length == 0 ? "G" : new string(format).ToUpperInvariant();
+		char fmt = format.Length == 1 ? char.ToUpperInvariant(format[0]) : 'G';
 
 		switch (fmt)
 		{
-			case "N":
+			case 'N':
 			{
 				// "X=value, Y=value" format
 				Span<char> temp = stackalloc char[64];
@@ -195,7 +195,7 @@ public readonly record struct UIntVector2(uint X, uint Y) : IFormattable
 				charsWritten = pos;
 				return true;
 			}
-			case "X":
+			case 'X':
 			{
 				// "value,value" format (CSV)
 				Span<char> temp = stackalloc char[32];
@@ -275,7 +275,9 @@ public readonly record struct UIntVector2(uint X, uint Y) : IFormattable
 	private static bool IsValidComponent(float f)
 	{
 		if (float.IsNaN(f) || float.IsInfinity(f)) return false;
-		if (f < 0f || f > uint.MaxValue) return false;
+		// UInt32.MaxValue rounds up to 2^32 in binary32. Compare in binary64
+		// before the conversion so that value cannot wrap or throw under checked builds.
+		if (f < 0f || (double)f > uint.MaxValue) return false;
 
 		return MathF.Abs(f - MathF.Round(f)) <= WHOLE_TOLERANCE;
 	}

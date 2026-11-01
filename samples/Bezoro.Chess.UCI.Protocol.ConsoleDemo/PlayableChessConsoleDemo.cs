@@ -9,8 +9,8 @@ internal static class PlayableChessConsoleDemo
 	private const int ADVANTAGE_BAR_HEIGHT       = 8;
 	private const int ADVANTAGE_BAR_WIDTH        = 3;
 	private const int ENGINE_MOVE_TIME_MS        = 1_000;
-	private const int MOVE_LIST_ANALYSIS_TIME_MS = 3_000;
-	private const int MOVE_LIST_FALLBACK_TIME_MS = 250;
+	private const int ANALYSIS_MOVE_TIME_MS = 3_000;
+	private const int ANALYSIS_FALLBACK_TIME_MS = 250;
 
 	public static async Task<int> RunAsync(string[] args)
 	{
@@ -42,17 +42,14 @@ internal static class PlayableChessConsoleDemo
 
 		await using var playingClient  = new UciEngineClient(enginePath, options: options);
 		await using var analysisClient = new UciEngineClient(enginePath, options: options);
-		await using var moveListClient = new UciEngineClient(enginePath, options: options);
 
 		playingClient.StderrReceived  += static line => Console.Error.WriteLine($"play stderr: {line}");
 		analysisClient.StderrReceived += static line => Console.Error.WriteLine($"analysis stderr: {line}");
-		moveListClient.StderrReceived += static line => Console.Error.WriteLine($"moves stderr: {line}");
 
 		try
 		{
 			await playingClient.StartAsync(CancellationToken.None);
 			await analysisClient.StartAsync(CancellationToken.None);
-			await moveListClient.StartAsync(CancellationToken.None);
 		}
 		catch (Exception ex)
 		{
@@ -83,11 +80,13 @@ internal static class PlayableChessConsoleDemo
 
 		try
 		{
-			var session = new UciPlayableMatchSession(
+			await using var session = new UciPlayableMatchSession(
 				playingClient,
 				analysisClient,
-				moveListClient,
-				playerColor
+				playerColor,
+				engineMoveTimeMs: ENGINE_MOVE_TIME_MS,
+				analysisMoveTimeMs: ANALYSIS_MOVE_TIME_MS,
+				analysisFallbackMoveTimeMs: ANALYSIS_FALLBACK_TIME_MS
 			);
 
 			await RunGameLoopAsync(session);

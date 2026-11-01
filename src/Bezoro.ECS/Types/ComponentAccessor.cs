@@ -44,7 +44,7 @@ public struct ComponentAccessor<T>
 	/// <param name="component">Resolved component value when found.</param>
 	/// <returns><c>true</c> when the entity is alive and contains <typeparamref name="T" />; otherwise <c>false</c>.</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public bool TryGet(Entity entity, out T component) =>
+	public bool TryRead(Entity entity, out T component) =>
 		_world.TryGetComponentForAccessor(
 			entity,
 			_typeId,
@@ -61,7 +61,7 @@ public struct ComponentAccessor<T>
 	/// <exception cref="InvalidOperationException">Thrown when the entity is not alive.</exception>
 	/// <exception cref="KeyNotFoundException">Thrown when the entity does not contain <typeparamref name="T" />.</exception>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public ref T Get(Entity entity)
+	public ref T Write(Entity entity)
 	{
 		_world.ResolveAccessorLocation(
 			entity,

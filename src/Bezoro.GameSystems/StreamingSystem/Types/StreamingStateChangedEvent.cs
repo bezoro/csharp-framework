@@ -11,7 +11,7 @@ namespace Bezoro.GameSystems.StreamingSystem.Types;
 public readonly record struct StreamingStateChangedEvent(
 	Entity              TargetEntity,
 	StreamingTransition Transition,
-	float               DistanceSquared
+	double              DistanceSquared
 )
 {
 	/// <summary>

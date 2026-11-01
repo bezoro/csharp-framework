@@ -89,7 +89,7 @@ public partial class WorldRuntimeTests
 		var accessor = world.GetAccessor<Position>();
 		for (var i = 0; i < entities.Length; i++)
 		{
-			ref var position = ref accessor.Get(entities[i]);
+			ref var position = ref accessor.Write(entities[i]);
 			position.X += 1;
 		}
 
@@ -102,7 +102,7 @@ public partial class WorldRuntimeTests
 		{
 			for (var i = 0; i < entities.Length; i++)
 			{
-				ref var position = ref accessor.Get(entities[i]);
+				ref var position = ref accessor.Write(entities[i]);
 				position.Y -= 1;
 			}
 		}
@@ -367,7 +367,7 @@ public partial class WorldRuntimeTests
 			warmup.MoveNext();
 			for (var i = 0; i < ENTITY_COUNT; i++)
 			{
-				ref var position = ref warmup.Get<Position>(i);
+				ref var position = ref warmup.Write<Position>(i);
 				position.X += 1f;
 			}
 		}
@@ -382,7 +382,7 @@ public partial class WorldRuntimeTests
 			cursor.MoveNext();
 			for (var i = 0; i < ENTITY_COUNT; i++)
 			{
-				ref var position = ref cursor.Get<Position>(i);
+				ref var position = ref cursor.Write<Position>(i);
 				position.X += 1f;
 			}
 		}
@@ -394,7 +394,7 @@ public partial class WorldRuntimeTests
 			cursor.MoveNext();
 			for (var i = 0; i < ENTITY_COUNT; i++)
 			{
-				ref var position = ref cursor.Get<Position>(i);
+				ref var position = ref cursor.Write<Position>(i);
 				position.X += 1f;
 			}
 		}

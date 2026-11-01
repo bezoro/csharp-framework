@@ -21,10 +21,15 @@ namespace Bezoro.UnityApiSmoke
             if (!backpack.TryAdd(coin, 12) || !backpack.TryTransferTo(stash, coin, 5))
                 throw new InvalidOperationException("Inventory transfer failed.");
 
-            var done = new StateId(1);
-            var collect = new SignalId(0);
-            var machine = new StateMachineDefinition(2, 1,
-                new[] { new StateTransition(default, collect, done) });
+            var quest = new StateMachineBuilder();
+            var gathering = quest.State();
+            var complete = quest.State();
+            var collected = quest.Signal();
+            quest.StartIn(gathering);
+            quest.Transition(from: gathering, on: collected, to: complete);
+            var machine = quest.Build();
+            StateId done = quest.Resolve(complete);
+            SignalId collect = quest.Resolve(collected);
             StateStep step = machine.Step(machine.InitialState, collect);
 
             var points = new PointSpatialIndex<int>(

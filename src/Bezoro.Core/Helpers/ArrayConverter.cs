@@ -38,7 +38,10 @@ public static class ArrayConverter
 		if (rows < 0) throw new ArgumentOutOfRangeException(nameof(rows));
 		if (columns < 0) throw new ArgumentOutOfRangeException(nameof(columns));
 
-		if (from.Length != rows * columns)
+		long area = (long)rows * columns;
+		if (area > int.MaxValue)
+			throw new ArgumentOutOfRangeException(nameof(columns), "The requested area must fit in an Int32.");
+		if (from.Length != area)
 			throw new ArgumentException(
 				$"Source length {from.Length} does not match the requested shape {rows}x{columns}.",
 				nameof(from)

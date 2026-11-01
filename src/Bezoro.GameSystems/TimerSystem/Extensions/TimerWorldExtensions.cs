@@ -26,8 +26,8 @@ public static class TimerWorldExtensions
 			return false;
 
 		timer.State = TimerState.Running;
-		timer.PendingAction = TimerPendingAction.Started;
 		world.Set(timerEntity, in timer);
+		QueueTransition(world, timerEntity, in timer, TimerLifecycle.Started);
 		return true;
 	}
 
@@ -47,8 +47,8 @@ public static class TimerWorldExtensions
 			return false;
 
 		timer.State = TimerState.Paused;
-		timer.PendingAction = TimerPendingAction.Paused;
 		world.Set(timerEntity, in timer);
+		QueueTransition(world, timerEntity, in timer, TimerLifecycle.Paused);
 		return true;
 	}
 
@@ -68,8 +68,8 @@ public static class TimerWorldExtensions
 			return false;
 
 		timer.State = TimerState.Stopped;
-		timer.PendingAction = TimerPendingAction.Stopped;
 		world.Set(timerEntity, in timer);
+		QueueTransition(world, timerEntity, in timer, TimerLifecycle.Stopped);
 		return true;
 	}
 
@@ -89,8 +89,8 @@ public static class TimerWorldExtensions
 			return false;
 
 		timer.State = TimerState.Running;
-		timer.PendingAction = TimerPendingAction.Resumed;
 		world.Set(timerEntity, in timer);
+		QueueTransition(world, timerEntity, in timer, TimerLifecycle.Resumed);
 		return true;
 	}
 
@@ -108,9 +108,17 @@ public static class TimerWorldExtensions
 
 		timer.ElapsedSeconds = 0f;
 		timer.State = TimerState.Running;
-		timer.PendingAction = TimerPendingAction.Restarted;
 		world.Set(timerEntity, in timer);
+		QueueTransition(world, timerEntity, in timer, TimerLifecycle.Restarted);
 		return true;
+	}
+
+	private static void QueueTransition(World world, Entity entity, in Timer timer, TimerLifecycle lifecycle)
+	{
+		var owner = world.TryRead(entity, out TimerOwner link) ? link.OwnerEntity : Entity.None;
+		var transition = new TimerLifecycleEvent(entity, owner, timer.TimerId, lifecycle,
+			timer.State, timer.ElapsedSeconds, timer.DurationSeconds);
+		world.GetOrCreateResource<TimerTransitionQueue>().Enqueue(in transition);
 	}
 
 	private static bool TryGetTimer(World world, Entity timerEntity, out Timer timer)

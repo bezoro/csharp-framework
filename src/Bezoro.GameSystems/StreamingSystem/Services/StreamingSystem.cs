@@ -22,6 +22,7 @@ public sealed class StreamingSystem : ISystem
 	private const float DEFAULT_STREAM_IN_DISTANCE    = 100f;
 	private const float DEFAULT_STREAM_OUT_DISTANCE   = 120f;
 	private const int   DEFAULT_MAX_ENTITIES_PER_TICK = 50;
+	private QueryHandle<StreamingQuery> _query;
 
 	/// <summary>
 	///     Raised when an entity changes streaming state.
@@ -53,6 +54,7 @@ public sealed class StreamingSystem : ISystem
 		if (world is null) throw new ArgumentNullException(nameof(world));
 
 		EnsureResources(world);
+		_query = world.Compile<StreamingQuery>();
 	}
 
 	/// <inheritdoc />
@@ -66,8 +68,9 @@ public sealed class StreamingSystem : ISystem
 		ref readonly var config = ref world.ReadResource<StreamingConfig>();
 		ValidateConfig(in config);
 
-		var streamingQuery = world.Query<StreamingQuery>();
-		int total          = streamingQuery.Count();
+		using var cursor = world.Execute(_query);
+		cursor.MoveNext();
+		int total = cursor.Count;
 		if (total == 0)
 		{
 			ref var emptyRuntime = ref world.WriteResource<StreamingRuntimeState>();
@@ -81,44 +84,33 @@ public sealed class StreamingSystem : ISystem
 
 		ref var runtime               = ref world.WriteResource<StreamingRuntimeState>();
 		int     startIndex            = NormalizeStartIndex(runtime.NextEntityIndex, total);
-		int     selectionEndExclusive = startIndex + maxEntitiesPerTick;
-		bool    wraps                 = selectionEndExclusive > total;
-		if (wraps)
-			selectionEndExclusive -= total;
-
-		float inDistanceSquared  = config.StreamInDistance * config.StreamInDistance;
-		float outDistanceSquared = config.StreamOutDistance * config.StreamOutDistance;
+		double inDistanceSquared  = (double)config.StreamInDistance * config.StreamInDistance;
+		double outDistanceSquared = (double)config.StreamOutDistance * config.StreamOutDistance;
 		var   referencePosition  = config.ReferencePosition;
 
-		ApplyStreamingTransitions(
-			world,
-			streamingQuery,
-			referencePosition,
-			inDistanceSquared,
-			outDistanceSquared,
-			startIndex,
-			wraps,
-			selectionEndExclusive
-		);
+		for (int i = 0, index = startIndex; i < maxEntitiesPerTick; i++, index++)
+		{
+			if (index == total) index = 0;
+			ref readonly var position = ref cursor.Read<Position>(index);
+			if (!IsFinite(position.X) || !IsFinite(position.Y) || !IsFinite(position.Z)) continue;
+			double distanceSquared = GetDistanceSquared(referencePosition, in position);
+			var state = cursor.Read<StreamState>(index);
+			var transition = TryTransition(ref state, distanceSquared, inDistanceSquared, outDistanceSquared);
+			if (!transition.HasValue) continue;
+			cursor.Write<StreamState>(index) = state;
+			Publish(world, cursor.GetEntity(index), transition.Value, distanceSquared);
+		}
 
-		runtime.NextEntityIndex = startIndex + maxEntitiesPerTick;
-		if (runtime.NextEntityIndex >= total)
-			runtime.NextEntityIndex -= total;
+		runtime.NextEntityIndex = maxEntitiesPerTick >= total - startIndex
+			? maxEntitiesPerTick - (total - startIndex)
+			: startIndex + maxEntitiesPerTick;
 	}
 
-	private static bool IsSelectedIndex(int index, int startIndex, bool wraps, int endExclusive)
+	private static double GetDistanceSquared(Vector3 referencePosition, in Position entityPosition)
 	{
-		if (!wraps)
-			return index >= startIndex && index < endExclusive;
-
-		return index >= startIndex || index < endExclusive;
-	}
-
-	private static float GetDistanceSquared(Vector3 referencePosition, in Position entityPosition)
-	{
-		float dx = referencePosition.X - entityPosition.X;
-		float dy = referencePosition.Y - entityPosition.Y;
-		float dz = referencePosition.Z - entityPosition.Z;
+		double dx = (double)referencePosition.X - entityPosition.X;
+		double dy = (double)referencePosition.Y - entityPosition.Y;
+		double dz = (double)referencePosition.Z - entityPosition.Z;
 		return dx * dx + dy * dy + dz * dz;
 	}
 
@@ -132,9 +124,9 @@ public sealed class StreamingSystem : ISystem
 
 	private static StreamingTransition? TryTransition(
 		ref StreamState streamState,
-		float           distanceSquared,
-		float           inDistanceSquared,
-		float           outDistanceSquared)
+		double           distanceSquared,
+		double           inDistanceSquared,
+		double           outDistanceSquared)
 	{
 		if (!streamState.IsStreamedIn && distanceSquared <= inDistanceSquared)
 		{
@@ -168,17 +160,22 @@ public sealed class StreamingSystem : ISystem
 
 	private static void ValidateConfig(in StreamingConfig config)
 	{
-		if (config.StreamInDistance < 0f)
+		if (!IsFinite(config.ReferencePosition.X) || !IsFinite(config.ReferencePosition.Y) || !IsFinite(config.ReferencePosition.Z))
+			throw new ArgumentOutOfRangeException(nameof(config), "ReferencePosition must be finite.");
+
+		if (!IsFinite(config.StreamInDistance) || config.StreamInDistance < 0f)
 			throw new ArgumentOutOfRangeException(
-				nameof(config), "StreamInDistance must be non-negative."
+				nameof(config), "StreamInDistance must be non-negative and finite."
 			);
 
-		if (config.StreamOutDistance < config.StreamInDistance)
+		if (!IsFinite(config.StreamOutDistance) || config.StreamOutDistance < config.StreamInDistance)
 			throw new ArgumentException(
 				$"StreamOutDistance ({config.StreamOutDistance}) must be >= StreamInDistance ({config.StreamInDistance}) to prevent flickering.",
 				nameof(config)
 			);
 	}
+
+	private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 
 	private Action<StreamingStateChangedEvent>? GetHandler(StreamingTransition transition) =>
 		transition switch
@@ -188,43 +185,11 @@ public sealed class StreamingSystem : ISystem
 			_                               => null
 		};
 
-	private void ApplyStreamingTransitions(
-		World                     world,
-		QueryView<StreamingQuery> query,
-		Vector3                   referencePosition,
-		float                     inDistanceSquared,
-		float                     outDistanceSquared,
-		int                       startIndex,
-		bool                      wraps,
-		int                       endExclusive)
-	{
-		var index = 0;
-		query.ForEach((Entity entity, ref StreamState state, in Position position) =>
-			{
-				int currentIndex = index++;
-				if (!IsSelectedIndex(currentIndex, startIndex, wraps, endExclusive))
-					return;
-
-				float distanceSquared = GetDistanceSquared(referencePosition, in position);
-
-				var transition = TryTransition(
-					ref state,
-					distanceSquared,
-					inDistanceSquared,
-					outDistanceSquared
-				);
-
-				if (transition.HasValue)
-					Publish(world, entity, transition.Value, distanceSquared);
-			}
-		);
-	}
-
 	private void Publish(
 		World               world,
 		Entity              targetEntity,
 		StreamingTransition transition,
-		float               distanceSquared)
+		double               distanceSquared)
 	{
 		var     eventData = new StreamingStateChangedEvent(targetEntity, transition, distanceSquared);
 		ref var events    = ref world.GetOrCreateResource<StreamingEventsResource>();
@@ -233,6 +198,14 @@ public sealed class StreamingSystem : ISystem
 		try
 		{
 			Changed?.Invoke(eventData);
+		}
+		catch
+		{
+			// Keep the transition-specific notification independent from Changed failures.
+		}
+
+		try
+		{
 			GetHandler(transition)?.Invoke(eventData);
 		}
 		catch
