@@ -16,6 +16,14 @@ namespace Bezoro.ECS.SourceGen.Generators;
 public sealed class QuerySourceGenerator : IIncrementalGenerator
 {
 	private const string QUERY_ATTRIBUTE_NAME = "Bezoro.ECS.Attributes.QueryAttribute";
+	private static readonly DiagnosticDescriptor InvalidDeclarationDescriptor = new(
+		"BECSG002", "Unsupported query declaration",
+		"Query '{0}' must be a top-level partial struct or record struct, without ref or file modifiers",
+		"Usage", DiagnosticSeverity.Error, true);
+	private static readonly DiagnosticDescriptor InvalidComponentDescriptor = new(
+		"BECSG003", "Unsupported query component",
+		"Query component '{0}' must be a closed non-nullable value type that can be stored in a world",
+		"Usage", DiagnosticSeverity.Error, true);
 	private static readonly DiagnosticDescriptor UnsupportedQueryAttributeDescriptor = new(
 		"BECSG001",
 		"Unsupported query attribute",
@@ -30,7 +38,7 @@ public sealed class QuerySourceGenerator : IIncrementalGenerator
 	{
 		var queryModels = context.SyntaxProvider.ForAttributeWithMetadataName(
 									 QUERY_ATTRIBUTE_NAME,
-									 static (node, _) => node is StructDeclarationSyntax,
+									 static (node, _) => node is TypeDeclarationSyntax,
 									 static (syntaxContext, _) =>
 										 CreateModel((INamedTypeSymbol)syntaxContext.TargetSymbol)
 								 )
@@ -51,8 +59,18 @@ public sealed class QuerySourceGenerator : IIncrementalGenerator
 					);
 				}
 
-				if (!model.IsPartial || model.IsNested)
+				if (!model.IsPartial || model.IsNested || model.IsUnsupported)
+				{
+					productionContext.ReportDiagnostic(Diagnostic.Create(
+						InvalidDeclarationDescriptor, model.DeclarationLocation, model.TypeName));
 					return;
+				}
+				if (model.InvalidComponents.Length > 0)
+				{
+					foreach (string component in model.InvalidComponents)
+						productionContext.ReportDiagnostic(Diagnostic.Create(InvalidComponentDescriptor, model.DeclarationLocation, component));
+					return;
+				}
 
 				string source = BuildSource(model);
 				productionContext.AddSource(model.HintName, SourceText.From(source, Encoding.UTF8));
@@ -64,7 +82,7 @@ public sealed class QuerySourceGenerator : IIncrementalGenerator
 	{
 		for (var i = 0; i < symbol.DeclaringSyntaxReferences.Length; i++)
 		{
-			if (symbol.DeclaringSyntaxReferences[i].GetSyntax() is StructDeclarationSyntax structSyntax)
+			if (symbol.DeclaringSyntaxReferences[i].GetSyntax() is TypeDeclarationSyntax structSyntax)
 				for (var m = 0; m < structSyntax.Modifiers.Count; m++)
 				{
 					if (structSyntax.Modifiers[m].IsKind(SyntaxKind.PartialKeyword))
@@ -87,6 +105,7 @@ public sealed class QuerySourceGenerator : IIncrementalGenerator
 		var added       = new HashSet<string>(StringComparer.Ordinal);
 		var changed     = new HashSet<string>(StringComparer.Ordinal);
 		var unsupported = new HashSet<string>(StringComparer.Ordinal);
+		var invalidComponents = new HashSet<string>(StringComparer.Ordinal);
 
 		foreach (var attribute in symbol.GetAttributes())
 		{
@@ -95,6 +114,11 @@ public sealed class QuerySourceGenerator : IIncrementalGenerator
 
 			if (attributeClass.ContainingNamespace.ToDisplayString() != "Bezoro.ECS.Attributes")
 				continue;
+			foreach (var argument in attribute.ConstructorArguments)
+				if (argument.Kind == TypedConstantKind.Type && argument.Value is ITypeSymbol type &&
+					(!type.IsValueType || type is INamedTypeSymbol named && (named.IsRefLikeType || named.IsUnboundGenericType) ||
+					 type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T))
+					invalidComponents.Add(ToFullyQualified(type));
 
 			if (attributeClass.Name is "AllAttribute" or "WithAttribute")
 			{
@@ -143,16 +167,15 @@ public sealed class QuerySourceGenerator : IIncrementalGenerator
 		string typeNamespace = symbol.ContainingNamespace.IsGlobalNamespace
 								   ? string.Empty
 								   : symbol.ContainingNamespace.ToDisplayString();
-		string hintName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-								.Replace("global::", string.Empty)
-								.Replace('<',        '_')
-								.Replace('>',        '_')
-								.Replace('.',        '_') +
-						  ".CompiledQuery.g.cs";
+		string hintName = GeneratedNames.UniqueName(symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)) +
+			".CompiledQuery.g.cs";
+		string typeName = GeneratedNames.Identifier(symbol.Name);
+		if (symbol.TypeParameters.Length > 0)
+			typeName += "<" + string.Join(", ", symbol.TypeParameters.Select(static parameter => GeneratedNames.Identifier(parameter.Name))) + ">";
 
 		return new(
 			typeNamespace,
-			symbol.Name,
+			typeName,
 			hintName,
 			all.ToArray(),
 			none.ToArray(),
@@ -164,7 +187,10 @@ public sealed class QuerySourceGenerator : IIncrementalGenerator
 			symbol.Locations.FirstOrDefault() ?? Location.None,
 			IsPartial(symbol),
 			symbol.IsReadOnly,
-			symbol.ContainingType is { }
+			symbol.ContainingType is { },
+			symbol.IsRefLikeType || symbol.IsFileLocal,
+			symbol.IsRecord,
+			invalidComponents.OrderBy(static name => name, StringComparer.Ordinal).ToArray()
 		);
 	}
 
@@ -179,7 +205,8 @@ public sealed class QuerySourceGenerator : IIncrementalGenerator
 			builder.AppendLine();
 		}
 
-		builder.Append(model.IsReadOnly ? "readonly partial struct " : "partial struct ")
+		if (model.IsReadOnly) builder.Append("readonly ");
+		builder.Append(model.IsRecord ? "partial record struct " : "partial struct ")
 			   .Append(model.TypeName)
 			   .AppendLine(" : global::Bezoro.ECS.Abstractions.ICompiledQuerySpec");
 		builder.AppendLine("{");
@@ -293,12 +320,18 @@ public sealed class QuerySourceGenerator : IIncrementalGenerator
 		Location    declarationLocation,
 		bool        isPartial,
 		bool        isReadOnly,
-		bool        isNested
+		bool        isNested,
+		bool        isUnsupported,
+		bool        isRecord,
+		string[]    invalidComponents
 	)
 	{
 		public bool IsNested   { get; } = isNested;
 		public bool IsPartial  { get; } = isPartial;
 		public bool IsReadOnly { get; } = isReadOnly;
+		public bool IsUnsupported { get; } = isUnsupported;
+		public bool IsRecord { get; } = isRecord;
+		public string[] InvalidComponents { get; } = invalidComponents;
 
 		public string[] All                { get; } = all;
 		public string[] Added              { get; } = added;

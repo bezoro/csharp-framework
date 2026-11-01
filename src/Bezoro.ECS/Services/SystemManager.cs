@@ -87,6 +87,11 @@ internal sealed class SystemManager
 	{
 		if (world is null) throw new ArgumentNullException(nameof(world));
 		if (system is null) throw new ArgumentNullException(nameof(system));
+		Stage stage = explicitStage ?? system.Stage;
+		if (stage is not (Stage.Input or Stage.PreTick or Stage.Tick or Stage.PostTick or Stage.Render))
+			throw new ArgumentOutOfRangeException(nameof(explicitStage), "Unknown system stage.");
+		if (system.LoopPhase is not (SystemLoopPhase.Tick or SystemLoopPhase.FixedTick or SystemLoopPhase.LateTick))
+			throw new ArgumentOutOfRangeException(nameof(system), "Unknown system loop phase.");
 
 		for (var i = 0; i < _systems.Count; i++)
 		{
@@ -97,7 +102,7 @@ internal sealed class SystemManager
 		var state = _registrationInspector.Inspect(
 			world,
 			system,
-			explicitStage,
+			stage,
 			GetOrCreateResourceAccessTypeId,
 			EnsureSystemSetKnown
 		);
@@ -174,6 +179,8 @@ internal sealed class SystemManager
 	public void UpdatePhase(World world, SystemLoopPhase loopPhase, float deltaTime)
 	{
 		if (world is null) throw new ArgumentNullException(nameof(world));
+		if (loopPhase is not (SystemLoopPhase.Tick or SystemLoopPhase.FixedTick or SystemLoopPhase.LateTick))
+			throw new ArgumentOutOfRangeException(nameof(loopPhase));
 		if (float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime < 0f)
 			throw new ArgumentOutOfRangeException(nameof(deltaTime), "Elapsed time must be finite and non-negative.");
 

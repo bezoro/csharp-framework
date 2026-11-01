@@ -48,8 +48,7 @@ internal sealed class WorldQueryEngine(World world, WorldConfig config)
 
 	public QueryCursor Execute<TSpec>(QueryHandle<TSpec> handle) where TSpec : struct, ICompiledQuerySpec
 	{
-		if (!ReferenceEquals(handle.Plan.Owner, _world))
-			throw new InvalidOperationException("Query handle belongs to a different world.");
+		_world.ValidateDirectIterationHandle(handle);
 
 		AcquireQueryExecutionScratch(out var chunkMatches, out var entities, out bool usesSharedScratch);
 		try

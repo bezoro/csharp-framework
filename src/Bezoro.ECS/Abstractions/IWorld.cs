@@ -58,18 +58,6 @@ public interface IWorld
 		where T3 : struct
 		where T4 : struct;
 
-	/// <summary>
-	///     Compatibility alias that returns the mutable reference produced by <see cref="Write{T}(Entity)" />.
-	/// </summary>
-	/// <typeparam name="T">Component type.</typeparam>
-	/// <param name="entity">Entity whose component is requested.</param>
-	/// <returns>A mutable reference to the component.</returns>
-	/// <exception cref="ObjectDisposedException">The world has been disposed.</exception>
-	/// <exception cref="InvalidOperationException"><paramref name="entity" /> is dead or stale.</exception>
-	/// <exception cref="KeyNotFoundException">The entity does not have component <typeparamref name="T" />.</exception>
-	[Obsolete("Use Read<T>(Entity) for read-only access or Write<T>(Entity) for mutable access instead.")]
-	ref T Get<T>(Entity entity) where T : struct;
-
 	/// <summary>Reads component <typeparamref name="T" /> on <paramref name="entity" /> by readonly reference.</summary>
 	/// <typeparam name="T">Component type.</typeparam>
 	/// <param name="entity">Entity whose component is requested.</param>
@@ -92,16 +80,6 @@ public interface IWorld
 
 	/// <summary>Attempts to retrieve a mutable reference wrapper for component <typeparamref name="T" />.</summary>
 	bool TryWrite<T>(Entity entity, out ComponentRef<T> component) where T : struct;
-
-	/// <summary>
-	///     Compatibility alias that returns the mutable reference produced by <see cref="WriteResource{T}" />.
-	/// </summary>
-	/// <typeparam name="T">Resource type.</typeparam>
-	/// <returns>A mutable reference to the registered resource.</returns>
-	/// <exception cref="ObjectDisposedException">The world has been disposed.</exception>
-	/// <exception cref="KeyNotFoundException">No resource of type <typeparamref name="T" /> is registered.</exception>
-	[Obsolete("Use ReadResource<T>() for read-only access or WriteResource<T>() for mutable access instead.")]
-	ref T GetResource<T>() where T : notnull;
 
 	/// <summary>Returns <c>true</c> if a resource of type <typeparamref name="T" /> is registered.</summary>
 	bool HasResource<T>() where T : notnull;

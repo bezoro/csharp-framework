@@ -33,7 +33,7 @@ public class SplitFieldGeneratorTests
 			cursor.MoveNext().Should().BeTrue();
 			for (var i = 0; i < cursor.Current.Length; i++)
 			{
-				ref var group = ref cursor.Get<SplitTransformSplitGenerated.Group0>(i);
+				ref var group = ref cursor.Write<SplitTransformSplitGenerated.Group0>(i);
 				sum += group.PositionX + group.PositionY + group.RotationZ;
 			}
 		}

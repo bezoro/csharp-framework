@@ -1,5 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Bezoro.ECS.Internal;
 using FluentAssertions;
 using Xunit;
@@ -74,6 +76,49 @@ public sealed class WorldResourceLifetimeTests
 		Action create = () => store.GetOrCreate<DisposableResource>(() => null!);
 		create.Should().Throw<InvalidOperationException>();
 		store.Count.Should().Be(0);
+	}
+
+	[Fact]
+	public void ResourceFactory_CannotOverwriteAReentrantRegistration()
+	{
+		var store = new WorldResourceStore();
+		var resource = new DisposableResource();
+		Action create = () => store.GetOrCreate(() =>
+		{
+			store.Set(resource);
+			return new DisposableResource();
+		});
+		create.Should().Throw<InvalidOperationException>().WithMessage("*cannot mutate*");
+		store.Count.Should().Be(0);
+		resource.DisposeCount.Should().Be(0, "the rejected registration remains caller-owned");
+		resource.Dispose();
+	}
+
+	[Fact]
+	public void DisposalCallback_CannotRepopulateTheStoreBeingCleared()
+	{
+		var store = new WorldResourceStore();
+		var resource = new DisposableResource();
+		store.Set(new CallbackResource(() => store.Set(resource)));
+		Action clear = store.Clear;
+		clear.Should().Throw<AggregateException>();
+		store.Count.Should().Be(0);
+		resource.DisposeCount.Should().Be(0);
+		resource.Dispose();
+	}
+
+	[Fact]
+	public void RestoredResource_ParallelFirstAccessKeepsOneStableBox()
+	{
+		var store = new WorldResourceStore();
+		store.SetBoxed(typeof(Counter), new Counter());
+		Parallel.For(0, 10_000, _ => Interlocked.Increment(ref store.Get<Counter>().Value));
+		store.Get<Counter>().Value.Should().Be(10_000);
+	}
+
+	private sealed class CallbackResource(Action callback) : IDisposable
+	{
+		public void Dispose() => callback();
 	}
 
 	[Fact]

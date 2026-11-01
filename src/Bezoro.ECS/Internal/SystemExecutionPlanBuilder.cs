@@ -43,15 +43,16 @@ internal sealed class SystemExecutionPlanBuilder
 
 		var indicesBySystemType = BuildSystemTypeIndexMap(stageSystems);
 		for (var i = 0; i < count; i++)
-		{
 			AddOrderingEdges(stageSystems[i], i, indicesBySystemType, edges, indegree);
 
+		// Resolve declared ordering first. Orient resource conflicts along that order,
+		// preserving registration order wherever a declaration does not require a change.
+		// Adding conflict edges before this step can invent cycles against a valid After.
+		int[] dependencyOrder = GetDependencyOrder(stageSystems, edges, indegree);
+		for (var i = 0; i < count; i++)
 			for (int j = i + 1; j < count; j++)
-			{
-				if (Conflicts(stageSystems[i], stageSystems[j]))
-					AddEdge(i, j, edges, indegree);
-			}
-		}
+				if (Conflicts(stageSystems[dependencyOrder[i]], stageSystems[dependencyOrder[j]]))
+					AddEdge(dependencyOrder[i], dependencyOrder[j], edges, indegree);
 
 		var batches   = new List<SystemState[]>();
 		var processed = new bool[count];
@@ -110,6 +111,26 @@ internal sealed class SystemExecutionPlanBuilder
 		return Overlaps(first.WriteIds, second.ReadIds) ||
 			   Overlaps(first.WriteIds, second.WriteIds) ||
 			   Overlaps(first.ReadIds, second.WriteIds);
+	}
+
+	private static int[] GetDependencyOrder(List<SystemState> systems, List<int>[] edges, int[] indegree)
+	{
+		var remainingIndegree = (int[])indegree.Clone();
+		var processed = new bool[systems.Count];
+		var order = new int[systems.Count];
+		for (var position = 0; position < order.Length; position++)
+		{
+			int next = -1;
+			for (var i = 0; i < systems.Count; i++)
+				if (!processed[i] && remainingIndegree[i] == 0) { next = i; break; }
+			if (next < 0)
+				throw new InvalidOperationException(
+					$"System dependency graph contains a cycle. Stuck systems: {DescribeStuckSystems(systems, processed)}");
+			processed[next] = true;
+			order[position] = next;
+			foreach (int target in edges[next]) remainingIndegree[target]--;
+		}
+		return order;
 	}
 
 	private static bool Overlaps(int[] left, int[] right)

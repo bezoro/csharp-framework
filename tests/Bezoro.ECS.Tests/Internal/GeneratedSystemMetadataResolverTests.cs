@@ -13,10 +13,10 @@ namespace Bezoro.ECS.Tests.Internal;
 public class GeneratedSystemMetadataResolverTests
 {
 	[Fact]
-	public void TryGet_WhenSystemUsesLegacyGet_ShouldClassifyComponentAsWrite()
+	public void TryGet_WhenSystemUsesWrite_ShouldClassifyComponentAsWrite()
 	{
 		var  resolver = new GeneratedSystemMetadataResolver();
-		bool result   = resolver.TryGet(typeof(LegacyGetComponentSystem), out var metadata);
+		bool result   = resolver.TryGet(typeof(WriteComponentSystem), out var metadata);
 
 		result.Should().BeTrue();
 		metadata.Writes.Should().ContainSingle(t => t == typeof(ErgonomicJobPosition));
@@ -24,10 +24,10 @@ public class GeneratedSystemMetadataResolverTests
 	}
 
 	[Fact]
-	public void TryGet_WhenSystemUsesLegacyGetResource_ShouldClassifyResourceAsWrite()
+	public void TryGet_WhenSystemUsesWriteResource_ShouldClassifyResourceAsWrite()
 	{
 		var  resolver = new GeneratedSystemMetadataResolver();
-		bool result   = resolver.TryGet(typeof(LegacyGetResourceSystem), out var metadata);
+		bool result   = resolver.TryGet(typeof(WriteResourceSystem), out var metadata);
 
 		result.Should().BeTrue();
 		metadata.WriteResources.Should().ContainSingle(t => t == typeof(ErgonomicSchedulerResource));
@@ -35,10 +35,10 @@ public class GeneratedSystemMetadataResolverTests
 	}
 
 	[Fact]
-	public void TryGet_WhenSystemUsesLegacyTryGetManaged_ShouldClassifyComponentAsRead()
+	public void TryGet_WhenSystemUsesTryReadManagedComponent_ShouldClassifyComponentAsRead()
 	{
 		var  resolver = new GeneratedSystemMetadataResolver();
-		bool result   = resolver.TryGet(typeof(LegacyTryGetManagedSystem), out var metadata);
+		bool result   = resolver.TryGet(typeof(ReadManagedComponentSystem), out var metadata);
 
 		result.Should().BeTrue();
 		metadata.Reads.Should().ContainSingle(t => t == typeof(ErgonomicReadOnlyNote));
@@ -59,7 +59,7 @@ public class GeneratedSystemMetadataResolverTests
 	}
 
 	[Fact]
-	public void TryGet_WhenSystemHasNoAttributes_ShouldReturnEmptyMetadata()
+	public void TryGet_WhenSystemHasNoAttributes_ShouldReturnExclusiveMetadata()
 	{
 		var  resolver = new GeneratedSystemMetadataResolver();
 		bool result   = resolver.TryGet(typeof(ResolverUnknownSystem), out var metadata);
@@ -68,7 +68,7 @@ public class GeneratedSystemMetadataResolverTests
 		metadata.SystemType.Should().Be(typeof(ResolverUnknownSystem));
 		metadata.Reads.Should().BeEmpty();
 		metadata.Writes.Should().BeEmpty();
-		metadata.IsExclusive.Should().BeFalse();
+		metadata.IsExclusive.Should().BeTrue();
 	}
 
 	[Fact]

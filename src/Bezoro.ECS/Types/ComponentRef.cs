@@ -18,5 +18,13 @@ public readonly ref struct ComponentRef<T> where T : struct
 	/// <summary>
 	///     Gets the mutable component reference.
 	/// </summary>
-	public ref T Value => ref MemoryMarshal.GetReference(_value);
+	public ref T Value
+	{
+		get
+		{
+			if (_value.IsEmpty)
+				throw new InvalidOperationException("No component reference is available. Check the result of TryWrite before accessing Value.");
+			return ref MemoryMarshal.GetReference(_value);
+		}
+	}
 }

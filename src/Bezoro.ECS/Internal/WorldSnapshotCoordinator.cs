@@ -19,20 +19,28 @@ internal sealed class WorldSnapshotCoordinator(
 		where TSnapshotWriter : struct, IWorldSnapshotWriter
 	{
 		EnsureNoActiveQueryIterations("Snapshot capture cannot run while a query iteration is active.");
-		_snapshotService.Capture(ref writer, _entityStore.AliveCount, _entityStore.NextEntityId);
+		_queryEngine.EnterQueryIteration();
+		try { _snapshotService.Capture(ref writer, _entityStore.AliveCount, _entityStore.NextEntityId); }
+		finally { _queryEngine.ExitQueryIteration(); }
 	}
 
 	public void Restore<TSnapshotReader>(
 		ref TSnapshotReader             reader,
-		SnapshotDeserializationOptions? options,
-		int                             typeCount)
+		SnapshotDeserializationOptions? options)
 		where TSnapshotReader : struct, IWorldSnapshotReader
 	{
 		EnsureNoActiveQueryIterations("Snapshot restore cannot run while a query iteration is active.");
 
 		options ??= SnapshotDeserializationOptions.Default;
-		var snapshot = reader.Read() ?? throw new InvalidOperationException("Snapshot reader returned null payload.");
-		var restorePlan = _snapshotService.ValidateRestorePlan(snapshot, options, typeCount);
+		SnapshotRestorePlan restorePlan;
+		_queryEngine.EnterQueryIteration();
+		try
+		{
+			var snapshot = reader.Read() ?? throw new InvalidOperationException("Snapshot reader returned null payload.");
+			restorePlan = _snapshotService.ValidateRestorePlan(snapshot, options);
+		}
+		finally { _queryEngine.ExitQueryIteration(); }
+		EnsureNoActiveQueryIterations("Snapshot restore cannot run while a query iteration is active.");
 		try
 		{
 			_lifecycleService.Clear();

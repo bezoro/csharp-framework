@@ -414,17 +414,16 @@ public class SystemManagerTests
 	}
 
 	[Fact]
-	public void UpdateAll_WhenSystemsHaveNoMetadata_ShouldRunInParallel()
+	public void UpdateAll_WhenSystemsHaveNoMetadata_ShouldRunExclusively()
 	{
-		// Systems with no declared access metadata default to non-exclusive and may run concurrently.
 		using var world = new World(new WorldConfig { MaxDegreeOfParallelism = 4 });
-		var       probe = ConcurrencyProbe.ForParallelAssertion();
+		var       probe = new ConcurrencyProbe();
 		world.AddSystem(new UndeclaredAccessProbeSystem(probe));
 		world.AddSystem(new UndeclaredAccessProbeSystem(probe));
 
 		world.Tick(1f / 60f);
 
-		probe.MaxConcurrent.Should().BeGreaterThan(1);
+		probe.MaxConcurrent.Should().Be(1);
 	}
 
 	[Fact]
@@ -441,20 +440,34 @@ public class SystemManagerTests
 	}
 
 	[Fact]
-	public void UpdateAll_WhenUndeclaredAndDeclaredReadSystemsShareStage_ShouldBatchTogether()
+	public void UpdateAll_WhenUndeclaredAndDeclaredReadSystemsShareStage_ShouldKeepUnknownAccessExclusive()
 	{
-		// After fix 2a: undeclared systems default to isExclusive=false.
-		// An undeclared system and a [Reads(typeof(Counter))] system have no conflicts, so they run in the same batch.
 		using var world = new World(new WorldConfig { MaxDegreeOfParallelism = 4 });
-		var       probe = ConcurrencyProbe.ForParallelAssertion();
+		var       probe = new ConcurrencyProbe();
 
 		world.AddSystem(new UndeclaredAccessProbeSystem(probe));
 		world.AddSystem(new DeclaredReadProbeSystem(probe));
 
 		world.Tick(1f / 60f);
 
-		// Both systems have no write conflicts and neither is exclusive, so they should run concurrently.
-		probe.MaxConcurrent.Should().BeGreaterThan(1);
+		probe.MaxConcurrent.Should().Be(1);
+	}
+
+	[Fact]
+	public void UpdateAll_WhenSystemsDeclareNoWorldAccess_ShouldAllowParallelExecution()
+	{
+		using var world = new World(new WorldConfig { MaxDegreeOfParallelism = 4 });
+		var probe = ConcurrencyProbe.ForParallelAssertion();
+		world.AddSystem(new IndependentProbeSystem(probe));
+		world.AddSystem(new IndependentProbeSystem(probe));
+		world.Tick(0.1f);
+		probe.MaxConcurrent.Should().Be(2);
+	}
+
+	[NoWorldAccess]
+	private sealed class IndependentProbeSystem(ConcurrencyProbe probe) : ISystem
+	{
+		public void Update(in SystemContext context) => probe.Enter();
 	}
 
 	[After(typeof(AnchorDependencySystem))]
@@ -670,7 +683,7 @@ public class SystemManagerTests
 			if (!cursor.MoveNext() || cursor.Current.Length == 0)
 				return;
 
-			LastObserved = cursor.Get<Counter>(0).Value;
+			LastObserved = cursor.Read<Counter>(0).Value;
 		}
 	}
 
@@ -800,7 +813,7 @@ public class SystemManagerTests
 				return;
 
 			for (var i = 0; i < cursor.Current.Length; i++)
-				cursor.Get<Counter>(i) = new() { Value = value };
+				cursor.Write<Counter>(i) = new() { Value = value };
 		}
 	}
 }

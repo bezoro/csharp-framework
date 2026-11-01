@@ -9,6 +9,10 @@ namespace Bezoro.ECS.Types;
 /// <summary>
 ///     Cursor over one compiled-query execution result set.
 /// </summary>
+/// <remarks>
+///     Copies share one execution lifetime. Disposing any copy invalidates all copies.
+///     Returned spans and component references are borrowed until disposal.
+/// </remarks>
 public struct QueryCursor : IDisposable
 {
 	private const int MISSING_COLUMN_INDEX           = -1;
@@ -21,6 +25,7 @@ public struct QueryCursor : IDisposable
 	private readonly int                 _count;
 	private readonly QueryChunkMatch[]   _chunkMatches;
 	private readonly QueryExecutionLease _lease;
+	private readonly long                _leaseGeneration;
 
 	private readonly World             _world;
 	private          ArchetypeStorage? _cachedGetArchetype;
@@ -122,6 +127,7 @@ public struct QueryCursor : IDisposable
 		_entities              = entities;
 		_count                 = count;
 		_lease                 = lease;
+		_leaseGeneration       = lease.Generation;
 		_disposed              = false;
 		_moved                 = false;
 		_entitiesMaterialized  = false;
@@ -134,6 +140,14 @@ public struct QueryCursor : IDisposable
 		_cachedReadArchetypeId = UNKNOWN_ARCHETYPE_ID;
 		_cachedReadColumnIndex = MISSING_COLUMN_INDEX;
 		_cachedReadArchetype   = null;
+	}
+
+	/// <summary>
+	///     Gets the number of matched entities without materializing entity handles.
+	/// </summary>
+	public int Count
+	{
+		get { ThrowIfDisposed(); return _count; }
 	}
 
 	/// <summary>
@@ -168,18 +182,35 @@ public struct QueryCursor : IDisposable
 	}
 
 	/// <summary>
+	///     Gets one matched entity without materializing the complete entity array.
+	/// </summary>
+	/// <param name="index">Zero-based entity index in the current batch.</param>
+	/// <returns>The entity at <paramref name="index" />.</returns>
+	/// <exception cref="InvalidOperationException">Call <see cref="MoveNext" /> before reading the batch.</exception>
+	/// <exception cref="ArgumentOutOfRangeException">The index is outside the result set.</exception>
+	public Entity GetEntity(int index)
+	{
+		ValidateReadyForEnumeration();
+		if (unchecked((uint)index) >= unchecked((uint)_count) ||
+			!TryResolveChunkMatchForIndex(index, out var match, out int offset))
+			throw new ArgumentOutOfRangeException(nameof(index));
+		var chunk = _world.GetArchetypeForCursor(match.ArchetypeId).GetChunkUnchecked(match.ChunkIndex);
+		return _world.GetEntityForCursor(chunk.EntityIds[match.RowStart + offset]);
+	}
+
+	/// <summary>
 	///     Gets a mutable unmanaged component reference for the matched entity at <paramref name="index" />.
 	/// </summary>
 	/// <typeparam name="T">Unmanaged component type.</typeparam>
 	/// <param name="index">Entity index in the current batch.</param>
 	/// <returns>Mutable component reference.</returns>
-	public ref T Get<T>(int index) where T : unmanaged
+	public ref T Write<T>(int index) where T : unmanaged
 	{
 		ThrowIfDisposed();
 		if (!_moved)
 			throw new InvalidOperationException("Call MoveNext before accessing components.");
 
-		if ((uint)index >= (uint)_count)
+		if (unchecked((uint)index) >= unchecked((uint)_count))
 			throw new ArgumentOutOfRangeException(nameof(index));
 
 		int typeId = _world.GetOrCreateComponentTypeId<T>();
@@ -230,7 +261,7 @@ public struct QueryCursor : IDisposable
 		if (!_moved)
 			throw new InvalidOperationException("Call MoveNext before accessing components.");
 
-		if ((uint)index >= (uint)_count)
+		if (unchecked((uint)index) >= unchecked((uint)_count))
 			throw new ArgumentOutOfRangeException(nameof(index));
 
 		int typeId = _world.GetOrCreateComponentTypeId<T>();
@@ -274,8 +305,8 @@ public struct QueryCursor : IDisposable
 		if (_disposed)
 			return;
 
+		_lease?.Dispose(_leaseGeneration);
 		_disposed = true;
-		_lease.Dispose();
 	}
 
 	/// <summary>
@@ -288,6 +319,7 @@ public struct QueryCursor : IDisposable
 		if (action is null) throw new ArgumentNullException(nameof(action));
 
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.Execute<DelegateChunkAction<T1>, T1>(_world, _chunkMatches, _chunkMatchCount, new(action));
 	}
 
@@ -304,6 +336,7 @@ public struct QueryCursor : IDisposable
 		if (action is null) throw new ArgumentNullException(nameof(action));
 
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.Execute<DelegateChunkAction<T1, T2>, T1, T2>(
 			_world, _chunkMatches, _chunkMatchCount, new(action)
 		);
@@ -324,6 +357,7 @@ public struct QueryCursor : IDisposable
 		if (action is null) throw new ArgumentNullException(nameof(action));
 
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.Execute<DelegateChunkAction<T1, T2, T3>, T1, T2, T3>(
 			_world, _chunkMatches, _chunkMatchCount, new(action)
 		);
@@ -346,6 +380,7 @@ public struct QueryCursor : IDisposable
 		if (action is null) throw new ArgumentNullException(nameof(action));
 
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.Execute<DelegateChunkAction<T1, T2, T3, T4>, T1, T2, T3, T4>(
 			_world,
 			_chunkMatches,
@@ -427,6 +462,7 @@ public struct QueryCursor : IDisposable
 		where T1 : unmanaged
 	{
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.Execute<JobChunkAction<TJob, T1>, T1>(_world, _chunkMatches, _chunkMatchCount, new(job));
 	}
 
@@ -443,6 +479,7 @@ public struct QueryCursor : IDisposable
 		where T2 : unmanaged
 	{
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.Execute<JobChunkAction<TJob, T1, T2>, T1, T2>(
 			_world, _chunkMatches, _chunkMatchCount, new(job)
 		);
@@ -463,6 +500,7 @@ public struct QueryCursor : IDisposable
 		where T3 : unmanaged
 	{
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.Execute<JobChunkAction<TJob, T1, T2, T3>, T1, T2, T3>(
 			_world,
 			_chunkMatches,
@@ -488,6 +526,7 @@ public struct QueryCursor : IDisposable
 		where T4 : unmanaged
 	{
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.Execute<JobChunkAction<TJob, T1, T2, T3, T4>, T1, T2, T3, T4>(
 			_world,
 			_chunkMatches,
@@ -565,6 +604,7 @@ public struct QueryCursor : IDisposable
 		where T1 : struct
 	{
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.ExecuteEntity<TAction, T1>(
 			_world,
 			_chunkMatches,
@@ -580,6 +620,7 @@ public struct QueryCursor : IDisposable
 		where T2 : struct
 	{
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.ExecuteEntity<TAction, T1, T2>(_world, _chunkMatches, _chunkMatchCount, action);
 	}
 
@@ -590,6 +631,7 @@ public struct QueryCursor : IDisposable
 		where T3 : struct
 	{
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.ExecuteEntity<TAction, T1, T2, T3>(_world, _chunkMatches, _chunkMatchCount, action);
 	}
 
@@ -601,6 +643,7 @@ public struct QueryCursor : IDisposable
 		where T4 : struct
 	{
 		ValidateReadyForEnumeration();
+		using var iteration = _lease.EnterIteration(_leaseGeneration);
 		QueryChunkWalker.ExecuteEntity<TAction, T1, T2, T3, T4>(_world, _chunkMatches, _chunkMatchCount, action);
 	}
 
@@ -608,13 +651,13 @@ public struct QueryCursor : IDisposable
 	private static bool TryResolveMatchOffset(in QueryChunkMatch match, int index, out int matchOffset)
 	{
 		matchOffset = index - match.EntityStartIndex;
-		return (uint)matchOffset < (uint)match.Count;
+		return unchecked((uint)matchOffset) < unchecked((uint)match.Count);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private bool TryResolveChunkMatchForIndex(int index, out QueryChunkMatch match, out int matchOffset)
 	{
-		if ((uint)_chunkMatchHint < (uint)_chunkMatchCount)
+		if (unchecked((uint)_chunkMatchHint) < unchecked((uint)_chunkMatchCount))
 		{
 			var hintedMatch = _chunkMatches[_chunkMatchHint];
 			if (TryResolveMatchOffset(hintedMatch, index, out matchOffset))
@@ -624,7 +667,7 @@ public struct QueryCursor : IDisposable
 			}
 
 			int nextHint = _chunkMatchHint + 1;
-			if ((uint)nextHint < (uint)_chunkMatchCount)
+			if (unchecked((uint)nextHint) < unchecked((uint)_chunkMatchCount))
 			{
 				var nextMatch = _chunkMatches[nextHint];
 				if (TryResolveMatchOffset(nextMatch, index, out matchOffset))
@@ -662,7 +705,7 @@ public struct QueryCursor : IDisposable
 				continue;
 			}
 
-			if ((uint)offset >= (uint)middleMatch.Count)
+			if (unchecked((uint)offset) >= unchecked((uint)middleMatch.Count))
 			{
 				low = middle + 1;
 				continue;
@@ -690,7 +733,7 @@ public struct QueryCursor : IDisposable
 
 	private void ThrowIfDisposed()
 	{
-		if (_disposed)
+		if (_disposed || _lease is null || !_lease.IsActive(_leaseGeneration))
 			throw new ObjectDisposedException(nameof(QueryCursor));
 	}
 

@@ -56,13 +56,13 @@ internal sealed class ArchetypeStorage : IDisposable
 	public int EntityCount { get; private set; }
 
 	public bool HasType(int typeId) =>
-		(uint)typeId < (uint)_columnIndexByTypeId.Length &&
+		unchecked((uint)typeId) < unchecked((uint)_columnIndexByTypeId.Length) &&
 		_columnIndexByTypeId[typeId] >= 0;
 
 	public bool RemoveAt(int chunkIndex, int rowIndex, out int movedEntityId)
 	{
 		var chunk = GetChunk(chunkIndex);
-		if ((uint)rowIndex >= (uint)chunk.Count)
+		if (unchecked((uint)rowIndex) >= unchecked((uint)chunk.Count))
 			throw new ArgumentOutOfRangeException(nameof(rowIndex));
 
 		int lastRowIndex = chunk.Count - 1;
@@ -93,7 +93,7 @@ internal sealed class ArchetypeStorage : IDisposable
 
 	public bool TryGetColumnIndex(int typeId, out int columnIndex)
 	{
-		if ((uint)typeId < (uint)_columnIndexByTypeId.Length)
+		if (unchecked((uint)typeId) < unchecked((uint)_columnIndexByTypeId.Length))
 		{
 			columnIndex = _columnIndexByTypeId[typeId];
 			return columnIndex >= 0;
@@ -111,7 +111,7 @@ internal sealed class ArchetypeStorage : IDisposable
 			return false;
 
 		var chunk = GetChunk(chunkIndex);
-		if ((uint)rowIndex >= (uint)chunk.Count)
+		if (unchecked((uint)rowIndex) >= unchecked((uint)chunk.Count))
 			return false;
 
 		value = chunk.Columns[columnIndex].GetReference<T>(rowIndex);
@@ -120,7 +120,7 @@ internal sealed class ArchetypeStorage : IDisposable
 
 	public Chunk GetChunk(int chunkIndex)
 	{
-		if ((uint)chunkIndex >= (uint)ChunkCount)
+		if (unchecked((uint)chunkIndex) >= unchecked((uint)ChunkCount))
 			throw new ArgumentOutOfRangeException(nameof(chunkIndex));
 
 		return _chunks[chunkIndex];
@@ -130,17 +130,17 @@ internal sealed class ArchetypeStorage : IDisposable
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public int GetColumnIndexOrNegative(int typeId) =>
-		(uint)typeId < (uint)_columnIndexByTypeId.Length
+		unchecked((uint)typeId) < unchecked((uint)_columnIndexByTypeId.Length)
 			? _columnIndexByTypeId[typeId]
 			: -1;
 
 	public int GetKnownAddTransition(int typeId) =>
-		(uint)typeId < (uint)_addTransitionByTypeId.Length
+		unchecked((uint)typeId) < unchecked((uint)_addTransitionByTypeId.Length)
 			? _addTransitionByTypeId[typeId]
 			: UNKNOWN_TRANSITION;
 
 	public int GetKnownRemoveTransition(int typeId) =>
-		(uint)typeId < (uint)_removeTransitionByTypeId.Length
+		unchecked((uint)typeId) < unchecked((uint)_removeTransitionByTypeId.Length)
 			? _removeTransitionByTypeId[typeId]
 			: UNKNOWN_TRANSITION;
 
@@ -196,16 +196,16 @@ internal sealed class ArchetypeStorage : IDisposable
 
 	public ReadOnlySpan<T> GetReadOnlySpanByIndex<T>(Chunk chunk, int columnIndex) where T : struct
 	{
-		if ((uint)columnIndex >= (uint)chunk.Columns.Length)
+		if (unchecked((uint)columnIndex) >= unchecked((uint)chunk.Columns.Length))
 			throw new ArgumentOutOfRangeException(nameof(columnIndex));
 
 		return chunk.Columns[columnIndex].GetReadOnlySpan<T>(chunk.Count);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public uint GetComponentChangeVersion(Chunk chunk, int columnIndex)
+	public ulong GetComponentChangeVersion(Chunk chunk, int columnIndex)
 	{
-		if ((uint)columnIndex >= (uint)chunk.ComponentChangeVersions.Length)
+		if (unchecked((uint)columnIndex) >= unchecked((uint)chunk.ComponentChangeVersions.Length))
 			throw new ArgumentOutOfRangeException(nameof(columnIndex));
 
 		return chunk.ComponentChangeVersions[columnIndex];
@@ -213,16 +213,16 @@ internal sealed class ArchetypeStorage : IDisposable
 
 	public Span<T> GetSpanByIndex<T>(Chunk chunk, int columnIndex) where T : struct
 	{
-		if ((uint)columnIndex >= (uint)chunk.Columns.Length)
+		if (unchecked((uint)columnIndex) >= unchecked((uint)chunk.Columns.Length))
 			throw new ArgumentOutOfRangeException(nameof(columnIndex));
 
 		return chunk.Columns[columnIndex].GetSpan<T>(chunk.Count);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public void MarkComponentChanged(Chunk chunk, int columnIndex, uint version)
+	public void MarkComponentChanged(Chunk chunk, int columnIndex, ulong version)
 	{
-		if ((uint)columnIndex >= (uint)chunk.ComponentChangeVersions.Length)
+		if (unchecked((uint)columnIndex) >= unchecked((uint)chunk.ComponentChangeVersions.Length))
 			throw new ArgumentOutOfRangeException(nameof(columnIndex));
 
 		chunk.ComponentChangeVersions[columnIndex] = version;
@@ -235,7 +235,7 @@ internal sealed class ArchetypeStorage : IDisposable
 			throw new KeyNotFoundException($"Type id '{typeId}' does not exist in archetype '{Id}'.");
 
 		var chunk = GetChunk(chunkIndex);
-		if ((uint)rowIndex >= (uint)chunk.Count)
+		if (unchecked((uint)rowIndex) >= unchecked((uint)chunk.Count))
 			throw new ArgumentOutOfRangeException(nameof(rowIndex));
 
 		return ref chunk.Columns[columnIndex].GetReference<T>(rowIndex);
@@ -243,10 +243,10 @@ internal sealed class ArchetypeStorage : IDisposable
 
 	public ref T GetRefByIndex<T>(Chunk chunk, int columnIndex, int rowIndex) where T : struct
 	{
-		if ((uint)columnIndex >= (uint)chunk.Columns.Length)
+		if (unchecked((uint)columnIndex) >= unchecked((uint)chunk.Columns.Length))
 			throw new ArgumentOutOfRangeException(nameof(columnIndex));
 
-		if ((uint)rowIndex >= (uint)chunk.Count)
+		if (unchecked((uint)rowIndex) >= unchecked((uint)chunk.Count))
 			throw new ArgumentOutOfRangeException(nameof(rowIndex));
 
 		return ref chunk.Columns[columnIndex].GetReference<T>(rowIndex);
@@ -322,7 +322,7 @@ internal sealed class ArchetypeStorage : IDisposable
 				targetRowIndex
 			);
 
-			uint sourceVersion = sourceChunk.ComponentChangeVersions[sourceColumnIndex];
+			ulong sourceVersion = sourceChunk.ComponentChangeVersions[sourceColumnIndex];
 			if (targetChunk.ComponentChangeVersions[i] < sourceVersion)
 				targetChunk.ComponentChangeVersions[i] = sourceVersion;
 		}
@@ -368,7 +368,7 @@ internal sealed class ArchetypeStorage : IDisposable
 				rowCount
 			);
 
-			uint sourceVersion = sourceChunk.ComponentChangeVersions[sourceColumnIndex];
+			ulong sourceVersion = sourceChunk.ComponentChangeVersions[sourceColumnIndex];
 			if (targetChunk.ComponentChangeVersions[targetColumnIndex] < sourceVersion)
 				targetChunk.ComponentChangeVersions[targetColumnIndex] = sourceVersion;
 		}
@@ -389,7 +389,7 @@ internal sealed class ArchetypeStorage : IDisposable
 	{
 		var chunk    = GetChunk(chunkIndex);
 		int oldCount = chunk.Count;
-		if ((uint)newCount > (uint)oldCount)
+		if (unchecked((uint)newCount) > unchecked((uint)oldCount))
 			throw new ArgumentOutOfRangeException(nameof(newCount));
 
 		if (newCount == oldCount)
@@ -437,7 +437,7 @@ internal sealed class ArchetypeStorage : IDisposable
 
 	public void SetKnownAddTransition(int typeId, int targetArchetypeId)
 	{
-		if ((uint)typeId >= (uint)_addTransitionByTypeId.Length)
+		if (unchecked((uint)typeId) >= unchecked((uint)_addTransitionByTypeId.Length))
 			return;
 
 		_addTransitionByTypeId[typeId] = targetArchetypeId;
@@ -445,7 +445,7 @@ internal sealed class ArchetypeStorage : IDisposable
 
 	public void SetKnownRemoveTransition(int typeId, int targetArchetypeId)
 	{
-		if ((uint)typeId >= (uint)_removeTransitionByTypeId.Length)
+		if (unchecked((uint)typeId) >= unchecked((uint)_removeTransitionByTypeId.Length))
 			return;
 
 		_removeTransitionByTypeId[typeId] = targetArchetypeId;
@@ -457,14 +457,23 @@ internal sealed class ArchetypeStorage : IDisposable
 		{
 			EntityIds                = new int[chunkCapacity];
 			Columns                  = new ComponentColumn[columnTypes.Length];
-			ComponentChangeVersions = new uint[columnTypes.Length];
-			for (var i = 0; i < columnTypes.Length; i++)
-				Columns[i] = ComponentColumn.Create(columnTypes[i], chunkCapacity);
+			ComponentChangeVersions = new ulong[columnTypes.Length];
+			int initialized = 0;
+			try
+			{
+				for (; initialized < columnTypes.Length; initialized++)
+					Columns[initialized] = ComponentColumn.Create(columnTypes[initialized], chunkCapacity);
+			}
+			catch
+			{
+				for (var i = 0; i < initialized; i++) Columns[i].Dispose();
+				throw;
+			}
 		}
 
 		public ComponentColumn[] Columns { get; }
 
-		public uint[] ComponentChangeVersions { get; }
+		public ulong[] ComponentChangeVersions { get; }
 
 		public int[] EntityIds { get; }
 

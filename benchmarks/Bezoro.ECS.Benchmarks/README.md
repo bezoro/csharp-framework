@@ -10,7 +10,7 @@ BenchmarkDotNet suite for core ECS performance targets.
 | `EcsWorldCommandStreamSetBurstBenchmarks`    | World fixed-capacity command-stream set bursts over existing components to track transition-stable update throughput.                                                         |
 | `EcsWorldCommandStreamRemoveBurstBenchmarks` | World fixed-capacity command-stream remove bursts over existing components to track structural transition throughput.                                                         |
 | `EcsWorldHotPathBenchmarks`                  | World compiled-query hot paths comparing cursor and direct struct-job (`Run`) loops on unmanaged components.                                                                  |
-| `EcsWorldComponentAccessBenchmarks`          | World sequential component access paths (`TryGet`/`Write`, cached accessor variants, and sequential `QueryCursor.Get`), plus cursor vs `QueryView` struct-job loop comparison.   |
+| `EcsWorldComponentAccessBenchmarks`          | World sequential component access paths (`TryGet`/`Write`, cached accessor variants, and sequential `QueryCursor.Write`), plus cursor vs `QueryView` struct-job loop comparison.   |
 | `EcsWorldQueryViewBenchmarks`                | Ergonomic `QueryView` paths covering managed read-only and mutable traversal, sequential and entity-aware struct jobs, and parallel entity-aware struct jobs.                  |
 
 ## Run
@@ -100,7 +100,7 @@ The burst benchmark exercises the untouched validated fast-batch path, not the n
 
 - Hot-path compiled query loops should remain allocation-free (`Allocated = 0 B`) after warm-up; some exporters render zero allocation as `-`.
 - `QueryView` unmanaged traversal should stay close to the direct/cursor hot path; meaningful regressions should be reviewed before release.
-- `QueryView.Run...` is the canonical job benchmark surface. The obsolete generic `World.Run...` instance methods are behavior-preserving forwarders and do not define a separate performance tier.
+- `QueryView.Run...` is the canonical job benchmark surface. The obsolete generic `World.Run...` instance methods have been removed.
 - `QueryView.ForEachRead(...)` over managed structs is the ergonomic tier, not the unmanaged hot path; track it separately rather than comparing it directly to cursor jobs.
 - Entity-aware cases must preserve valid entity IDs/versions and must not add entity-scratch materialization.
 - Component access and command-stream burst benchmarks may show tiny runtime-level allocations depending on environment.
@@ -153,3 +153,38 @@ was unchanged between these measurements.
 The recorded runs used runtime code from commit `039cee8e`. Later scheduler fixes
 for failed submission and interrupted joins were not included in these measurements.
 Repeat the benchmark against the candidate release when accepting performance.
+
+
+## API review validation, 2026-10-31
+
+Current accessor/cursor benchmarks use explicit `TryRead` and `Write` names.
+`CommandStream.Set` covers both unmanaged structs and structs containing references.
+`CursorIndexedWindow` reads 64 entity/component pairs without materializing `Current`;
+`CursorMaterializedWindow` performs the same 64 reads after materializing all handles.
+Both include query result construction, so the comparison does not claim constant-cost
+execution independent of archetype/chunk count.
+
+Cursor lifetime pinning and change-tracker synchronization are correctness changes.
+The allocation tests continue to check warmed zero-byte paths. Historical throughput
+results above predate this review; they do not validate the current candidate's latency.
+A reliable before/after release run on isolated deployment hardware remains necessary.
+
+The review's four-case ShortRun used BenchmarkDotNet 0.14.0, Debian 13,
+Intel Xeon Platinum 8573C, .NET SDK 10.0.203/runtime 10.0.7, and a four-CPU
+container quota. Each case used 100,000 entities, one launch, three warmups,
+and three measurements. High-priority scheduling was unavailable and other
+builds ran on the shared host.
+
+| Work per operation | Mean | StdDev | Managed allocation |
+| --- | ---: | ---: | ---: |
+| Construct cursor, read 64 indexed entity/component pairs | 1.506 us | 0.0087 us | 0 B |
+| Construct cursor, materialize all handles, read the same 64 pairs | 113.109 us | 0.2507 us | 0 B |
+| Cursor struct job over all 100,000 entities | 241.120 us | 57.260 us | 0 B |
+| QueryView direct struct job over all 100,000 entities | 113.175 us | 0.418 us | 0 B |
+
+The cursor-job timing varied enough that its 99.9% confidence interval crossed
+zero. These three samples cannot establish a stable cursor/direct throughput
+ratio or a before/after regression gate. The window comparison demonstrates the
+cost of materializing handles for this workload, not a general query speedup.
+Raw [window measurements](results/2026-10-31-cursor-window-short-run.csv) and
+[hot-path measurements](results/2026-10-31-query-hot-path-short-run.csv) are retained.

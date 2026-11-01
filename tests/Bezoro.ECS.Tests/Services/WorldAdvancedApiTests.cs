@@ -70,7 +70,7 @@ public class WorldAdvancedApiTests
 			cursor.MoveNext().Should().BeTrue();
 			cursor.Current.Length.Should().Be(2);
 			for (var i = 0; i < cursor.Current.Length; i++)
-				positions.Add(cursor.Get<Position>(i));
+				positions.Add(cursor.Write<Position>(i));
 		}
 
 		positions.Should().Contain(new Position { X = 10, Y = 20 });
@@ -655,7 +655,7 @@ public class WorldAdvancedApiTests
 
 		query.RunParallel<AdvanceJob, Position>(new(), 2);
 
-		cursor.Get<Position>(0).X.Should().Be(1);
+		cursor.Write<Position>(0).X.Should().Be(1);
 	}
 
 	[Fact]
@@ -705,7 +705,7 @@ public class WorldAdvancedApiTests
 		cursor.Current.Length.Should().Be(32);
 		for (var i = 0; i < cursor.Current.Length; i++)
 		{
-			var position = cursor.Get<Position>(i);
+			var position = cursor.Write<Position>(i);
 			position.X.Should().Be(i + 8);
 			position.Y.Should().Be(i - 12);
 		}

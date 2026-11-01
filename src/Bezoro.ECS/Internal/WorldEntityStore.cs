@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Bezoro.ECS.Internal.Fixed;
 using Bezoro.ECS.Services;
@@ -10,6 +11,7 @@ internal sealed class WorldEntityStore
 	private readonly World              _world;
 	private readonly WorldConfig        _config;
 	private readonly WorldRelationIndex _relationIndex;
+	private readonly object _typeRegistrationGate = new();
 
 	public WorldEntityStore(World world, WorldConfig config, WorldRelationIndex relationIndex)
 	{
@@ -38,7 +40,7 @@ internal sealed class WorldEntityStore
 
 	public Dictionary<long, int[]> TransitionCopyMapByPair { get; } = [];
 
-	public Dictionary<Type, int> TypeToId { get; } = [];
+	public ConcurrentDictionary<Type, int> TypeToId { get; } = new();
 
 	public Fixed.EntityLocation[] LocationByEntityId { get; }
 
@@ -74,7 +76,7 @@ internal sealed class WorldEntityStore
 
 	public ArchetypeStorage GetArchetypeForCursor(int archetypeId)
 	{
-		if ((uint)archetypeId >= (uint)Archetypes.Count)
+		if (unchecked((uint)archetypeId) >= unchecked((uint)Archetypes.Count))
 			throw new ArgumentOutOfRangeException(nameof(archetypeId));
 
 		return Archetypes[archetypeId];
@@ -211,7 +213,7 @@ internal sealed class WorldEntityStore
 		}
 
 		var chunk = archetype.GetChunkUnchecked(location.ChunkIndex);
-		if ((uint)location.RowIndex >= (uint)chunk.Count)
+		if (unchecked((uint)location.RowIndex) >= unchecked((uint)chunk.Count))
 		{
 			component = default;
 			return false;
@@ -223,10 +225,11 @@ internal sealed class WorldEntityStore
 
 	public Entity CreateEntity()
 	{
+		bool fromFreeList = FreeCount > 0;
 		int id;
-		if (FreeCount > 0)
+		if (fromFreeList)
 		{
-			id = FreeEntityIds[--FreeCount];
+			id = FreeEntityIds[FreeCount - 1];
 		}
 		else
 		{
@@ -238,16 +241,18 @@ internal sealed class WorldEntityStore
 				);
 			}
 
-			id = NextEntityId++;
+			id = NextEntityId;
 		}
 
+		var emptyArchetype = Archetypes[EmptyArchetypeId];
+		emptyArchetype.AllocateRow(id, out int chunkIndex, out int rowIndex);
+		if (fromFreeList) FreeCount--;
+		else NextEntityId++;
 		AliveByEntityId[id] = true;
 		AliveCount++;
 		if (AliveCount > EntityHighWatermark)
 			EntityHighWatermark = AliveCount;
 
-		var emptyArchetype = Archetypes[EmptyArchetypeId];
-		emptyArchetype.AllocateRow(id, out int chunkIndex, out int rowIndex);
 		LocationByEntityId[id] = new(EmptyArchetypeId, chunkIndex, rowIndex);
 
 		return new(id, VersionByEntityId[id]);
@@ -259,26 +264,29 @@ internal sealed class WorldEntityStore
 
 	public int CreateRelationTypeId()
 	{
-		if (TypeCount >= TypeById.Length)
+		lock (_typeRegistrationGate)
 		{
-			ComponentTypeOverflowCount++;
-			throw new InvalidOperationException(
-				$"Component type capacity '{_config.ComponentTypeCapacity}' was exceeded."
-			);
+			if (TypeCount >= TypeById.Length)
+			{
+				ComponentTypeOverflowCount++;
+				throw new InvalidOperationException(
+					$"Component type capacity '{_config.ComponentTypeCapacity}' was exceeded."
+				);
+			}
+
+			int typeId = TypeCount++;
+			TypeById[typeId]          = typeof(RelationMarker);
+			TypeIsManagedLane[typeId] = false;
+			if (TypeCount > RegisteredTypeHighWatermark)
+				RegisteredTypeHighWatermark = TypeCount;
+
+			return typeId;
 		}
-
-		int typeId = TypeCount++;
-		TypeById[typeId]          = typeof(RelationMarker);
-		TypeIsManagedLane[typeId] = false;
-		if (TypeCount > RegisteredTypeHighWatermark)
-			RegisteredTypeHighWatermark = TypeCount;
-
-		return typeId;
 	}
 
 	public int GetArchetypeEntityCount(int archetypeId)
 	{
-		if ((uint)archetypeId >= (uint)Archetypes.Count)
+		if (unchecked((uint)archetypeId) >= unchecked((uint)Archetypes.Count))
 			throw new ArgumentOutOfRangeException(nameof(archetypeId));
 
 		return Archetypes[archetypeId].EntityCount;
@@ -286,53 +294,39 @@ internal sealed class WorldEntityStore
 
 	public int GetOrCreateComponentTypeId(Type componentType, bool containsReferences)
 	{
-		if (componentType is null) throw new ArgumentNullException(nameof(componentType));
-		if (!componentType.IsValueType)
-			throw new ArgumentException("Components must be value types.", nameof(componentType));
-
-		if (TypeToId.TryGetValue(componentType, out int existing))
-			return existing;
-
-		if (TypeCount >= TypeById.Length)
+		lock (_typeRegistrationGate)
 		{
-			ComponentTypeOverflowCount++;
-			throw new InvalidOperationException(
-				$"Component type capacity '{_config.ComponentTypeCapacity}' was exceeded."
-			);
+			if (componentType is null) throw new ArgumentNullException(nameof(componentType));
+			if (!componentType.IsValueType)
+				throw new ArgumentException("Components must be value types.", nameof(componentType));
+
+			if (TypeToId.TryGetValue(componentType, out int existing))
+				return existing;
+
+			if (TypeCount >= TypeById.Length)
+			{
+				ComponentTypeOverflowCount++;
+				throw new InvalidOperationException(
+					$"Component type capacity '{_config.ComponentTypeCapacity}' was exceeded."
+				);
+			}
+
+			int typeId = TypeCount++;
+			TypeById[typeId]          = componentType;
+			TypeIsManagedLane[typeId] = containsReferences;
+			TypeToId[componentType]   = typeId;
+			if (TypeCount > RegisteredTypeHighWatermark)
+				RegisteredTypeHighWatermark = TypeCount;
+
+			return typeId;
 		}
-
-		int typeId = TypeCount++;
-		TypeToId[componentType]   = typeId;
-		TypeById[typeId]          = componentType;
-		TypeIsManagedLane[typeId] = containsReferences;
-		if (TypeCount > RegisteredTypeHighWatermark)
-			RegisteredTypeHighWatermark = TypeCount;
-
-		return typeId;
 	}
 
 	public int GetOrCreateComponentTypeIdGeneric<T>() where T : struct
 	{
 		var componentType = typeof(T);
-		if (TypeToId.TryGetValue(componentType, out int existing))
-			return existing;
-
-		if (TypeCount >= TypeById.Length)
-		{
-			ComponentTypeOverflowCount++;
-			throw new InvalidOperationException(
-				$"Component type capacity '{_config.ComponentTypeCapacity}' was exceeded."
-			);
-		}
-
-		int typeId = TypeCount++;
-		TypeToId[componentType]   = typeId;
-		TypeById[typeId]          = componentType;
-		TypeIsManagedLane[typeId] = RuntimeHelpers.IsReferenceOrContainsReferences<T>();
-		if (TypeCount > RegisteredTypeHighWatermark)
-			RegisteredTypeHighWatermark = TypeCount;
-
-		return typeId;
+		if (TypeToId.TryGetValue(componentType, out int existing)) return existing;
+		return GetOrCreateComponentTypeId(componentType, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
 	}
 
 	public int[] BuildMaskWordIndices(ulong[] maskWords)
@@ -446,7 +440,7 @@ internal sealed class WorldEntityStore
 
 		var  sourceArchetype   = Archetypes[sourceArchetypeId];
 		int  sourceColumnIndex = -1;
-		uint changeVersion     = 0;
+		ulong changeVersion     = 0;
 		if (targetArchetypeId == sourceArchetypeId)
 		{
 			sourceColumnIndex = sourceArchetype.GetColumnIndexOrNegative(typeId);
@@ -461,7 +455,7 @@ internal sealed class WorldEntityStore
 		for (var i = 0; i < count; i++)
 		{
 			int payloadIndex = payloadIndices[payloadOffset + i];
-			if ((uint)payloadIndex >= (uint)payloadCount)
+			if (unchecked((uint)payloadIndex) >= unchecked((uint)payloadCount))
 				throw new InvalidOperationException(
 					$"Payload index '{payloadIndex}' is out of range for '{typeof(T).Name}'."
 				);
@@ -514,7 +508,7 @@ internal sealed class WorldEntityStore
 		var sourceArchetype = Archetypes[sourceArchetypeId];
 		if (targetArchetypeId == sourceArchetypeId)
 		{
-			uint changeVersion     = AdvanceComponentChangeVersion();
+			ulong changeVersion     = AdvanceComponentChangeVersion();
 			int  sourceColumnIndex = sourceArchetype.GetColumnIndexOrNegative(typeId);
 			if (sourceColumnIndex < 0)
 				throw new InvalidOperationException(
@@ -565,7 +559,11 @@ internal sealed class WorldEntityStore
 	public void ApplySetFromCommand<T>(Entity entity, in T component) where T : struct
 	{
 		EnsureAlive(entity);
-		int typeId = GetOrCreateComponentTypeIdGeneric<T>();
+		if (!TypeToId.TryGetValue(typeof(T), out int typeId))
+		{
+			_world.EnsureStructuralChangesAllowed();
+			typeId = GetOrCreateComponentTypeIdGeneric<T>();
+		}
 		SetComponentInternal(entity.Id, typeId, in component);
 	}
 
@@ -755,7 +753,7 @@ internal sealed class WorldEntityStore
 	public void RemoveComponentFromCommand(Entity entity, int typeId)
 	{
 		EnsureAlive(entity);
-		if ((uint)typeId >= (uint)_config.ComponentTypeCapacity)
+		if (unchecked((uint)typeId) >= unchecked((uint)_config.ComponentTypeCapacity))
 			return;
 
 		int entityId = entity.Id;
@@ -767,6 +765,7 @@ internal sealed class WorldEntityStore
 		if (!sourceArchetype.HasType(typeId))
 			return;
 
+		_world.EnsureStructuralChangesAllowed();
 		int targetArchetypeId = GetOrCreateRemoveTransition(sourceArchetype, typeId);
 		MoveEntityToArchetype(entityId, location, sourceArchetype, targetArchetypeId);
 	}
@@ -828,7 +827,7 @@ internal sealed class WorldEntityStore
 			while (readRow < rowCount)
 			{
 				int entityId = chunk.EntityIds[readRow];
-				if ((uint)entityId < (uint)_config.EntityCapacity &&
+				if (unchecked((uint)entityId) < unchecked((uint)_config.EntityCapacity) &&
 					IsEntityMarked(batchEntityMarkerBits, entityId))
 				{
 					targetArchetype.AllocateRow(entityId, out int targetChunkIndex, out int targetRowIndex);
@@ -851,7 +850,7 @@ internal sealed class WorldEntityStore
 				while (readRow < rowCount)
 				{
 					int runEntityId = chunk.EntityIds[readRow];
-					if ((uint)runEntityId < (uint)_config.EntityCapacity &&
+					if (unchecked((uint)runEntityId) < unchecked((uint)_config.EntityCapacity) &&
 						IsEntityMarked(batchEntityMarkerBits, runEntityId))
 						break;
 
@@ -867,7 +866,7 @@ internal sealed class WorldEntityStore
 					for (int row = writeRow; row < runWriteEnd; row++)
 					{
 						int survivorEntityId = chunk.EntityIds[row];
-						if ((uint)survivorEntityId < (uint)_config.EntityCapacity)
+						if (unchecked((uint)survivorEntityId) < unchecked((uint)_config.EntityCapacity))
 							LocationByEntityId[survivorEntityId] = new(sourceArchetypeId, chunkIndex, row);
 					}
 				}
@@ -1034,7 +1033,7 @@ internal sealed class WorldEntityStore
 		for (var row = 0; row < chunk.Count; row++)
 		{
 			int entityId = chunk.EntityIds[row];
-			if ((uint)entityId >= (uint)_config.EntityCapacity || !IsEntityMarked(markerBits, entityId))
+			if (unchecked((uint)entityId) >= unchecked((uint)_config.EntityCapacity) || !IsEntityMarked(markerBits, entityId))
 				return false;
 		}
 
@@ -1115,7 +1114,7 @@ internal sealed class WorldEntityStore
 
 	private int[] GetOrCreateTransitionCopyMap(ArchetypeStorage sourceArchetype, ArchetypeStorage targetArchetype)
 	{
-		long pairKey = (long)sourceArchetype.Id << 32 | (uint)targetArchetype.Id;
+		long pairKey = (long)sourceArchetype.Id << 32 | unchecked((uint)targetArchetype.Id);
 		if (TransitionCopyMapByPair.TryGetValue(pairKey, out int[]? existing))
 			return existing;
 
@@ -1145,15 +1144,15 @@ internal sealed class WorldEntityStore
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private uint AdvanceComponentChangeVersion() =>
+	private ulong AdvanceComponentChangeVersion() =>
 		_world.AdvanceComponentChangeVersionForEntityStore();
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private void MarkComponentAdded(int entityId, int typeId, uint version) =>
+	private void MarkComponentAdded(int entityId, int typeId, ulong version) =>
 		_world.MarkComponentAddedForEntityStore(entityId, typeId, version);
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private void MarkComponentChanged(int entityId, int typeId, uint version) =>
+	private void MarkComponentChanged(int entityId, int typeId, ulong version) =>
 		_world.MarkComponentChangedForEntityStore(entityId, typeId, version);
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1174,7 +1173,7 @@ internal sealed class WorldEntityStore
 		var chunk = archetype.GetChunk(location.ChunkIndex);
 		ref var existing = ref archetype.GetRefByIndex<T>(chunk, columnIndex, location.RowIndex);
 		existing = component;
-		uint changeVersion = AdvanceComponentChangeVersion();
+		ulong changeVersion = AdvanceComponentChangeVersion();
 		archetype.MarkComponentChanged(chunk, columnIndex, changeVersion);
 		MarkComponentChanged(entityId, typeId, changeVersion);
 	}
@@ -1329,7 +1328,7 @@ internal sealed class WorldEntityStore
 				$"Type id '{setTypeId}' does not exist in archetype '{targetArchetype.Id}'."
 			);
 
-		uint changeVersion = AdvanceComponentChangeVersion();
+		ulong changeVersion = AdvanceComponentChangeVersion();
 		targetArchetype.MarkComponentChanged(targetChunk, targetColumnIndex, changeVersion);
 		MarkComponentChanged(entityId, setTypeId, changeVersion);
 		if (setWasAdded)
@@ -1362,7 +1361,7 @@ internal sealed class WorldEntityStore
 
 			var sourceChunk = sourceArchetype.GetChunkUnchecked(sourceLocation.ChunkIndex);
 			sourceChunk.Columns[sourceColumnIndex].SetValue(sourceLocation.RowIndex, setComponent);
-			uint changeVersion = AdvanceComponentChangeVersion();
+			ulong changeVersion = AdvanceComponentChangeVersion();
 			sourceArchetype.MarkComponentChanged(sourceChunk, sourceColumnIndex, changeVersion);
 			MarkComponentChanged(entityId, setTypeId, changeVersion);
 			return;
@@ -1395,7 +1394,7 @@ internal sealed class WorldEntityStore
 			);
 
 		targetChunk.Columns[targetColumnIndex].SetValue(targetRowIndex, setComponent);
-		uint targetChangeVersion = AdvanceComponentChangeVersion();
+		ulong targetChangeVersion = AdvanceComponentChangeVersion();
 		targetArchetype.MarkComponentChanged(targetChunk, targetColumnIndex, targetChangeVersion);
 		MarkComponentChanged(entityId, setTypeId, targetChangeVersion);
 		if (setWasAdded)
@@ -1443,6 +1442,7 @@ internal sealed class WorldEntityStore
 			return;
 		}
 
+		_world.EnsureStructuralChangesAllowed();
 		int targetArchetypeId = GetOrCreateAddTransition(sourceArchetype, typeId);
 		MoveEntityToArchetypeWithSet(entityId, location, sourceArchetype, targetArchetypeId, typeId, in component);
 	}
@@ -1468,7 +1468,7 @@ internal sealed class WorldEntityStore
 
 			var sourceChunk = sourceArchetype.GetChunkUnchecked(location.ChunkIndex);
 			sourceChunk.Columns[sourceColumnIndex].SetValue(location.RowIndex, component);
-			uint changeVersion = AdvanceComponentChangeVersion();
+			ulong changeVersion = AdvanceComponentChangeVersion();
 			sourceArchetype.MarkComponentChanged(sourceChunk, sourceColumnIndex, changeVersion);
 			MarkComponentChanged(entityId, typeId, changeVersion);
 			return;

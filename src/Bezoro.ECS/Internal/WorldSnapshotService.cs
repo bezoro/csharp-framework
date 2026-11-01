@@ -12,10 +12,10 @@ internal sealed class WorldSnapshotService(
 	WorldResourceStore    resourceStore,
 	WorldRelationIndex    relationIndex,
 	Type?[]               typeById,
-	Dictionary<Type, int> typeToId
+	IReadOnlyDictionary<Type, int> typeToId
 )
 {
-	private readonly Dictionary<Type, int> _typeToId      = typeToId;
+	private readonly IReadOnlyDictionary<Type, int> _typeToId      = typeToId;
 	private readonly Type?[]               _typeById      = typeById;
 	private readonly World                 _world         = world;
 	private readonly WorldConfig           _config        = config;
@@ -25,8 +25,7 @@ internal sealed class WorldSnapshotService(
 
 	public SnapshotRestorePlan ValidateRestorePlan(
 		WorldSnapshot                  snapshot,
-		SnapshotDeserializationOptions options,
-		int                            typeCount)
+		SnapshotDeserializationOptions options)
 	{
 		var snapshotEntities      = snapshot.Entities;
 		var snapshotResources     = snapshot.Resources;
@@ -105,7 +104,8 @@ internal sealed class WorldSnapshotService(
 			relationMarkerTypes.Add((relation.RelationType, relation.Target));
 		}
 
-		int projectedTypeCount = checked(typeCount + missingComponentTypes.Count + relationMarkerTypes.Count);
+		missingComponentTypes.RemoveWhere(_typeToId.ContainsKey);
+		int projectedTypeCount = checked(_entityStore.TypeCount + missingComponentTypes.Count + relationMarkerTypes.Count);
 		if (projectedTypeCount > _config.ComponentTypeCapacity)
 			throw new InvalidOperationException(
 				$"Snapshot restore would exceed component type capacity '{_config.ComponentTypeCapacity}'."

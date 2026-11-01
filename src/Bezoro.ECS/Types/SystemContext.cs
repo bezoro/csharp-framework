@@ -1,67 +1,99 @@
+using Bezoro.ECS.Internal;
 using Bezoro.ECS.Services;
 
 namespace Bezoro.ECS.Types;
 
 /// <summary>
 ///     Provides context for a system update execution.
+///     Scheduler-provided contexts are valid only during their system's Update call.
 /// </summary>
 public readonly struct SystemContext
 {
+	private readonly CommandStream? _commandStream;
+	private readonly SystemState? _executionOwner;
+	private readonly long _executionEpoch;
+	private readonly float _deltaTime;
+	private readonly Stage _stage;
+	private readonly World? _world;
+
 	/// <summary>
 	///     Initializes a new system update context with the canonical command stream.
 	/// </summary>
 	/// <param name="deltaTime">The elapsed time passed to this system update.</param>
 	/// <param name="stage">The stage executing this context.</param>
 	/// <param name="world">The world instance executing this context.</param>
-	/// <param name="commandStream">The command stream for deferred structural changes.</param>
-	/// <exception cref="ArgumentNullException"><paramref name="commandStream" /> is <see langword="null" />.</exception>
+	/// <param name="commandStream">The caller-owned command stream for deferred structural changes.</param>
+	/// <exception cref="ArgumentNullException">The world or command stream is null.</exception>
+	/// <exception cref="ArgumentException">The command stream belongs to a different world.</exception>
 	public SystemContext(float deltaTime, Stage stage, World world, CommandStream commandStream)
 	{
-		CommandStream = commandStream ?? throw new ArgumentNullException(nameof(commandStream));
-		DeltaTime = deltaTime;
-		Stage = stage;
-		World = world;
+		_commandStream = commandStream ?? throw new ArgumentNullException(nameof(commandStream));
+		if (world is null) throw new ArgumentNullException(nameof(world));
+		if (!ReferenceEquals(commandStream.Owner, world))
+			throw new ArgumentException("The command stream belongs to a different world.", nameof(commandStream));
+		_deltaTime = deltaTime;
+		_stage = stage;
+		_world = world;
+		_executionOwner = null;
+		_executionEpoch = 0;
+	}
+
+	internal SystemContext(float deltaTime, Stage stage, World world, SystemState executionOwner, long executionEpoch)
+	{
+		_deltaTime = deltaTime;
+		_stage = stage;
+		_world = world;
+		_commandStream = null;
+		_executionOwner = executionOwner;
+		_executionEpoch = executionEpoch;
 	}
 
 	/// <summary>
-	///     Initializes a new system update context by forwarding a compatibility command buffer to the canonical command stream constructor.
+	///     Gets the command stream for deferred structural changes.
 	/// </summary>
-	/// <param name="deltaTime">The elapsed time passed to this system update.</param>
-	/// <param name="stage">The stage executing this context.</param>
-	/// <param name="world">The world instance executing this context.</param>
-	/// <param name="commands">The compatibility command buffer for deferred structural changes.</param>
-	/// <exception cref="ArgumentNullException">The command buffer does not contain a command stream.</exception>
-	#pragma warning disable CS0618
-	[Obsolete("Use SystemContext(float, Stage, World, CommandStream) instead.")]
-	public SystemContext(float deltaTime, Stage stage, World world, CommandBuffer commands)
-		: this(deltaTime, stage, world, (CommandStream)commands) { }
-	#pragma warning restore CS0618
-
-	/// <summary>
-	///     Gets the canonical command stream for deferred structural changes.
-	/// </summary>
-	public CommandStream CommandStream { get; }
-
-	/// <summary>
-	///     Gets a retained compatibility wrapper over <see cref="CommandStream" />.
-	/// </summary>
-	#pragma warning disable CS0618
-	[Obsolete("Use SystemContext.CommandStream instead.")]
-	public CommandBuffer Commands => new(CommandStream);
-	#pragma warning restore CS0618
+	/// <remarks>
+	///     For scheduler-provided contexts, first access creates the stream. The scheduler plays back
+	///     commands after the batch and then disposes the stream. Explicitly constructed contexts use
+	///     the supplied caller-owned stream.
+	/// </remarks>
+	/// <exception cref="ObjectDisposedException">This scheduler-provided context has expired.</exception>
+	public CommandStream CommandStream
+	{
+		get
+		{
+			if (_executionOwner is { } owner)
+				return owner.GetOrCreateCommandStream(_world!, _executionEpoch);
+			return _commandStream ?? throw new InvalidOperationException("The system context is uninitialized.");
+		}
+	}
 
 	/// <summary>
 	///     Gets the elapsed time passed to this system update.
 	/// </summary>
-	public float DeltaTime { get; }
+	public float DeltaTime
+	{
+		get { ValidateExecution(); return _deltaTime; }
+	}
 
 	/// <summary>
 	///     Gets the stage currently being executed.
 	/// </summary>
-	public Stage Stage { get; }
+	public Stage Stage
+	{
+		get { ValidateExecution(); return _stage; }
+	}
 
 	/// <summary>
 	///     Gets the world instance executing this context.
 	/// </summary>
-	public World World { get; }
+	public World World
+	{
+		get
+		{
+			ValidateExecution();
+			return _world ?? throw new InvalidOperationException("The system context is uninitialized.");
+		}
+	}
+
+	private void ValidateExecution() => _executionOwner?.ValidateExecution(_executionEpoch);
 }

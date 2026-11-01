@@ -13,6 +13,7 @@
 		<PackageReference Include="FluentAssertions" />
 		<PackageReference Include="JetBrains.Annotations" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
 		<PackageReference Include="NSubstitute" />
 		<PackageReference Include="xunit" />
 		<PackageReference Include="xunit.runner.visualstudio" />
@@ -22,7 +23,7 @@
 		<ProjectReference Include="..\..\src\Bezoro.ECS\Bezoro.ECS.csproj" />
 		<ProjectReference Include="..\..\src\Bezoro.ECS.SourceGen\Bezoro.ECS.SourceGen.csproj"
 		                  OutputItemType="Analyzer"
-		                  ReferenceOutputAssembly="false"
+		                  ReferenceOutputAssembly="true"
 		                  PrivateAssets="all" />
 	</ItemGroup>
 

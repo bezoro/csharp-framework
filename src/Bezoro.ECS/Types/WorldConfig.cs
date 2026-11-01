@@ -21,8 +21,9 @@ public sealed class WorldConfig
 	public int CommandPayloadCapacityPerType { get; init; } = 65_536;
 
 	/// <summary>
-	///     Maximum number of registered component types.
+	///     Maximum number of registered component types and per-target relation markers.
 	/// </summary>
+	/// <remarks>Registrations remain reserved after entity destruction, Reset, and Clear. Recreate the world to restart this catalog.</remarks>
 	public int ComponentTypeCapacity { get; init; } = 256;
 
 	/// <summary>
@@ -47,6 +48,8 @@ public sealed class WorldConfig
 
 	internal void Validate()
 	{
+		if (OverflowPolicy is not (WorldOverflowPolicy.FailFast or WorldOverflowPolicy.DropNewest))
+			throw new ArgumentOutOfRangeException(nameof(OverflowPolicy), "Unknown overflow policy.");
 		if (EntityCapacity <= 0)
 			throw new ArgumentOutOfRangeException(nameof(EntityCapacity), "Entity capacity must be positive.");
 
