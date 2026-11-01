@@ -27,6 +27,8 @@ Use regression tests for observed defects. Add boundary, cancellation, and lifec
 
 Worlds and protocol match mutations have an owning thread. Separate independent-world concurrency from concurrent mutation of the same world. UI callbacks must use the configured dispatcher; background work must not depend on a blocked UI event queue to finish.
 
+ECS systems require explicit component/resource access declarations or NoWorldAccess before parallel scheduling. Generated inference supplements the contract; it does not prove arbitrary helper/callback effects. Copy required values out of scheduler-provided SystemContext during Update, and never retain that borrowed context for asynchronous work. Its command stream is created only on access, flushed in schedule order, then disposed after workers finish.
+
 Update module documentation, examples, and change notes with code. Keep historical design documents historical; current READMEs describe current behavior. Clearly identify known platform limits and application-provided policies.
 
 ## Commits and versions

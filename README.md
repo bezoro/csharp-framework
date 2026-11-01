@@ -29,6 +29,8 @@ The [toolkit example](samples/Bezoro.Toolkit.ConsoleDemo/README.md) combines pic
 
 Use the [statechart examples](samples/Bezoro.Statecharts.ConsoleDemo/README.md) for a chest, parallel character states, and scheduled perception. The [NPC example](samples/Bezoro.Behaviors.ConsoleDemo/README.md) nests trees and machines with one shared work budget. See [composition, costs and lifecycle](docs/composable-behaviors.md).
 
+The [framework API review](docs/framework-api-review.md) describes declarative state/tree construction, ownership fixes, allocation measurements and breaking migrations across the libraries. Construction builders compile to the existing compact runtimes and can be released after setup.
+
 ## Unity installation
 
 In Unity Package Manager, choose **Install package from git URL**:

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Framework API and runtime review
+
+- Optional declarative FSM/statechart builders and named tree-action bindings, with construction-only ownership handles and no extra runtime maps.
+- Regression models for budget-one behavior execution, hierarchical transitions, stale leases, scheduler ordering, source generation and concurrent change tracking.
+- Explicit ECS access contracts for parallelism, generation-checked cursor scopes and system contexts, guarded lifecycle transitions, and lazy command streams/buffers. Scheduler scratch is reused and no longer rebuilds conflict sets each tick.
+- Removed obsolete ECS aliases, unused observers and an empty generator. Read/Write intent is explicit; temporary entity identities do not recycle, and interval accumulation remains finite at large valid inputs.
+- Pool reuse without per-return node allocation, safe acquisition callbacks, corrected waiter/discard cleanup, stricter singleton ownership, direct span color formatting and checked arithmetic fixes.
+- Local chess refresh/load/manual play without engine work, bounded analysis/PV retention, strict UCI command validation, promotion/parser fixes and teardown with blocked stdin.
+- Event budgets on the core interfaces, smaller queued-event allocation, reliable phase-bus cleanup, coherent typing values and correct async logging scope/severity behavior.
+- Atomic health requests, finite double-precision streaming calculations, bounded input ingestion, callback release, timer transition preservation and streaming access limited to its selected window.
+- C# 9-callable LogPayload construction and init-modifier type forwarding across .NET Standard/.NET runtime builds. Four managed consumers cover every runtime library; mixed-target execution has its own regression tests.
+- Protected literal staging paths and temporary Git publication authentication without tokens in URLs. Updated migration guides, examples, public-type inventories and measured allocation limits. See [the review report](docs/framework-api-review.md).
+
 ### Composable behaviors
 
 - Independent typed Conditions, Statecharts, BehaviorTrees and optional Behaviors integration assemblies.
