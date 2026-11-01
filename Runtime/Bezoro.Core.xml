@@ -78,6 +78,7 @@
             <param name="timeout">Maximum time to wait for an object.</param>
             <param name="cancellationToken">Token to cancel the wait operation.</param>
             <returns>A task containing the object, or <c>null</c> if the operation timed out.</returns>
+            <remarks>The timeout ranges from zero to Int32.MaxValue milliseconds, or Timeout.InfiniteTimeSpan.</remarks>
         </member>
         <member name="M:Bezoro.Core.Abstractions.IPool`1.RentAsync(System.Threading.CancellationToken)">
             <summary>
@@ -345,8 +346,9 @@
                 Constructs a new <see cref="T:Bezoro.Core.CodeGen.CodeWriter.ScopeGuard" /> for the specified writer.
             </remarks>
             <param name="writer">The writer for which to manage the scope.</param>
+            <param name="parent">The containing scope, if any.</param>
         </member>
-        <member name="M:Bezoro.Core.CodeGen.CodeWriter.ScopeGuard.#ctor(Bezoro.Core.CodeGen.CodeWriter)">
+        <member name="M:Bezoro.Core.CodeGen.CodeWriter.ScopeGuard.#ctor(Bezoro.Core.CodeGen.CodeWriter,Bezoro.Core.CodeGen.CodeWriter.ScopeGuard)">
             <summary>
                 Helper type for automatically closing scopes (writes ending '}' when disposed).
             </summary>
@@ -354,6 +356,7 @@
                 Constructs a new <see cref="T:Bezoro.Core.CodeGen.CodeWriter.ScopeGuard" /> for the specified writer.
             </remarks>
             <param name="writer">The writer for which to manage the scope.</param>
+            <param name="parent">The containing scope, if any.</param>
         </member>
         <member name="M:Bezoro.Core.CodeGen.CodeWriter.ScopeGuard.Dispose">
             <summary>
@@ -738,8 +741,7 @@
         </member>
         <member name="M:Bezoro.Core.Extensions.ActionExtensions.SafeInvoke(System.Action)">
             <summary>
-                Safely invokes each delegate in the invocation list of the specified <see cref="T:System.Action" />, throwing an exception
-                if the handler is <c>null</c>.
+                Invokes the specified delegate, rejecting null. A callback exception propagates and stops invocation.
             </summary>
             <param name="handler">The <see cref="T:System.Action" /> delegate to invoke.</param>
             <exception cref="T:System.ArgumentNullException">Thrown if the <paramref name="handler" /> is <c>null</c>.</exception>
@@ -782,7 +784,7 @@
             <param name="array2d">The 2D array to check.</param>
             <returns>True if the array is null or empty, false otherwise.</returns>
         </member>
-        <member name="M:Bezoro.Core.Extensions.ArrayExtensions.Process``1(``0[0:,0:],System.Func{``0,System.Int32,System.Int32,System.Threading.CancellationToken,System.Threading.Tasks.Task},System.Threading.CancellationToken)">
+        <member name="M:Bezoro.Core.Extensions.ArrayExtensions.ProcessAsync``1(``0[0:,0:],System.Func{``0,System.Int32,System.Int32,System.Threading.CancellationToken,System.Threading.Tasks.Task},System.Threading.CancellationToken)">
             <summary>
                 Processes all non-null elements of a 2D array in their order of appearance.
             </summary>
@@ -1903,7 +1905,7 @@
                 Includes convenience methods for common colors and color forms.
             </summary>
             <summary>
-                Provides extension methods for common string empty/null/whitespace checks, following .NET semantics.
+                Provides string predicates. Empty checks also consider strings consisting only of whitespace empty.
             </summary>
             <summary>
                 Provides extension methods for formatting strings with various text markup and transformations.
@@ -3495,7 +3497,7 @@
         <member name="M:Bezoro.Core.Types.Color.WriteHex2(System.Byte,System.Span{System.Char})">
             <summary>Writes a byte value as two HEX digits into a character Span.</summary>
         </member>
-        <member name="M:Bezoro.Core.Types.Color.TryHexNibble(System.Char,System.Byte@)">
+        <member name="M:Bezoro.Core.Types.Color.TryHexByte(System.ReadOnlySpan{System.Char},System.Byte@)">
             <summary>Tries to parse a single hex nibble from character.</summary>
         </member>
         <member name="M:Bezoro.Core.Types.Color.ToLinear(System.Single)">
@@ -3889,6 +3891,9 @@
             <param name="current">The current value.</param>
             <param name="max">The maximum value.</param>
         </member>
+        <member name="M:Bezoro.Core.Types.Percent.FromTotals(System.ValueTuple{System.UInt32,System.UInt32},System.ValueTuple{System.UInt32,System.UInt32})">
+            <summary>Combines two current/maximum pairs without allocating a temporary array.</summary>
+        </member>
         <member name="M:Bezoro.Core.Types.Percent.FromTotals(System.ValueTuple{System.UInt32,System.UInt32}[])">
             <summary>
                 Creates a <see cref="T:Bezoro.Core.Types.Percent" /> from the sum of one or more current/max pairs.
@@ -4183,22 +4188,18 @@
                 Configuration options for object pool behavior.
             </summary>
             <param name="InitialCapacity">Initial number of pre-created objects. Default is 0.</param>
-            <param name="MaxCapacity">Maximum pool capacity. Use -1 for unbounded. Default is -1.</param>
-            <param name="ShrinkThreshold">Utilization threshold below which to consider shrinking. Default is 25%.</param>
+            <param name="MaxCapacity">Maximum pool capacity. Use -1 for unbounded or zero to accept no objects. Default is -1.</param>
             <param name="EnableAsyncWait">Whether to allow async waiting when pool is exhausted. Default is <c>true</c>.</param>
-            <param name="AsyncWaitTimeout">Default timeout for async rent operations. Default is 30 seconds.</param>
             <param name="ValidateOnRent">Whether to call Validate before returning rented objects. Default is <c>true</c>.</param>
             <param name="TrackStatistics">Whether to enable detailed statistics collection. Default is <c>false</c>.</param>
         </member>
-        <member name="M:Bezoro.Core.Types.PoolOptions.#ctor(System.Int32,System.Int32,Bezoro.Core.Types.Percent,System.Boolean,System.TimeSpan,System.Boolean,System.Boolean)">
+        <member name="M:Bezoro.Core.Types.PoolOptions.#ctor(System.Int32,System.Int32,System.Boolean,System.Boolean,System.Boolean)">
             <summary>
                 Configuration options for object pool behavior.
             </summary>
             <param name="InitialCapacity">Initial number of pre-created objects. Default is 0.</param>
-            <param name="MaxCapacity">Maximum pool capacity. Use -1 for unbounded. Default is -1.</param>
-            <param name="ShrinkThreshold">Utilization threshold below which to consider shrinking. Default is 25%.</param>
+            <param name="MaxCapacity">Maximum pool capacity. Use -1 for unbounded or zero to accept no objects. Default is -1.</param>
             <param name="EnableAsyncWait">Whether to allow async waiting when pool is exhausted. Default is <c>true</c>.</param>
-            <param name="AsyncWaitTimeout">Default timeout for async rent operations. Default is 30 seconds.</param>
             <param name="ValidateOnRent">Whether to call Validate before returning rented objects. Default is <c>true</c>.</param>
             <param name="TrackStatistics">Whether to enable detailed statistics collection. Default is <c>false</c>.</param>
         </member>
@@ -4206,22 +4207,19 @@
             <summary>Initial number of pre-created objects. Default is 0.</summary>
         </member>
         <member name="P:Bezoro.Core.Types.PoolOptions.MaxCapacity">
-            <summary>Maximum pool capacity. Use -1 for unbounded. Default is -1.</summary>
-        </member>
-        <member name="P:Bezoro.Core.Types.PoolOptions.ShrinkThreshold">
-            <summary>Utilization threshold below which to consider shrinking. Default is 25%.</summary>
+            <summary>Maximum pool capacity. Use -1 for unbounded or zero to accept no objects. Default is -1.</summary>
         </member>
         <member name="P:Bezoro.Core.Types.PoolOptions.EnableAsyncWait">
             <summary>Whether to allow async waiting when pool is exhausted. Default is <c>true</c>.</summary>
-        </member>
-        <member name="P:Bezoro.Core.Types.PoolOptions.AsyncWaitTimeout">
-            <summary>Default timeout for async rent operations. Default is 30 seconds.</summary>
         </member>
         <member name="P:Bezoro.Core.Types.PoolOptions.ValidateOnRent">
             <summary>Whether to call Validate before returning rented objects. Default is <c>true</c>.</summary>
         </member>
         <member name="P:Bezoro.Core.Types.PoolOptions.TrackStatistics">
             <summary>Whether to enable detailed statistics collection. Default is <c>false</c>.</summary>
+        </member>
+        <member name="M:Bezoro.Core.Types.PoolOptions.#ctor">
+            <summary>Creates the same configuration as <see cref="P:Bezoro.Core.Types.PoolOptions.Default" />.</summary>
         </member>
         <member name="P:Bezoro.Core.Types.PoolOptions.Default">
             <summary>
@@ -4638,102 +4636,57 @@
             <inheritdoc />
         </member>
         <member name="T:Bezoro.Core.Types.Singleton`1">
-            <summary>
-                A robust, thread-safe, and highly flexible Singleton base class.
-                Features:
-                - Lazy, thread-safe publication of the default instance
-                - Configurable creation factory (before or with reinitialization)
-                - Scoped runtime overrides for testing or special scenarios
-                - Reset support with optional disposal of existing instances
-                - Safe TryGet and state inspection helpers
-                - Protective construction checks to prevent unauthorized instantiation
-            </summary>
-            <typeparam name="T">The singleton's concrete type. Must be a reference type.</typeparam>
+            <summary>Creates one default instance per type and supports owned, nested overrides.</summary>
+            <remarks>
+            Creation, configuration, and scope changes are serialized. Reading an existing instance does not lock.
+            The application must finish using borrowed instances before resetting, recreating, or disposing an override.
+            Factories run on the calling thread and cannot recursively change this singleton's lifecycle.
+            </remarks>
+            <typeparam name="T">The singleton's reference type.</typeparam>
         </member>
         <member name="M:Bezoro.Core.Types.Singleton`1.#ctor">
-            <summary>
-                Initializes a new instance of the singleton type.
-                Direct construction is disallowed; instances must be created via the internal guarded factory.
-            </summary>
-            <exception cref="T:System.InvalidOperationException">Thrown when constructed outside allowed guarded paths.</exception>
+            <summary>Rejects direct construction outside the owning thread's factory call.</summary>
         </member>
         <member name="M:Bezoro.Core.Types.Singleton`1.Initialize(System.Func{`0})">
-            <summary>
-                Initializes the singleton by eagerly creating and setting an override instance using the provided factory.
-                Fails if an instance already exists or an override is active.
-            </summary>
-            <param name="factory">Factory used to create the override instance.</param>
-            <exception cref="T:System.ArgumentNullException">When factory is null.</exception>
-            <exception cref="T:System.InvalidOperationException">When the singleton is already created or overridden.</exception>
+            <summary>Eagerly creates an owned override. Fails if any instance already exists.</summary>
         </member>
         <member name="P:Bezoro.Core.Types.Singleton`1.IsOverridden">
-            <summary>
-                Indicates whether an override instance is currently active.
-            </summary>
+            <summary>Gets whether an initialized or scoped override is active.</summary>
         </member>
         <member name="P:Bezoro.Core.Types.Singleton`1.IsValueCreated">
-            <summary>
-                Indicates whether the singleton instance has been created (either override or default).
-            </summary>
+            <summary>Gets whether a default or override instance exists, without creating one.</summary>
         </member>
         <member name="P:Bezoro.Core.Types.Singleton`1.Instance">
-            <summary>
-                Gets the active singleton instance: an override if available, otherwise the lazily created one.
-            </summary>
+            <summary>Gets the current override or creates the default instance once.</summary>
+            <remarks>A default-factory failure is retained until reset or recreation.</remarks>
         </member>
         <member name="M:Bezoro.Core.Types.Singleton`1.TryGet(`0@)">
-            <summary>
-                Attempts to get the current instance without forcing initialization.
-            </summary>
-            <param name="instance">Receives the instance if already created or overridden; otherwise null.</param>
-            <returns>True if an instance is available; false otherwise.</returns>
+            <summary>Reads an existing instance without invoking the factory.</summary>
         </member>
         <member name="M:Bezoro.Core.Types.Singleton`1.Override(System.Func{`0})">
-            <summary>
-                Temporarily overrides the singleton instance with a new instance produced by <paramref name="factory" />.
-                Returns a disposable scope that restores the previous state upon disposal.
-            </summary>
-            <param name="factory">Factory used to create the override instance.</param>
-            <returns>An IDisposable scope that restores the previous instance on Dispose.</returns>
-            <exception cref="T:System.ArgumentNullException">When factory is null.</exception>
+            <summary>Creates an owned override that is disposed when its scope closes.</summary>
+            <remarks>
+            Close scopes in reverse creation order. Out-of-order disposal throws without changing ownership.
+            Reset and recreation invalidate outstanding scopes. A factory must return a distinct instance.
+            </remarks>
         </member>
         <member name="M:Bezoro.Core.Types.Singleton`1.ConfigureFactory(System.Func{`0})">
-            <summary>
-                Configures the creation factory for future singleton instances.
-            </summary>
-            <param name="factory">A non-null delegate that returns a non-null instance.</param>
-            <exception cref="T:System.ArgumentNullException">When factory is null.</exception>
+            <summary>Sets the factory for future default creation, preserving existing instances.</summary>
         </member>
         <member name="M:Bezoro.Core.Types.Singleton`1.ConfigureFactoryAndRecreate(System.Func{`0})">
-            <summary>
-                Configures the creation factory and recreates any initialized singleton instances.
-            </summary>
-            <param name="factory">A non-null delegate that returns a non-null instance.</param>
-            <exception cref="T:System.ArgumentNullException">When factory is null.</exception>
+            <summary>Disposes all owned instances and sets the factory for the next default read.</summary>
         </member>
         <member name="M:Bezoro.Core.Types.Singleton`1.ConfigureFactory(System.Func{`0},System.Boolean)">
-            <summary>
-                Configures the creation factory and optionally recreates initialized singleton instances.
-            </summary>
-            <param name="factory">A non-null delegate that returns a non-null instance.</param>
-            <param name="recreateIfInitialized">Whether to dispose and recreate existing instances.</param>
-            <exception cref="T:System.ArgumentNullException">When factory is null.</exception>
+            <summary>Sets a factory, optionally releasing existing instances first.</summary>
         </member>
         <member name="M:Bezoro.Core.Types.Singleton`1.Reset">
-            <summary>
-                Resets the singleton to its initial state without disposing existing instances.
-            </summary>
+            <summary>Forgets all instances without disposing them and restores the default factory.</summary>
         </member>
         <member name="M:Bezoro.Core.Types.Singleton`1.ResetAndDispose">
-            <summary>
-                Disposes existing instances and resets the singleton to its initial state.
-            </summary>
+            <summary>Disposes all owned instances and restores the default factory. Disposal exceptions are suppressed.</summary>
         </member>
         <member name="M:Bezoro.Core.Types.Singleton`1.Reset(System.Boolean)">
-            <summary>
-                Resets the singleton to its initial state and optionally disposes existing instances.
-            </summary>
-            <param name="disposeInstances">Whether to dispose IDisposable instances before resetting.</param>
+            <summary>Resets the factory and optionally disposes owned instances.</summary>
         </member>
         <member name="T:Bezoro.Core.Types.SwapbackArray`1">
             <summary>

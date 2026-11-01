@@ -4,6 +4,10 @@
         <name>Bezoro.StateMachines</name>
     </assembly>
     <members>
+        <member name="T:Bezoro.StateMachines.SignalHandle">
+            <summary>References a signal registered with one construction builder.</summary>
+            <remarks>Resolve the handle through its builder to obtain a compact runtime <see cref="T:Bezoro.StateMachines.SignalId" />. The default handle is invalid.</remarks>
+        </member>
         <member name="T:Bezoro.StateMachines.SignalId">
             <summary>Identifies a zero-based input signal within a particular machine definition.</summary>
             <remarks>The default value identifies signal zero. Identifiers do not establish membership in a definition.</remarks>
@@ -32,6 +36,10 @@
         <member name="M:Bezoro.StateMachines.SignalId.op_Inequality(Bezoro.StateMachines.SignalId,Bezoro.StateMachines.SignalId)">
             <summary>Compares identifiers.</summary>
         </member>
+        <member name="T:Bezoro.StateMachines.StateHandle">
+            <summary>References a state registered with one construction builder.</summary>
+            <remarks>Resolve the handle through its builder to obtain a compact runtime <see cref="T:Bezoro.StateMachines.StateId" />. The default handle is invalid.</remarks>
+        </member>
         <member name="T:Bezoro.StateMachines.StateId">
             <summary>Identifies a zero-based state within a particular machine definition.</summary>
             <remarks>The default value identifies state zero. Identifiers do not establish membership in a definition.</remarks>
@@ -59,6 +67,39 @@
         </member>
         <member name="M:Bezoro.StateMachines.StateId.op_Inequality(Bezoro.StateMachines.StateId,Bezoro.StateMachines.StateId)">
             <summary>Compares identifiers.</summary>
+        </member>
+        <member name="T:Bezoro.StateMachines.StateMachineBuilder">
+            <summary>Declares states and signals without assigning numeric identifiers or counts by hand.</summary>
+            <remarks>
+            The builder owns construction handles. Each Build returns an independent immutable snapshot.
+            Later declarations do not change earlier definitions. Builders are not synchronized or retained by definitions.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.State">
+            <summary>Registers a state. Retain the returned handle in a variable describing its meaning.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.Signal">
+            <summary>Registers an input signal.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.StartIn(Bezoro.StateMachines.StateHandle)">
+            <summary>Selects the initial state. A subsequent call replaces the selection for future builds.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.Transition(Bezoro.StateMachines.StateHandle,Bezoro.StateMachines.SignalHandle,Bezoro.StateMachines.StateHandle)">
+            <summary>Declares that an input in the source state goes to the target state, including explicit self transitions.</summary>
+            <exception cref="T:System.ArgumentException">A handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.Resolve(Bezoro.StateMachines.StateHandle)">
+            <summary>Resolves one of this builder's state handles to its stable runtime identifier.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.Resolve(Bezoro.StateMachines.SignalHandle)">
+            <summary>Resolves one of this builder's signal handles to its stable runtime identifier.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.Build">
+            <summary>Compiles a snapshot, rejecting missing initial state and duplicate source/signal pairs.</summary>
+            <exception cref="T:System.InvalidOperationException">StartIn has not selected an initial state.</exception>
         </member>
         <member name="T:Bezoro.StateMachines.StateMachineDefinition">
             <summary>Compiles an immutable sparse transition table for pure state evaluation.</summary>

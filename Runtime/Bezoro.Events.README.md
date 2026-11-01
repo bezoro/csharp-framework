@@ -31,7 +31,7 @@ bus.Subscribe<DamageEvent>(context =>
 }, priority: 100);
 ```
 
-`Publish` invokes handlers synchronously on the calling thread and returns the resulting `EventContext<TEvent>`. Nested publications run immediately. Each handler exception is caught so later handlers can continue, unless the context has been marked handled. The bus does not expose a handler-error event; applications that need error reporting should catch and report within their handlers.
+`Publish` invokes handlers synchronously on the calling thread and returns the resulting `EventContext<TEvent>`. Nested publications run immediately. Each handler exception is caught so later handlers can continue, unless the context has been marked handled. Pass `reportHandlerError: error => Report(error)` to the `EventBus` constructor to observe caught handler exceptions. The reporter runs on the dispatch thread; reporter exceptions are also caught. With no reporter, failure reporting adds no dispatch work.
 
 ## Queue work for a game loop
 
@@ -39,7 +39,7 @@ bus.Subscribe<DamageEvent>(context =>
 using Bezoro.Events.Abstractions;
 using Bezoro.Events.Services;
 
-using IBoundedEventBus bus = new EventBus();
+using IEventBus bus = new EventBus();
 
 // A producer thread can enqueue this immutable value.
 bus.Enqueue(new DamageEvent(25));
@@ -58,10 +58,10 @@ Zero leaves a live queue unchanged; negative budgets throw `ArgumentOutOfRangeEx
 
 - Subscriptions use snapshots. A handler can subscribe, unsubscribe, or publish during dispatch without corrupting iteration. A removed handler can still run in an already captured snapshot.
 - Handles created by `EventBus` have identifiers unique across its instances in the running process. Passing one bus's handle to another returns `false` without removing its subscription. The public handle constructor is not an ownership or security boundary.
-- `Dispose()` clears queued events and subscriptions. Registration and enqueue operations synchronize with disposal, preventing those operations from retaining new work afterward. Operations on a disposed bus throw `ObjectDisposedException`; disposal itself is idempotent.
+- `Dispose()` clears queued events and subscriptions. Registration and enqueue operations synchronize with disposal, preventing those operations from retaining new work afterward. Dispatch, registration, enqueue, and unsubscribe operations on a disposed bus throw `ObjectDisposedException`; counts remain readable and return zero. Disposal itself is idempotent.
 - Disposal does not join running publications or cancel callbacks already captured in snapshots. Stop publishers and consumers before disposing engine-owned objects used by handlers.
 - Bus bookkeeping is thread-safe. Handler state, event reference fields, and `EventContext` access outside its dispatch are the caller's responsibility.
-- Publication allocates an `EventContext`, rents a handler-snapshot array when handlers exist, and returns that array after dispatch. Enqueue creates deferred dispatch state. This is not a zero-allocation event system.
+- Publication allocates an `EventContext`, rents a handler-snapshot array when handlers exist, and returns that array after dispatch. Enqueue allocates one typed dispatch object that owns the event value, without a captured closure or per-event delegate. This is not a zero-allocation event system.
 
 ## Unity 6 example
 
@@ -110,29 +110,30 @@ public readonly struct DamageEvent
 
 The same pattern applies to Godot: enqueue from producers and flush in `_Process` or `_PhysicsProcess`. Neither engine's scene APIs should be called from a producer's inline `Publish` unless that producer already runs on the scene thread.
 
-`UnityEventBuses` groups independent `Update`, `FixedUpdate`, and `LateUpdate` buses. Its convenience flush methods are unlimited. For budgets, use a bounded bus directly or explicitly cast a supplied phase bus to `IBoundedEventBus` after checking its implementation. `ownsBuses: false` leaves disposal to the owner that supplied those buses.
+`UnityEventBuses` groups `Update`, `FixedUpdate`, and `LateUpdate` buses. Call `FlushUpdate(maxEvents: 100)` or the equivalent phase method to apply a dequeue budget. Disposal releases every distinct owned bus once, attempts all of them after failures, and then throws an `AggregateException` containing those failures. Repeated disposal is a no-op. `ownsBuses: false` leaves supplied buses usable by their owner. Flush methods on the disposed group throw even when its buses are borrowed.
 
 ## API reference
 
 | API | Purpose |
 | --- | --- |
-| `IEventBus` | Subscribe, unsubscribe, publish, enqueue, unlimited flush, and counts. |
-| `IBoundedEventBus` | Extends `IEventBus` with `FlushQueued(int maxEvents)`. |
-| `EventBus` | Sealed implementation of both contracts. |
+| `IEventBus` | Subscribe, unsubscribe, publish, enqueue, bounded or unlimited flush, and counts. |
+| `EventBus` | Sealed implementation with optional handler-error reporting. |
 | `EventContext<TEvent>` | Publication data and its `Handled` propagation flag. |
 | `SubscriptionHandle` | Subscription identifier; `None` is invalid and `IsValid` means `Id > 0`. |
 | `IUnityEventBuses`, `UnityEventBuses` | Independent buses for three game-loop phases. |
 
-Existing custom `IEventBus` implementations do not automatically support bounded flushing. Consumers requiring a budget should depend on `IBoundedEventBus`.
+## Migration
+
+`IBoundedEventBus` has been removed. Depend on `IEventBus` and call `FlushQueued(maxEvents)` directly. Custom bus implementations must implement the bounded overload. Custom `IUnityEventBuses` implementations must also supply the three bounded phase flush methods.
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/global.json):
 
 ```bash
 dotnet build src/Bezoro.Events/Bezoro.Events.csproj -c Release
 dotnet test tests/Bezoro.Events.Tests/Bezoro.Events.Tests.csproj -c Release -f net10.0
 ```
 
-See [the Events tests](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/tests/Bezoro.Events.Tests/README.md) for lifecycle and concurrency coverage.
+See [the Events tests](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/tests/Bezoro.Events.Tests/README.md) for lifecycle and concurrency coverage.
 

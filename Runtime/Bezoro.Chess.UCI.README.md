@@ -25,7 +25,7 @@ High-level game-engine event layer built on `Bezoro.Chess.UCI.Protocol`.
 
 ## Local gameplay
 
-The constructor without an engine path creates no UCI clients or process transports. `LoadMatchAsync`, `ResetAsync`, `MakeMoveAsync`, promotion, and undo use local rules. They do not start or wait for Stockfish. The async signatures remain for callers that already await them. With an available command gate, local operations complete synchronously.
+The constructor without an engine path creates no UCI clients or process transports. `NewGameAsync`, `LoadMatchAsync`, `ResetAsync`, `MakeMoveAsync`, promotion, and undo use local rules. `NewGameAsync` immediately restores twenty legal opening moves and fresh running clocks. They do not start or wait for Stockfish. The async signatures remain for callers that already await them. With an available command gate, local operations complete synchronously.
 
 ```csharp
 using Bezoro.Chess.UCI.API;
@@ -377,7 +377,11 @@ Use `PlayableMatchSetup` for save/load or authored setup assets. `PlayableMatchC
 
 Gameplay commands serialize concurrent callers. Event callbacks use the supplied `SynchronizationContext`; async state and classification streams receive updates independently of that context. `StreamStateAsync` yields the current snapshot and keeps at most one pending snapshot. Slow consumers receive the latest state and skip intermediate snapshots, so a paused renderer cannot retain an unlimited backlog of board and analysis data. Use `EventPublished` for individual gameplay events. The classified-move stream retains its finite set of move results. Both streams complete on stop or disposal, and disposing a session observes canceled background workers before disposing their engines. Subscribers should await commands instead of synchronously blocking inside event callbacks.
 
-Engine-backed sessions prune completed background and ponder-stop tasks during subsequent operations, including when `EnableBackgroundAnalysis` is false. Unfinished tasks remain tracked so disposal can await them before releasing engine resources. Local gameplay does not wait for those tasks.
+Engine-backed manual gameplay leaves idle engines alone. When analysis is disabled and no search is active or pending, loads, moves, new games, and undo send no ponder stop commands and create no stop tasks. Sessions prune completed background and ponder-stop tasks during subsequent operations. Unfinished tasks remain tracked so disposal can await them before releasing engine resources. Local gameplay does not wait for those tasks.
 
 `UciState.IsCheck` uses local rules. `Fen.Checkers` remains optional metadata from engines supporting `d` and is not required for gameplay. Terminal outcomes remain fixed until undo or loading another match, and terminal clocks stay paused.
+
+`BoardState.Positions` is an immutable collection of sixty-four square values. `MoveScore.TryParse` shares the protocol info grammar, including repeated spaces, terminal `string`/`pv` fields, and last-score replacement. Scores embedded in engine text are not evaluations.
+
+`ParsedMove.Notation` retains the promotion suffix and normalizes coordinates. Promotion pieces use the color implied by their destination rank. Bishop underpromotions from the b-file, such as `b7b8b`, preserve the complete move in board events and classification results.
 

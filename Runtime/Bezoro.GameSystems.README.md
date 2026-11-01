@@ -41,22 +41,23 @@ world.AddActivationPipeline();
 - World updates require finite, non-negative delta times. Unity hosts typically call `Tick(Time.deltaTime)` in `Update` and `FixedTick(Time.fixedDeltaTime)` in `FixedUpdate`; Godot hosts can call them from their corresponding process callbacks.
 - Callbacks run on the world update thread unless the subsystem has an explicitly configured dispatcher. The framework does not move the complete simulation to the engine's main thread.
 - Drain lifecycle queues regularly. A processing budget limits work per update and does not by itself bound producer backlog or memory use.
-- Input timestamps use double precision internally so short hold windows still expire after long uptimes. The existing public float timestamp is for display and compatibility.
+- Input timestamps and the public simulation clock use double precision so short hold windows still expire after long uptimes. Input ingestion has an explicit optional dequeue budget and supports releasing control snapshots on the world thread.
+- Movement integrates every finite positive delta, including values below a comparison epsilon. It skips invalid direct-update deltas and leaves a complete position unchanged when integration would produce a non-finite component.
 - Timer construction rejects non-finite values. The timer system skips advancement for non-finite values introduced through mutable timer fields, allowing recovery after those fields are repaired.
 
 ## Subsystem documentation
 
-- [Activation](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/src/Bezoro.GameSystems/ActivationSystem/README.md)
-- [Health](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/src/Bezoro.GameSystems/HealthSystem/README.md)
-- [Input](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/src/Bezoro.GameSystems/InputSystem/README.md)
-- [Streaming](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/src/Bezoro.GameSystems/StreamingSystem/README.md)
-- [Timers](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/src/Bezoro.GameSystems/TimerSystem/README.md)
+- [Activation](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/src/Bezoro.GameSystems/ActivationSystem/README.md)
+- [Health](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/src/Bezoro.GameSystems/HealthSystem/README.md)
+- [Input](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/src/Bezoro.GameSystems/InputSystem/README.md)
+- [Streaming](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/src/Bezoro.GameSystems/StreamingSystem/README.md)
+- [Timers](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/src/Bezoro.GameSystems/TimerSystem/README.md)
 
 ## Dependencies
 
-- [Bezoro.Core](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/src/Bezoro.Core/README.md)
-- [Bezoro.ECS](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/src/Bezoro.ECS/README.md)
-- [Bezoro.Events](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/src/Bezoro.Events/README.md)
+- [Bezoro.Core](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/src/Bezoro.Core/README.md)
+- [Bezoro.ECS](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/src/Bezoro.ECS/README.md)
+- [Bezoro.Events](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/src/Bezoro.Events/README.md)
 
 ## Design notes
 
@@ -65,11 +66,18 @@ world.AddActivationPipeline();
 - Ingestion, processing, and dispatch are separate systems when a workflow crosses a queue boundary.
 - Generated query specifications keep filtering and scheduler metadata compile-time visible.
 
+## Migration
+
+- `InputCommandQueue.SimulationTimeSeconds` and `StreamingStateChangedEvent.DistanceSquared` are doubles. Avoid narrowing casts in timing or distance decisions.
+- Streaming configuration rejects non-finite thresholds and reference coordinates before changing state.
+- Timer control calls preserve every accepted transition before an update. Event consumers now receive the complete ordered sequence.
+- Invalid health mutation modes fail at request construction instead of during a partially applied update.
+
 ## Targets and validation
 
-Targets .NET 10 and .NET Standard 2.1. Unity 6 consumes the precompiled .NET Standard assembly; see the [Unity package](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/unity-package/README.md) for installation. The systems do not depend on Unity or Godot types.
+Targets .NET 10 and .NET Standard 2.1. Unity 6 consumes the precompiled .NET Standard assembly; see the [Unity package](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/unity-package/README.md) for installation. The systems do not depend on Unity or Godot types.
 
-Use the SDK selected by [global.json](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/global.json):
 
 ```bash
 dotnet build src/Bezoro.GameSystems/Bezoro.GameSystems.csproj -c Release

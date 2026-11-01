@@ -9,21 +9,6 @@
                 Enables C# 9 init-only setters on older frameworks.
             </summary>
         </member>
-        <member name="T:System.Runtime.CompilerServices.CompilerFeatureRequiredAttribute">
-            <summary>
-                Indicates that a type has required members or that a member is required.
-            </summary>
-        </member>
-        <member name="M:System.Runtime.CompilerServices.CompilerFeatureRequiredAttribute.#ctor(System.String)">
-            <summary>
-                Indicates that a type has required members or that a member is required.
-            </summary>
-        </member>
-        <member name="T:System.Runtime.CompilerServices.RequiredMemberAttribute">
-            <summary>
-                Enables C# 11 required members on older frameworks.
-            </summary>
-        </member>
         <member name="T:Bezoro.Logging.Logger">
             <summary>
                 Provides a clean, flexible logging utility with optional complexity.
@@ -39,6 +24,10 @@
                 Minimum log level to process. Logs below this level are ignored.
                 Default: <see cref="F:Bezoro.Logging.Types.LogLevel.Info" />.
             </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.IsEnabled(Bezoro.Logging.Types.LogLevel,System.Nullable{Bezoro.Logging.Types.LogCategory})">
+            <summary>Reports whether a listener would receive this level and category under the current filters.</summary>
+            <remarks>Use before constructing expensive arguments. This is a snapshot; listeners and settings can change.</remarks>
         </member>
         <member name="M:Bezoro.Logging.Logger.BeginTimer(System.String,System.Nullable{Bezoro.Logging.Types.LogCategory},System.Object)">
             <summary>
@@ -707,6 +696,11 @@
                 Informational messages used for general output.
             </summary>
         </member>
+        <member name="F:Bezoro.Logging.Types.LogLevel.Success">
+            <summary>
+                Successful operations. These have lower severity than warnings.
+            </summary>
+        </member>
         <member name="F:Bezoro.Logging.Types.LogLevel.Warning">
             <summary>
                 Warnings that indicate a potential issue or non-critical problem.
@@ -720,11 +714,6 @@
         <member name="F:Bezoro.Logging.Types.LogLevel.Exception">
             <summary>
                 Exceptions representing severe errors or unexpected failures.
-            </summary>
-        </member>
-        <member name="F:Bezoro.Logging.Types.LogLevel.Success">
-            <summary>
-                Success notifications, used to indicate successful operations.
             </summary>
         </member>
         <member name="F:Bezoro.Logging.Types.LogLevel.Divider">
@@ -750,6 +739,13 @@
             <summary>
                 Contains all data for a single log event.
             </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.LogPayload.#ctor(Bezoro.Logging.Types.LogLevel,System.String,System.String,System.String)">
+            <summary>Creates a payload with its required display values, callable from C# 9 consumers.</summary>
+            <param name="level">Defined severity or divider level.</param>
+            <param name="message">Unformatted message text.</param>
+            <param name="formattedMessage">Message ready for the destination sink.</param>
+            <param name="severityEmoji">Display marker for the level.</param>
         </member>
         <member name="P:Bezoro.Logging.Types.LogPayload.Timestamp">
             <summary>

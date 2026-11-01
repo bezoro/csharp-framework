@@ -2921,6 +2921,10 @@
                 Configures client-level protocol timeouts and parsing behavior.
             </summary>
         </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions.MaxCapturedPrincipalVariations">
+            <summary>Maximum number of recent PV snapshots retained in a completed search result. Default is 4096.</summary>
+            <remarks>Live protocol events still receive every line. Fire-and-forget searches retain no PV history.</remarks>
+        </member>
         <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions.ReadyTimeout">
             <summary>
                 Timeout used while waiting for <c>readyok</c>.
@@ -3675,7 +3679,7 @@
         </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession">
             <summary>
-                Coordinates a playable match using separate playing, snapshot, and full-strength analysis clients, plus local
+                Coordinates a playable match using optional separate playing and full-strength analysis clients, plus local
                 board-state ownership for legal moves, promotion flow, clocks, and result adjudication.
             </summary>
             <remarks>
@@ -3696,12 +3700,12 @@
         <member name="P:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.HasEngineClients">
             <summary>Gets whether this session has explicitly configured engine clients for analysis and controlled turns.</summary>
         </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.#ctor(Bezoro.Chess.UCI.Protocol.API.UciEngineClient,Bezoro.Chess.UCI.Protocol.API.UciEngineClient,Bezoro.Chess.UCI.Protocol.API.UciEngineClient,System.Char,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,System.Int32,System.Int32,System.Int32,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchControlledMoveFallbackPolicy,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl},System.Func{System.DateTimeOffset})">
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.#ctor(Bezoro.Chess.UCI.Protocol.API.UciEngineClient,Bezoro.Chess.UCI.Protocol.API.UciEngineClient,System.Char,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,System.Int32,System.Int32,System.Int32,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchControlledMoveFallbackPolicy,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl},System.Func{System.DateTimeOffset})">
             <summary>
                 Creates a playable match session.
             </summary>
         </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.#ctor(Bezoro.Chess.UCI.Protocol.API.UciEngineClient,Bezoro.Chess.UCI.Protocol.API.UciEngineClient,Bezoro.Chess.UCI.Protocol.API.UciEngineClient,System.Char,System.Int32,System.Int32,System.Int32,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchControlledMoveFallbackPolicy,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl},System.Func{System.DateTimeOffset})">
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.#ctor(Bezoro.Chess.UCI.Protocol.API.UciEngineClient,Bezoro.Chess.UCI.Protocol.API.UciEngineClient,System.Char,System.Int32,System.Int32,System.Int32,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchControlledMoveFallbackPolicy,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl},System.Func{System.DateTimeOffset})">
             <summary>
                 Creates a human-versus-engine playable match session using the supplied player color as the analysis
                 perspective.
@@ -3867,9 +3871,8 @@
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.Refresh">
             <summary>
-                Refreshes a local session synchronously, without allocating a task or contacting an engine.
+                Refreshes the match synchronously, without allocating a task, contacting an engine, or starting analysis.
             </summary>
-            <exception cref="T:System.InvalidOperationException">Engine clients are configured; use <see cref="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.RefreshAsync(System.Threading.CancellationToken)" />.</exception>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.GetLegalMoveAnalysisAsync(System.Threading.CancellationToken)">
             <summary>
@@ -3960,13 +3963,19 @@
                 Plays engine-controlled turns until the match is terminal or the supplied ply limit is reached.
             </summary>
         </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.Dispose">
+            <summary>Cancels optional analysis and releases session resources. Engine clients remain caller-owned.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.DisposeAsync">
+            <summary>Cancels analysis and joins its workers before the caller disposes the engine clients.</summary>
+        </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.API.UciPositionAnalysisCoordinator">
             <summary>
                 Coordinates ordered full-strength position analysis over a dedicated client.
                 Positions are analyzed in FIFO order, and completed results are cached by position key for later reuse.
             </summary>
         </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPositionAnalysisCoordinator.#ctor(Bezoro.Chess.UCI.Protocol.API.UciEngineClient,System.Int32,System.Int32)">
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPositionAnalysisCoordinator.#ctor(Bezoro.Chess.UCI.Protocol.API.UciEngineClient,System.Int32,System.Int32,System.Int32,System.Int32)">
             <summary>
                 Initializes a new coordinator over a dedicated analysis client.
             </summary>
@@ -4006,6 +4015,9 @@
             <summary>
                 Cancels queued work and releases coordinator resources.
             </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPositionAnalysisCoordinator.DisposeAsync">
+            <summary>Cancels analysis and observes the active worker before the caller releases its engine client.</summary>
         </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.Domain.Common.Constants.UciConstants.Commands">
             <summary>
@@ -4844,7 +4856,7 @@
                 Tracks output lines and bestmove completion.
             </summary>
         </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.SearchSession.#ctor(System.Boolean,System.Boolean)">
+        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.SearchSession.#ctor(System.Boolean,System.Boolean,System.Int32)">
             <summary>
                 Holds shared data for a search session for the duration of an active "go ..." command.
                 Tracks output lines and bestmove completion.
@@ -4891,7 +4903,7 @@
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.UciCommandBuilder.NormalizeSearchMoves(System.Collections.Generic.IEnumerable{System.String})">
             <summary>
-                Normalizes a collection of user-provided search moves, keeping only valid UCI move strings.
+                Normalizes a collection of user-provided moves, rejecting the entire command if any move is malformed.
             </summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.UciCommandBuilder.BuildGoCommand(Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters)">

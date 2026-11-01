@@ -212,24 +212,18 @@
                 ECS component representing an activation callback and its processing state.
             </summary>
         </member>
-        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry.#ctor(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle,System.Action,System.Int32,Bezoro.GameSystems.ActivationSystem.Types.ActivationState)">
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry.#ctor(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle,System.Action,System.Int32)">
             <summary>
                 Initializes a new activation entry.
             </summary>
             <param name="handle">Stable handle assigned by the command queue.</param>
             <param name="callback">Callback invoked once the entry is activated.</param>
             <param name="priority">Activation priority. Higher values activate first.</param>
-            <param name="state">Current activation state.</param>
             <exception cref="T:System.ArgumentNullException">Thrown when <paramref name="callback" /> is null.</exception>
         </member>
         <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry.Handle">
             <summary>
                 Gets the stable activation handle for this entry.
-            </summary>
-        </member>
-        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry.Callback">
-            <summary>
-                Gets callback invoked when the entry transitions to <see cref="F:Bezoro.GameSystems.ActivationSystem.Types.ActivationState.Activated" />.
             </summary>
         </member>
         <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry.Priority">
@@ -239,7 +233,7 @@
         </member>
         <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry.State">
             <summary>
-                Gets or sets the current activation state.
+                Gets the current activation state. Only the activation pipeline changes it.
             </summary>
         </member>
         <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource">
@@ -349,7 +343,7 @@
             <summary>The entry is waiting to be activated.</summary>
         </member>
         <member name="F:Bezoro.GameSystems.ActivationSystem.Types.ActivationState.Activated">
-            <summary>The entry has been activated and its callback invoked.</summary>
+            <summary>The entry was selected and its callback queued for dispatch. Host dispatch can defer execution.</summary>
         </member>
         <member name="F:Bezoro.GameSystems.ActivationSystem.Types.ActivationState.Cancelled">
             <summary>The entry was cancelled before activation.</summary>
@@ -719,16 +713,24 @@
             <param name="world">The ECS world.</param>
             <returns>The input command queue resource.</returns>
         </member>
-        <member name="M:Bezoro.GameSystems.InputSystem.Extensions.InputWorldExtensions.AddMovementInputPipeline(Bezoro.ECS.Services.World)">
+        <member name="M:Bezoro.GameSystems.InputSystem.Extensions.InputWorldExtensions.AddMovementInputPipeline(Bezoro.ECS.Services.World,System.Int32)">
             <summary>
                 Registers fixed-tick input systems with their declared stage ordering.
             </summary>
             <param name="world">The ECS world.</param>
+            <param name="maxCommandsPerUpdate">Maximum dequeued commands per fixed update. Zero pauses ingestion.</param>
         </member>
         <member name="T:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem">
             <summary>
                 Drains external input commands into latest-per-control snapshots each fixed update.
             </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem.#ctor(System.Int32)">
+            <summary>Creates ingestion with an explicit maximum number of dequeued commands per update.</summary>
+            <param name="maxCommandsPerUpdate">Zero pauses ingestion. The default drains until empty.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem.MaxCommandsPerUpdate">
+            <summary>Maximum dequeued commands, including stale commands, per update.</summary>
         </member>
         <member name="P:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem.Stage">
             <inheritdoc />
@@ -817,6 +819,16 @@
             <summary>
                 Gets the simulation time accumulated by ingestion updates.
             </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.PendingCommandCount">
+            <summary>Approximate pending ingress count. Producers may change it concurrently.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.TrackedControlCount">
+            <summary>Number of retained control snapshots. Read on the world thread.</summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.ForgetControl(System.Int32)">
+            <summary>Forgets a control's snapshot and sequence on the world thread.</summary>
+            <remarks>Pending commands remain queued and can recreate the control on a later update.</remarks>
         </member>
         <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.Enqueue(Bezoro.GameSystems.InputSystem.Types.InputCommand@)">
             <inheritdoc />
@@ -1065,7 +1077,7 @@
             <param name="Transition">Transition kind.</param>
             <param name="DistanceSquared">Squared distance to reference point at transition time.</param>
         </member>
-        <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent.#ctor(Bezoro.ECS.Types.Entity,Bezoro.GameSystems.StreamingSystem.Types.StreamingTransition,System.Single)">
+        <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent.#ctor(Bezoro.ECS.Types.Entity,Bezoro.GameSystems.StreamingSystem.Types.StreamingTransition,System.Double)">
             <summary>
                 Event payload describing a streaming state transition.
             </summary>

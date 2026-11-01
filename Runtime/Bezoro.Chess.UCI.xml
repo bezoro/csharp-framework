@@ -644,12 +644,13 @@
         </member>
         <member name="M:Bezoro.Chess.UCI.API.Types.ParsedMove.FromNotation(System.String)">
             <summary>
-                Parses coordinate move notation containing four or five characters, with an optional leading piece designator.
+                Parses strict coordinate notation containing four or five characters, optionally preceded by a piece designator.
             </summary>
             <param name="moveNotation">The notation to parse.</param>
             <returns>The parsed move.</returns>
             <exception cref="T:System.ArgumentNullException"><paramref name="moveNotation" /> is <see langword="null" />.</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="moveNotation" /> has an unsupported length.</exception>
+            <exception cref="T:System.ArgumentException">Squares or promotion travel are malformed.</exception>
         </member>
         <member name="T:Bezoro.Chess.UCI.API.Types.Piece">
             <summary>
@@ -1449,7 +1450,7 @@
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.NewGameAsync(System.Threading.CancellationToken)">
             <summary>
-                Prepares a new game in all engines. Clears all cached move classifications and legal moves.
+                Starts a locally playable game with the standard position and freshly initialized clocks.
             </summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ResetAsync(System.Threading.CancellationToken)">

@@ -1,442 +1,160 @@
 # Bezoro.ECS
-High-performance fixed-capacity ECS runtime centered on `World`, `CommandStream`, `QueryView`, compiled queries, and conflict-aware system scheduling.
 
-## Types
-| Type                                                                                                                       | Description                                                                                                                                  |
-|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| `World`                                                                                                                    | ECS runtime (`Services/World.cs`) for entity/component storage, command playback, system execution, snapshots, and compiled query execution. |
-| `WorldConfig`                                                                                                              | Fixed-capacity runtime configuration (entity/component/query/command capacities, chunk capacity, parallelism, and overflow policy).          |
-| `WorldOptions`                                                                                                             | Obsolete compatibility surface retained while consumers migrate to `WorldConfig`.                                                            |
-| `Entity`                                                                                                                   | Stable entity handle (`id`, `version`) with stale-handle invalidation semantics.                                                             |
-| `CommandStream` / `CommandBuffer`                                                                                          | Deferred structural mutation recorder. `CommandStream` is canonical; `CommandBuffer` is an obsolete compatibility wrapper.                   |
-| `QueryView<TSpec>` / `QueryBuilder` / `ICompiledQuerySpec` / `QueryHandle<TSpec>` / `QueryCursor`                          | Query authoring and execution surfaces. `QueryView<TSpec>` is the ergonomic path; handles/cursors remain the low-level hot-path APIs.        |
-| `QueryDiagnostics`                                                                                                         | Query introspection snapshot (filters, cache state, matching archetype/chunk/entity counts).                                                 |
-| `ISystem` / `SystemContext` / `SystemUpdateSettings` / `Stage` / `SystemLoopPhase`                                         | System contract and scheduling context for staged `Tick`/`FixedTick`/`LateTick` execution.                                                   |
-| `ISystemRunCondition` / `SystemRunConditionContext`                                                                        | System/set run-condition contract for conditional scheduler execution.                                                                       |
-| `ScheduleDiagnostics` / `SchedulePhaseDiagnostics` / `ScheduleStageDiagnostics` / `ScheduleBatchDiagnostics`               | Scheduler plan introspection snapshot for phases, stages, and execution batches.                                                             |
-| `WorldDiagnostics` / `ArenaDiagnostics` / `CommandStreamDiagnostics`                                                       | Runtime diagnostics snapshots for capacity, overflow, and high-watermark visibility.                                                         |
-| `WorldSnapshot` / `SnapshotEntityRecord` / `SnapshotComponentRecord` / `SnapshotRelationRecord` / `SnapshotResourceRecord` | Serializer-agnostic snapshot payload types for capture/restore workflows.                                                                    |
+`World` owns component storage, resources, compiled queries, and system execution. Runtime assemblies target .NET 10 and .NET Standard 2.1. The source generators target .NET Standard 2.0.
 
-## Quick Start
+## Start with a world and a query
+
 ```csharp
 using Bezoro.ECS.Attributes;
 using Bezoro.ECS.Services;
 using Bezoro.ECS.Types;
 
-var world = new World(new WorldConfig { EntityCapacity = 1024, QueryResultCapacity = 1024 });
+using var world = new World(new WorldConfig
+{
+    EntityCapacity = 1024,
+    QueryResultCapacity = 1024,
+    MaxDegreeOfParallelism = 1
+});
 
-var entity = world.Spawn(new Position { X = 1, Y = 2 });
+var player = world.Spawn(new Position { X = 1, Y = 2 });
+world.Query<Positions>().ForEach<Position>(
+    (Entity entity, ref Position position) => position.X += 10);
 
-world.Query<PositionQuery>().ForEach(
-    (entityId, ref Position position) =>
-    {
-        position.X += 10;
-    });
+ref readonly var current = ref world.Read<Position>(player);
 
-[Query]
-[With(typeof(Position))]
-readonly partial struct PositionQuery;
+[Query, With(typeof(Position))]
+readonly partial struct Positions;
 
 struct Position { public float X; public float Y; }
 ```
-Within this solution, application code should reference `Bezoro.ECS`; the source generator project is wired in as analyzer infrastructure and is not intended as a separate application-facing dependency.
 
-### World Configuration
+A world has one owning thread. Its scheduler and explicit parallel jobs may distribute declared work to workers. Concurrent external mutation of the same world is unsupported. Independent worlds can run concurrently through `WorldGroup`.
 
-`WorldConfig` is the canonical world-construction API. `WorldOptions` and `World(WorldOptions)` remain available for migration and carry non-error obsolete messages:
+## Read and write deliberately
 
-| Compatibility API | Migration message |
-|-------------------|-------------------|
-| `WorldOptions` | `Use WorldConfig instead.` |
-| `World(WorldOptions)` | `Use World(WorldConfig) instead.` |
+- `Read<T>(entity)` returns a readonly component reference. `TryRead<T>(entity, out value)` returns a copy.
+- `Write<T>(entity)` returns a mutable reference and records a potential write for change tracking. `TryWrite<T>` returns the same kind of borrowed reference through `ComponentRef<T>`.
+- `GetAccessor<T>()` creates a reusable unmanaged accessor with `Has`, `TryRead`, and `Write` operations.
+- `Has`, `TryRead`, `TryWrite`, and removal of an absent component do not register the missing type or consume component capacity.
+- `Set`, `Add`, and `Replace` currently all insert or overwrite a component. `Add<T>(entity)` uses its default value. `Remove<T>` removes it when present.
 
-The compatibility constructor maps a positive `WorldOptions.ChunkCapacity` exactly and maps a nonpositive value to the `WorldConfig` default of 256. It preserves `MaxDegreeOfParallelism` exactly, so nonpositive values still fail `WorldConfig` validation. `ChunkSizeInBytes` is ignored. All other capacities and the overflow policy retain fresh `WorldConfig` defaults. Passing `null` throws `ArgumentNullException` with parameter name `options`.
+Component references and spans are borrowed. Stop using them before an entity changes archetype, a component is removed, the world resets, or the world is disposed. A readonly reference does not make objects referenced by a component immutable. Entity handles belong to the world that produced them; IDs are not global identities across worlds.
 
-## API Reference
-| Member                                                                                                                        | Description                                                                              |
-|-------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
-| `Spawn`, `Despawn`, `Add`, `Replace`, `Remove`, `Read`, `Write`, `TryRead`, `TryWrite`, `Has`, `IsAlive`                      | Core entity/component operations with explicit read/write intent.                        |
-| `AddRelation<TRelation>`, `RemoveRelation<TRelation>`, `HasRelation<TRelation>`                                               | First-class relation API for source->target edges backed by relation marker components.  |
-| `CreateCommandStream`, `Playback`                                                                                             | Canonical deferred mutation recording and deterministic apply stage.                     |
-| `Query<TSpec>`, `Compile<TSpec>`, `Execute<TSpec>`, `ForEach(...)`, `Run(...)`, `RunParallel(...)`, `RunEntity(...)`          | Ergonomic and low-level query execution surfaces.                                        |
-| `GetQueryDiagnostics<TSpec>`                                                                                                  | Snapshot of compiled query filters, cache status, and current match counts.              |
-| `AddSystem`, `Tick`, `FixedTick`, `LateTick`, `RunPhase`                                                                      | System registration and phase-based scheduling.                                          |
-| `SetSystemSetEnabled<TSet>`, `IsSystemSetEnabled<TSet>`, `SetSystemSetRunCondition<TSet>`, `ClearSystemSetRunCondition<TSet>` | Runtime system-set controls and set-level run conditions.                                |
-| `HasResource<T>`, `ReadResource<T>`, `WriteResource<T>`, `TryReadResource<T>`, `GetOrCreateResource<T>`, `ReplaceResource<T>` | Type-indexed resource storage with explicit read/write/create semantics.                 |
-| `CaptureSnapshot<TWriter>`, `RestoreSnapshot<TReader>`                                                                        | Snapshot capture/restore with serializer-owned transport via reader/writer abstractions. |
-| `GetScheduleDiagnostics`                                                                                                      | Snapshot of current scheduler phase/stage/batch plan and registered system count.        |
-| `GetDiagnostics`, `CommandStream.GetDiagnostics`                                                                              | Capacity/overflow/high-watermark diagnostics.                                            |
+## Record structural changes during iteration
 
-### Deferred Commands
-
-Create a `CommandStream` directly from the world and play it back at an explicit structural-change boundary:
+A query borrows live component storage. While an iteration or cursor is active, the world rejects entity creation/destruction, archetype changes, playback, reset, clear, snapshot operations, and disposal. Overwriting a component that already exists is allowed. Record structural work and apply it after iteration:
 
 ```csharp
 using var commands = world.CreateCommandStream();
-var entity = commands.CreateEntity(new Position { X = 1, Y = 2 });
+world.Query<Positions>().ForEach<Position>((Entity entity, ref Position position) =>
+{
+    if (position.X < 0) commands.Destroy(entity);
+});
 world.Playback(commands);
 ```
 
-Systems record deferred mutations through the canonical context property:
+`CommandStream.Set<T>` accepts any struct, including structs containing references. One stream belongs to one world and one recorder. Different systems receive independent streams on first access to `context.CommandStream`. A scheduler-provided context is valid only during its `Update` call. Access after that call rejects use rather than allocating a late stream. Explicitly constructed contexts with an external stream retain that stream's own lifetime. A stream rents its command buffer only on the first recorded command. Playback follows recording order and resets the stream even when a command fails. Already applied commands remain applied; playback is not a transaction.
+
+`CreateEntity` returns a temporary handle for commands in that stream's current recording. It differs from `Entity.None` and `Entity.Wildcard`, and cannot be reused across streams or after playback/reset. Temporary identities are allocated only for recordings that create entities. The process rejects creation after all 4,294,967,295 generation tokens have been used; it never recycles a token and aliases an earlier handle.
+
+## Choose query traversal by the work you need
+
+Declare generated queries with `[Query]`, `[With]`, `[Without]`, `[AnyOf]`, `[Optional]`, `[Changed]`, and `[Added]`. Manual specifications implement `ICompiledQuerySpec.Build(ref QueryBuilder)`. Plans are cached by specification type and built from `default(TSpec)`; runtime values on specification instances are not accepted. `All`, `None`, and `Any` remain alternative filter spellings. `Related<TRelation>(target)` and `Related<TRelation>()` select relationships to one target or any target.
 
 ```csharp
-public void Update(in SystemContext context)
+var positions = world.Query<Positions>();
+positions.ForEachRead<Position>((Entity entity, in Position position) => Observe(position));
+positions.Run(new MoveJob(0.016f));
+```
+
+Typed delegates support all struct components. Struct jobs and the low-level cursor hot paths currently require unmanaged components. Job interfaces support one writable component and up to three readonly components, with an optional entity argument. Generated extensions infer the job's component types for `Run(job)` and `RunParallel(job, degreeOfParallelism)`.
+
+For a bounded window, compile once and index the cursor:
+
+```csharp
+var handle = world.Compile<Positions>();
+using var cursor = world.Execute(handle);
+cursor.MoveNext();
+for (int index = 0; index < Math.Min(cursor.Count, 64); index++)
 {
-    context.CommandStream.CreateEntity(new Position());
+    Entity entity = cursor.GetEntity(index);
+    ref readonly Position position = ref cursor.Read<Position>(index);
+    Observe(entity, position);
 }
 ```
 
-The retained command aliases and wrapper remain behavior-preserving while consumers migrate. Each carries a non-error obsolete attribute:
+`Count` and `GetEntity(index)` do not materialize the complete entity array. `Current` materializes it on first access. Index lookup reuses the current chunk range or searches the range table. Constructing an execution still visits matching archetypes and chunks; `Changed`/`Added` filtering may examine every candidate entity. A window bounds the caller's component work, not the cost of constructing the result set.
 
-| Compatibility API | Migration message |
-|-------------------|-------------------|
-| `CommandBuffer` | `Use CommandStream instead.` |
-| `SystemContext.Commands` | `Use SystemContext.CommandStream instead.` |
-| `SystemContext(float, Stage, World, CommandBuffer)` | `Use SystemContext(float, Stage, World, CommandStream) instead.` |
-| `World.CreateCommandBuffer()` | `Use CreateCommandStream() instead.` |
-| `World.BeginCommands()` | `Use CreateCommandStream() instead.` |
+A cursor has one batch. The first `MoveNext` returns true, including an empty result; later calls return false. Dispose every execution. Cursor copies share a lifetime: disposing one invalidates all copies, and an old copy cannot dispose a later execution that reuses the lease. Disposing any copy while its own callback/job is running throws before releasing storage. Default handles and default/disposed cursors reject use with explicit lifecycle exceptions.
 
-### Component And Resource Access
+`Changed<T>` and `Added<T>` advance their observation window per compiled specification. Handles/views for the same specification in one world share that window. Mutable access records a potential write; it cannot detect assignments through a reference retained beyond its original borrow. Change versions use 64 bits. Compiling the first changed/added query enables potential-write bookkeeping for mutable references; that bookkeeping may synchronize across workers. Explicit add/set operations retain versions for later queries. Query diagnostics observe matching counts without advancing the window.
 
-- Use `Read<T>(entity)` or `TryRead<T>(entity, out component)` for explicit read-only component access; use `Write<T>(entity)` or `TryWrite<T>(entity, out component)` when mutation is intended.
-- Use `ReadResource<T>()` or `TryReadResource<T>(out resource)` for resource reads and `WriteResource<T>()` for mutable resource access.
-- `TryGet<T>(entity, out component)` remains supported and non-obsolete as a copy-read operation; `TryRead<T>` is the canonical explicit-intent spelling.
-- The retained `Get<T>` compatibility alias forwards to `Write<T>` and therefore preserves potential-write tracking for changed-component queries.
+Empty typed delegate queries invoke no callback and do not register callback-only types. A matching archetype missing a requested callback component throws before that chunk's first callback. Earlier compatible chunks may already have completed.
 
-| Compatibility member | Migration message |
-|----------------------|-------------------|
-| `Get<T>(Entity)` | `Use Read<T>(Entity) for read-only access or Write<T>(Entity) for mutable access instead.` |
-| `GetResource<T>()` | `Use ReadResource<T>() for read-only access or WriteResource<T>() for mutable access instead.` |
-| `TryGetManaged<T>(Entity, out T)` | `Use TryRead<T>(Entity, out T) instead.` |
+## Schedule only known independent work in parallel
 
-## Scheduling Model
-- Systems run by `SystemLoopPhase` (`Tick`, `FixedTick`, `LateTick`) and ordered `Stage` (`Input`, `PreTick`, `Tick`, `PostTick`, `Render`).
-- The scheduler batches systems for parallel execution using read/write metadata (`[Reads(typeof(...))]`, `[Writes(typeof(...))]`, `[ReadsResource(typeof(...))]`, `[WritesResource(typeof(...))]`, `[Exclusive]`).
-- Explicit ordering constraints are supported with `[Before(typeof(...))]` and `[After(typeof(...))]` within the same phase+stage plan.
-- Systems can be grouped into sets via `[SystemSet(typeof(...))]` and toggled at runtime with `SetSystemSetEnabled<TSet>(...)`.
-- Conditional execution is supported via `[RunIf(typeof(...))]` (per-system) and `SetSystemSetRunCondition<TSet>(...)` (per-set), both implementing `ISystemRunCondition`.
-- Structural writes are recorded through `SystemContext.CommandStream` and flushed deterministically after each scheduler batch.
-- Fixed-interval scheduling is supported via `SystemUpdateSettings.FixedInterval(...)` with bounded catch-up.
+Systems run by `SystemLoopPhase` and `Stage`. Updates are rejected during registration/`OnCreate` and disposal/`OnDestroy`, before any system runs. Registration honors the system's stage unless an explicit override is supplied. `Tick`, `FixedTick`, and `LateTick` execute their respective phase. Use `[Before]` and `[After]` within the same phase/stage. Declared ordering takes precedence over registration order; remaining component/resource conflicts retain deterministic registration order.
 
-## Query Model
-- Ergonomic queries are typically declared with `[Query]` plus `[With]` / `[Without]` / `[AnyOf]` attributes and consumed through `World.Query<TSpec>()`.
-- `ICompiledQuerySpec.Build(ref QueryBuilder builder)` remains available for advanced/manual query authoring.
-- Runtime-parameterized query instances are not part of the public 1.0 surface yet; ergonomic queries are compiled by specification type.
-- Supported runtime filters: `With<T>` / `All<T>`, `AnyOf<T>` / `Any<T>`, `Without<T>` / `None<T>`, `Optional<T>`, `Changed<T>`, `Added<T>`, `Related<TRelation>(target)` / `Related<TRelation>()`.
-- `Changed<T>` / `Added<T>` are evaluated incrementally per compiled handle execution.
-- Change tracking also covers mutable ref-based write surfaces (`World.Write`, component accessors, cursor/world `ForEach`, and QueryView/cursor job execution) once any changed/added query is compiled.
-- `GetQueryDiagnostics(handle)` reports static filter makeup and current dynamic match counts without advancing incremental `Changed`/`Added` windows.
-- Execution styles:
-- QueryView style: `world.Query<MyQuery>().ForEach((entity, ref Position position) => { ... })`
-- QueryView read-only style: `world.Query<MyQuery>().ForEachRead((entity, in ActivationEntry entry) => { ... })`
-- QueryView job style: `world.Query<MyQuery>().Run(new IntegrateJob(dt))`
-- QueryView entity-aware job style: `world.Query<MyQuery>().Run(new IntegrateEntityJob(dt))`
-- Low-level exact-handle style: `var handle = world.Compile<MyQuery>(); using var cursor = world.Execute(handle);`
-- Cursor entity-aware job style: `cursor.Run(new IntegrateEntityJob(dt))`
-- Direct callback style: `world.ForEach(handle, ...)`
-- Parallel QueryView entity-aware job style: `world.Query<MyQuery>().RunParallel(new IntegrateEntityJob(dt), degreeOfParallelism: 4)`
-- `QueryView<TSpec>` is the canonical sequential and parallel struct-job surface. `Compile<TSpec>()`, `Execute(handle)`, and `QueryCursor` remain the low-level exact-handle path.
-- The public `QueryView` instance methods carrying entity-aware jobs are named `RunEntity(...)` / `RunParallelEntity(...)`; the source generator emits `Run(...)` / `RunParallel(...)` extensions for `IForEachEntity<T...>` jobs so gameplay code stays symmetrical with the non-entity-aware path.
-- Generated `World.Run(...)` extensions remain non-obsolete for generated-job ergonomics. They preserve the supplied handle and route through an exact-handle `QueryView<TSpec>` without recompiling it. For parallel exact-handle execution, construct `QueryView<TSpec>` with the handle and call `RunParallel(...)`.
-- Typed `QueryView.ForEach(...)` and `ForEachRead(...)` work for any struct component, including structs that contain references. They traverse matching chunks directly without materializing entity results or performing per-entity world lookups.
-- Typed delegate traversal resolves component columns only after finding a matching chunk. An empty result therefore invokes no callbacks, throws no missing-component error, and does not register callback-only component types. If a nonempty matching archetype lacks a requested component, traversal throws `KeyNotFoundException` before invoking that chunk's first callback; earlier compatible chunks may already have completed.
-- Every typed `QueryView.ForEach(...)` and `ForEachRead(...)` callback runs during an active query iteration. Command playback, world reset/clear, and snapshot capture/restore are rejected until the callback returns.
-- `QueryView` job execution and the lower-level cursor/direct hot paths remain unmanaged-only and are still the performance-oriented escape hatch.
+The generator infers direct `Read`/`Write` access, cursor/accessor operations, delegate traversal, and jobs from the effective `ISystem.Update` implementation. It supports explicit interface implementations, inherited source methods, and closed generic base types. Inference complements explicit declarations; it never authorizes parallel scheduling by itself. It does not inspect arbitrary helper method bodies or prove the absence of other effects. Direct structural calls are always exclusive. Declare the complete access contract for any system intended to run in parallel, including access through helpers and DLL consumers without generators:
 
-### World Job Migration
-
-The generic instance methods on `World` remain as non-error obsolete forwarders while consumers migrate. They preserve the supplied handle, mutation, entity delivery, ordering, exceptions, and change tracking.
-
-| Compatibility member | Canonical replacement | Obsolete message |
-| --- | --- | --- |
-| `World.Run(handle, job)` | `new QueryView<TSpec>(world, handle).Run(job)` | `Use QueryView<TSpec>.Run(job) instead.` |
-| `World.RunEntity(handle, job)` | `new QueryView<TSpec>(world, handle).RunEntity(job)` | `Use QueryView<TSpec>.RunEntity(job) instead.` |
-| `World.RunParallel(handle, job, degreeOfParallelism)` | `new QueryView<TSpec>(world, handle).RunParallel(job, degreeOfParallelism)` | `Use QueryView<TSpec>.RunParallel(job, degreeOfParallelism) instead.` |
-| `World.RunParallelEntity(handle, job, degreeOfParallelism)` | `new QueryView<TSpec>(world, handle).RunParallelEntity(job, degreeOfParallelism)` | `Use QueryView<TSpec>.RunParallelEntity(job, degreeOfParallelism) instead.` |
-
-`World.ForEach(handle, ...)` is not obsolete and remains the direct callback API for an already compiled handle.
-
-## Snapshot Serialization
-`Bezoro.ECS` keeps snapshot transport explicit and engine-agnostic.
-The runtime provides capture/restore payload primitives (`WorldSnapshot`) and reader/writer hooks, while applications own serialization format and storage.
-
-### Recommended Pattern
-1. Capture snapshot payload from world.
-2. Serialize `WorldSnapshot` with your serializer of choice (`System.Text.Json`, MessagePack, etc.).
-3. Deserialize back into `WorldSnapshot`.
-4. Restore into a world with explicit deserialization options.
-
-### Capture Example
 ```csharp
-using Bezoro.ECS.Abstractions;
-using Bezoro.ECS.Types;
-
-public struct SnapshotWriter : IWorldSnapshotWriter
+[Reads(typeof(Velocity)), Writes(typeof(Position))]
+sealed class IntegrateSystem : ISystem
 {
-    public WorldSnapshot Snapshot { get; private set; }
-    public void Write(in WorldSnapshot snapshot) => Snapshot = snapshot;
+    public void Update(in SystemContext context) { /* declared component work */ }
 }
 
-var writer = new SnapshotWriter();
-world.CaptureSnapshot(ref writer);
-var snapshot = writer.Snapshot;
-```
-
-### Restore Example
-```csharp
-using Bezoro.ECS.Abstractions;
-using Bezoro.ECS.Options;
-using Bezoro.ECS.Types;
-
-public readonly struct SnapshotReader(WorldSnapshot snapshot) : IWorldSnapshotReader
+[NoWorldAccess]
+sealed class TimerSystem : ISystem
 {
-    public WorldSnapshot Read() => snapshot;
+    private float elapsed;
+    public void Update(in SystemContext context) => elapsed += context.DeltaTime;
 }
-
-var reader = new SnapshotReader(snapshot);
-world.RestoreSnapshot(
-    ref reader,
-    new SnapshotDeserializationOptions
-    {
-        AllowedComponentTypes = [typeof(Position), typeof(Velocity)],
-        AllowedRelationTypes = [typeof(Follows)],
-        AllowedResourceTypes = [typeof(GameConfigResource)]
-    }
-);
 ```
 
-### Snapshot Notes
-- Restore validates the entire payload before mutating world state.
-- Restore defaults to deny-by-default for snapshot component, relation, and resource types.
-- Use explicit allow-lists for untrusted or cross-boundary snapshot input.
-- `AllowAllComponentTypes` / `AllowAllRelationTypes` / `AllowAllResourceTypes` are intended for trusted same-process restore flows only.
-- Snapshot relation records replay through relation APIs with deterministic source-target mapping.
-- `IWorldSnapshotReader` still owns serializer behavior and type materialization; `RestoreSnapshot` validates the already-materialized `WorldSnapshot`.
-- Keep snapshot DTO versions stable so old saves can be migrated safely.
+A system without explicit `[Reads]`, `[Writes]`, resource-access attributes, or `[NoWorldAccess]` runs exclusively, even when the generator inferred its component types. `[NoWorldAccess]` opts in to parallel scheduling for updates that use their own data and context values; recording commands in their private stream is allowed. `[Exclusive]` always requires exclusive execution. Code using shared state outside the world must supply its own accurate declarations or use `[Exclusive]`.
 
-## Query Diagnostics
-`World.GetQueryDiagnostics(handle)` provides non-mutating insight into compiled query plans.
+Run conditions execute before the system. System sets support enable/disable and set conditions. Fixed intervals cap accumulated catch-up at three intervals and execute at most once per phase call. Each batch flushes its command streams in schedule order after every started worker has joined. A failure disposes all created streams, waits for accepted workers, and propagates the exception. Completed component writes are not rolled back.
 
-### What It Reports
-- `MatchingArchetypeCount`: Number of archetypes matching static filters.
-- `MatchingChunkCount`: Number of contiguous chunk ranges matching current static + dynamic filters.
-- `MatchingEntityCount`: Number of entities currently matched.
-- `ArchetypeCacheVersion` and `IsArchetypeCacheUpToDate`: Archetype-cache freshness state.
-- Filter surfaces: `AllTypes`, `AnyTypes`, `NoneTypes`, `OptionalTypes`, `AddedTypes`, `ChangedTypes`, `RelatedRelationType`, `RelatedTarget`.
+Parallel entity jobs partition chunk ranges. Each range receives a job copy, so job fields are not a result accumulator. Referenced objects in a job remain shared and require suitable synchronization. Nested parallel scheduling reuses the active worker. Unity/Godot objects requiring the engine's main thread must stay out of worker code.
 
-### Behavior Contract
-- Calling diagnostics does not advance incremental `Changed<T>`/`Added<T>` windows.
-- Diagnostics validates query-handle ownership exactly like direct query iteration APIs.
+`WorldGroup` copies a fixed membership list and does not own its worlds. Set each world's parallelism to one when parallelizing primarily across worlds. Cancellation stops work that has not started and joins started updates before returning.
 
-### Query Diagnostics Example
-```csharp
-var handle = world.Compile<MovingQuery>();
-var diagnostics = world.GetQueryDiagnostics(handle);
+## Resource ownership
 
-Console.WriteLine($"Entities={diagnostics.MatchingEntityCount}");
-Console.WriteLine($"All={string.Join(", ", diagnostics.AllTypes.Select(t => t.Name))}");
-```
+`SetResource`/`ReplaceResource` transfer ownership to the world when registration succeeds. Replacing/removing a disposable resource disposes the previous value. Assigning the same reference keeps it alive. If previous-value disposal throws, the replacement has not been accepted and remains caller-owned. `Clear` and `Dispose` detach ownership and attempt every disposal even after a failure.
 
-### Query Diagnostics Notes
-- Diagnostics reuses the same internal matching pipeline as execution paths.
-- Treat diagnostics as an introspection aid, not as a gameplay hot path.
+`GetOrCreateResource(factory)` invokes the factory only when absent and rejects null. Factories and disposal callbacks may read existing resources, but cannot mutate the resource store or reset/clear/dispose the world reentrantly. A failed factory leaves no registration. Restored struct resources materialize one stable typed box, including concurrent first reads.
 
-## Performance And Allocation Contract
-This section defines allocation and throughput expectations for `Bezoro.ECS` APIs.
+Resource references are borrowed until replacement/removal/clear/disposal. Use `ReplaceResource` for ownership changes; replacing a disposable object by assignment through `WriteResource` bypasses disposal bookkeeping. Readonly resource access does not freeze a reference object's contents.
 
-### Core Guarantees
-- Compiled-query direct/cursor loops are designed for zero-allocation steady-state usage after warm-up.
-- `RunParallel` uses chunk-partitioned workers and preserves the same component-access model as sequential `Run`.
-- Structural changes remain explicit through `CommandStream` and deterministic playback boundaries.
+## Capacities and reset
 
-### Practical Allocation Expectations
-- Hot-path query loops (`Run`, `ForEach`, cursor loops): target `0 B` steady-state.
-- Component `Read`/`TryRead` and `Write`/`TryWrite` surfaces: optimized for throughput; tiny runtime-level allocations may still appear in certain benchmark environments.
-- Command-stream burst scenarios: optimized for fixed-capacity reuse and deterministic playback; tiny runtime-level allocations can still surface in measurement noise.
+`WorldConfig` sets entity, component-type, command, payload-per-type, and query-result limits. Diagnostics expose usage, high-watermarks, and overflow attempts. `FailFast` throws on overflow; `DropNewest` drops ordinary commands or truncates query results. Entity creation always throws when no handle can be returned. Payload overflow counts toward command-stream diagnostics in both policies.
 
-### Threading And Mutation Rules
-- `World` direct API access is not thread-safe.
-- `RunParallel` parallelizes component iteration only; structural world mutations still require command recording/playback.
-- Structural playback, world reset/clear, and snapshot capture/restore are prohibited during active `QueryCursor` lifetimes and typed `QueryView.ForEach(...)` / `ForEachRead(...)` callbacks.
+`Reset` removes entities and change tracking. `Clear` also disposes resources. Both retain registered component IDs, compiled plans, allocated capacity, and diagnostics.
 
-## Support Boundaries
-- The ergonomic public query surface is `World.Query<TSpec>()` plus `QueryView<TSpec>`; runtime query instances are intentionally not part of the public contract yet.
-- `QueryView.ForEach...` supports any `struct` component, including structs with managed references, through direct chunk traversal without entity-result materialization.
-- Job-based query execution (`QueryView.Run(...)`, `QueryView.RunParallel(...)`, and cursor hot paths) remains the unmanaged-only performance tier.
-- Generic `World.Run...` instance methods remain available as obsolete compatibility forwarders; generated `World` job extensions remain non-obsolete and route through exact-handle `QueryView` execution.
-- `SystemContext.CommandStream` is the canonical deferred-mutation surface for systems. `CommandBuffer`, `SystemContext.Commands`, and the world command aliases remain available as obsolete compatibility vocabulary while consumers migrate.
-- Direct `World` access is single-threaded by contract; parallelism is coordinated through scheduler batches and `RunParallel`.
+Relationships use a marker ID for each relation-type/target pair and share `ComponentTypeCapacity` with components. Destroying a target removes incoming edges but does not reclaim its marker IDs. Reset/clear also retain those reserved IDs. Target churn can therefore exhaust the catalog even with few live entities. Exhaustion rejects a new relation before changing its edge. Recreate the world to restart the catalog; this storage model does not support unlimited target churn.
 
-### Changed/Added Tracking Cost Model
-- `Changed<T>` and `Added<T>` tracking activates when at least one compiled query uses these filters.
-- Once active, mutable ref-based write surfaces (`Write`, accessors, cursor/direct runs, `RunParallel`) mark change metadata.
-- This enables incremental query semantics but adds bookkeeping work proportional to touched entities/chunks.
+## Snapshot transport and ownership
 
-### Benchmark References
-- `../../BenchmarkDotNet.Artifacts/results/Bezoro.ECS.Benchmarks.EcsWorldHotPathBenchmarks-report-github.md`
-- `../../BenchmarkDotNet.Artifacts/results/Bezoro.ECS.Benchmarks.EcsWorldComponentAccessBenchmarks-report-github.md`
-- `../../BenchmarkDotNet.Artifacts/results/Bezoro.ECS.Benchmarks.EcsWorldCommandStreamBurstBenchmarks-report-github.md`
-- `../../BenchmarkDotNet.Artifacts/results/Bezoro.ECS.Benchmarks.EcsWorldCommandStreamSetBurstBenchmarks-report-github.md`
-- `../../BenchmarkDotNet.Artifacts/results/Bezoro.ECS.Benchmarks.EcsWorldCommandStreamRemoveBurstBenchmarks-report-github.md`
-- `../../BenchmarkDotNet.Artifacts/results/Bezoro.ECS.Benchmarks.EcsWorldQueryViewBenchmarks-report-github.md`
+Applications choose their serializer and implement `IWorldSnapshotWriter`/`IWorldSnapshotReader`. Capture produces `WorldSnapshot` records. Restore validates the payload and explicit allow-lists before clearing existing state. Types are denied by default; `AllowAll...` options are for trusted input.
 
-## Gold-Standard Checklist
-Canonical parity tracker against the Bevy + Unity ECS reference bar.
+`WorldSnapshot` is a mutable transport DTO, not a deep immutable copy. Its arrays belong to the payload, and captured reference objects remain shared with their source components/resources. A serializer/reader must materialize independent resource instances before restoring into another owner. Restore transfers ownership of accepted resources to the destination world. Do not restore the same disposable instance into multiple worlds or back into a world that will dispose that instance during clear.
 
-- Last updated: 2026-07-29
-- Status legend:
-- `[ ]` Not started
-- `[~]` In progress / partial
-- `[x]` Implemented and validated
+## Migration from compatibility APIs
 
-### Core Runtime
-- [x] Archetype + chunk storage model
-- [x] Versioned entity handles (`id` + `version`)
-- [x] Deferred structural mutation via `CommandStream` + explicit playback
-- [x] Fixed-capacity world with overflow policy (`FailFast`/`DropNewest`)
-- [x] World/resource APIs for game-loop usage
-- [x] Public first-class relation API (`AddRelation`/`RemoveRelation`/`HasRelation`)
-- [x] Relation-aware public query filters
+The obsolete compatibility layer has been removed:
 
-### Query System
-- [x] Compiled query specs (`ICompiledQuerySpec`)
-- [x] Query DSL support for `All`/`Any`/`None`
-- [x] Cursor-based and direct hot-path iteration
-- [x] Struct job execution (`Run<TJob,...>`) on canonical `QueryView` and cursor surfaces; generic `World` instance forwarders remain as obsolete compatibility APIs
-- [x] Entity-aware struct job execution (`IForEachEntity<T...>`) on canonical `QueryView` and cursor surfaces; generic `World` instance forwarders remain as obsolete compatibility APIs
-- [x] Source-generated query spec implementation from `[Query]` + `[All]`/`[Any]`/`[None]`/`[Optional]`/`[Changed]`/`[Added]`
-- [x] Optional component filter support (`Optional<T>`) in runtime query execution
-- [x] Changed/added component filters (`Changed<T>`/`Added<T>`) in runtime query execution
+| Removed API | Use |
+| --- | --- |
+| `WorldOptions`, `World(WorldOptions)` | `WorldConfig`, `World(WorldConfig)` |
+| `CommandBuffer`, `BeginCommands`, `CreateCommandBuffer`, `SystemContext.Commands` | `CommandStream`, `CreateCommandStream`, `SystemContext.CommandStream` |
+| `World.Get`, `GetResource`, `TryGetManaged` | `Read`/`Write`, `ReadResource`/`WriteResource`, `TryRead` |
+| Generic `World.Run*` instance forwarders | `QueryView.Run`, `RunEntity`, `RunParallel`, `RunParallelEntity` |
+| `QueryCursor.Get`, `ComponentAccessor.Get` | `Write` |
+| `ComponentAccessor.TryGet` | `TryRead` |
+| `CommandStream.SetManaged` | `CommandStream.Set` |
 
-### Scheduling And Safety
-- [x] Stage + loop phase execution model
-- [x] Access-based parallel batching using read/write metadata
-- [x] Exclusive-system semantics
-- [x] Fixed-interval/catch-up update settings
-- [x] User-defined schedule graph dependencies (`Before`/`After`)
-- [x] System sets and run-conditions API surface
-- [x] Resource access participation in conflict graph
-
-### Source Generation
-- [x] System metadata catalog generation
-- [x] Metadata inference from modern ECS iteration APIs (`World.ForEach/Run`, `QueryCursor.ForEach/Run`)
-- [x] Generated job extensions for `QueryView` / cursor / world `Run(job)` ergonomics
-- [x] Generated entity-aware job extensions for `IForEachEntity<T...>`
-- [x] Query generator no longer emits stale `Query`/`IQuery` runtime references
-- [x] Split-field generator support
-- [x] Source-generated diagnostics for unsupported advanced query filters
-
-### Diagnostics And Tooling
-- [x] World/command diagnostics types
-- [x] Benchmark project for ECS hot paths
-- [x] Schedule diagnostics and graph introspection APIs
-- [x] Public snapshot serialization/deserialization docs and examples
-
-### Documentation
-- [x] `src/Bezoro.ECS/README.md` accurately reflects current ECS capabilities
-- [x] `src/Bezoro.ECS.SourceGen/README.md` aligned with current generators
-- [x] `benchmarks/Bezoro.ECS.Benchmarks/README.md` aligned with runnable benchmark reality
-- [x] `tests/Bezoro.ECS.Tests/README.md` exists
-
-### Verification Gates
-- [x] `dotnet build bezoro.framework.sln`
-- [x] `dotnet test` verification across non-UCI test projects after the full ECS change set (UCI intentionally skipped due known flakiness)
-- [x] Benchmark baseline + post-change comparison in this environment
-
-### Notes
-- Network-restricted environments can block BenchmarkDotNet auto-generated project restore. Keep benchmark regressions as a required gate in environments with NuGet connectivity.
-
-## Design Notes
-- Default runtime is `src/Bezoro.ECS/Services/World.cs`.
-- The hot path is data-oriented with fixed-capacity buffers and explicit command playback to minimize allocations.
-- Compiled queries are intended for sequential, cache-friendly component access in gameplay loops.
-- `World` is not thread-safe for concurrent direct API access; scheduler and `RunParallel` parallelism are coordinated internally.
-- Source generators in `Bezoro.ECS.SourceGen` can generate query spec and job helper code aligned with the compiled-query runtime.
-
-## Runtime ownership and engine deployment
-
-A world owns its registered disposable resources. Replacing a resource with the
-same object preserves it; replacing it with another object disposes the previous
-one. Removing, clearing, or disposing the world detaches resource ownership before
-calling user disposal code. World shutdown attempts to release every service even
-when a system's `OnDestroy` fails. A failed shutdown still closes the world.
-A failed system `OnCreate` removes that system from the schedule.
-
-Elapsed time and fixed update intervals must be finite and non-negative. A failing
-system update or command playback disposes every command stream created for the
-batch. Playback can have applied earlier commands before it fails; it does not
-roll back arbitrary world mutations.
-
-Each world supports its existing scheduled parallel jobs. Separate worlds can run
-on separate threads without sharing component ID cache entries. This does not
-make concurrent structural mutation of the same world safe.
-
-Native columns are reserved for value types whose marshaled layout matches typed
-memory access. Generic value types, enums, auto-layout types, `bool`, `char`, and
-structs containing custom-marshaled fields use typed managed arrays. This avoids
-unsupported `Marshal.SizeOf` calls and layout mismatches during entity movement.
-
-Snapshot resource restoration no longer constructs closed generic types through
-reflection. The runtime materializes a typed resource box when typed code first
-accesses that resource. Component reference detection no longer closes generic
-methods through reflection. Type-based component discovery, native marshaling,
-system metadata discovery, and JSON serialization still depend on reflection and
-metadata. Preserve the relevant component and system metadata when using Unity
-IL2CPP or trimmed builds. These changes do not constitute validation of an IL2CPP,
-Unity player, Godot export, or Native AOT deployment.
-
-## Independent world workers
-
-`WorldGroup` steps independent data simulations through a fixed membership list.
-Choose a worker limit explicitly; the default of one preserves sequential order.
-
-```csharp
-var simulations = new[]
-{
-    new World(new WorldConfig { MaxDegreeOfParallelism = 1 }),
-    new World(new WorldConfig { MaxDegreeOfParallelism = 1 })
-};
-var group = new WorldGroup(simulations, maxDegreeOfParallelism: 2);
-group.FixedTick(1f / 60f, cancellationToken);
-```
-
-The group copies membership, rejects duplicate world references, and rejects
-concurrent or reentrant steps on that group. Each world retains its own component
-storage, resource dependency schedule, and command streams. Do not share mutable
-system instances, resources, or component-owned objects between these worlds.
-Share immutable configuration or publish copies of results after the step joins.
-Groups with overlapping membership must not run simultaneously. Wait for the
-step before reading, mutating, or disposing any member from another thread.
-The caller remains responsible for disposing the worlds.
-
-Parallel steps suit headless simulation, AI rollouts, and separate game sessions.
-Unity and Godot scene, rendering, physics-object, and UI calls with main-thread
-affinity must stay in the host's main-thread update. Copy simulation results back
-to those objects after the group finishes. Register data systems in worker worlds;
-keep engine integration systems in a separate main-thread world.
-
-Cancellation stops dispatching worlds that have not started. Started worlds finish
-before an exception or cancellation reaches the caller.
-Accepted workers also finish before a thread-pool submission failure or an
-interruption of the join wait reaches the caller. Completed updates and
-command playback remain applied, so a failed step can leave worlds at different
-steps. Individual world state determines the result; group execution order is
-unspecified with multiple workers. Seed random state per world when comparing
-sequential and parallel runs.
-
-The shared scheduler reuses an active parallel worker for nested execution.
-A parallel `WorldGroup` therefore runs each member's system/query work on that
-member's worker instead of multiplying nested worker sets. A sequential group
-allows the world's own configured parallelism. Prefer one level of parallelism
-whose work units are large enough to cover scheduling overhead.
-
-Run the supplied CPU/memory comparison on the deployment hardware:
-
-```bash
-dotnet run -c Release --project benchmarks/Bezoro.ECS.Benchmarks -- --filter '*WorldGroupBenchmarks*' --fast
-```
-
-Small worlds can cost more to dispatch than to execute sequentially. The benchmark
-compares four worlds at three entity counts and reports managed allocations. Unity
-and Godot player performance still requires profiling in the target runtime.
+Generated `world.Run(handle, job)` extensions still infer concrete job types. Empty `OnAdd`/`OnRemove` marker and observer declarations were removed because no runtime subscription API consumed them.
 

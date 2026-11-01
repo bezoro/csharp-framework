@@ -4,21 +4,6 @@
         <name>Bezoro.Events</name>
     </assembly>
     <members>
-        <member name="T:Bezoro.Events.Abstractions.IBoundedEventBus">
-            <summary>
-                Event bus supporting an explicit budget for queued dispatch.
-            </summary>
-        </member>
-        <member name="M:Bezoro.Events.Abstractions.IBoundedEventBus.FlushQueued(System.Int32)">
-            <summary>
-                Dequeues at most <paramref name="maxEvents" /> events, including events without handlers
-                or with failed dispatch. Callback-enqueued events can consume the remaining budget.
-                Nested flushes have independent budgets and counts; this does not limit elapsed time or handler work.
-            </summary>
-            <returns>The number of events directly dequeued by this call.</returns>
-            <exception cref="T:System.ObjectDisposedException">The bus is disposed, regardless of the budget.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="maxEvents" /> is negative.</exception>
-        </member>
         <member name="T:Bezoro.Events.Abstractions.IEventBus">
             <summary>
                 Type-safe event bus supporting synchronous dispatch, queued dispatch, and priority-ordered handlers.
@@ -51,6 +36,16 @@
                 Dispatches all queued events in order.
             </summary>
             <returns>The number of events dispatched.</returns>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IEventBus.FlushQueued(System.Int32)">
+            <summary>
+                Dequeues at most <paramref name="maxEvents" /> events, including events without handlers
+                or with failed dispatch. Callback-enqueued events can consume the remaining budget.
+                Nested flushes have independent budgets and counts. This does not limit elapsed time or handler work.
+            </summary>
+            <returns>The number of events directly dequeued by this call.</returns>
+            <exception cref="T:System.ObjectDisposedException">The bus is disposed, regardless of the budget.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="maxEvents" /> is negative.</exception>
         </member>
         <member name="M:Bezoro.Events.Abstractions.IEventBus.Subscribe``1(System.Action{Bezoro.Events.Types.EventContext{``0}},System.Int32)">
             <summary>
@@ -89,21 +84,37 @@
                 Flushes queued events from the FixedUpdate bus.
             </summary>
         </member>
+        <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushFixedUpdate(System.Int32)">
+            <summary>Flushes at most the given number of queued FixedUpdate events.</summary>
+        </member>
         <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushLateUpdate">
             <summary>
                 Flushes queued events from the LateUpdate bus.
             </summary>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushLateUpdate(System.Int32)">
+            <summary>Flushes at most the given number of queued LateUpdate events.</summary>
         </member>
         <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushUpdate">
             <summary>
                 Flushes queued events from the Update bus.
             </summary>
         </member>
+        <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushUpdate(System.Int32)">
+            <summary>Flushes at most the given number of queued Update events.</summary>
+        </member>
         <member name="T:Bezoro.Events.Services.EventBus">
             <summary>
                 Thread-safe event bus with priority-ordered handlers, cancellable propagation,
                 synchronous inline dispatch, and queued deferred dispatch.
             </summary>
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.#ctor">
+            <summary>Creates a bus without handler-error reporting.</summary>
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.#ctor(System.Action{System.Exception})">
+            <summary>Creates a bus with reporting for exceptions caught from handlers.</summary>
+            <param name="reportHandlerError">Runs inline after a handler fails. Reporter failures are ignored.</param>
         </member>
         <member name="P:Bezoro.Events.Services.EventBus.QueuedCount">
             <inheritdoc />
@@ -173,10 +184,19 @@
         <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushFixedUpdate">
             <inheritdoc />
         </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushFixedUpdate(System.Int32)">
+            <inheritdoc />
+        </member>
         <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushLateUpdate">
             <inheritdoc />
         </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushLateUpdate(System.Int32)">
+            <inheritdoc />
+        </member>
         <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushUpdate">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushUpdate(System.Int32)">
             <inheritdoc />
         </member>
         <member name="M:Bezoro.Events.Services.UnityEventBuses.Dispose">
@@ -222,12 +242,7 @@
         </member>
         <member name="T:Bezoro.Events.Types.QueuedEvent">
             <summary>
-                Type-erased wrapper for a queued event, capturing the dispatch action.
-            </summary>
-        </member>
-        <member name="M:Bezoro.Events.Types.QueuedEvent.#ctor(System.Action)">
-            <summary>
-                Type-erased wrapper for a queued event, capturing the dispatch action.
+                Type-erased queued dispatch. The typed implementation owns its value without a closure or delegate.
             </summary>
         </member>
         <member name="T:Bezoro.Events.Types.SubscriptionHandle">

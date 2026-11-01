@@ -7,28 +7,25 @@ Immutable finite-state definitions with pure evaluation. The module stores state
 ```csharp
 using Bezoro.StateMachines;
 
-var idle = new StateId(0);
-var chasing = new StateId(1);
-var attacking = new StateId(2);
-var spotted = new SignalId(0);
-var reached = new SignalId(1);
-var lost = new SignalId(2);
+var machine = new StateMachineBuilder();
+var idle = machine.State();
+var chasing = machine.State();
+var attacking = machine.State();
+var spotted = machine.Signal();
+var reached = machine.Signal();
+var lost = machine.Signal();
 
-var definition = new StateMachineDefinition(
-    stateCount: 3,
-    signalCount: 3,
-    transitions: new StateTransition[]
-    {
-        new(idle, spotted, chasing),
-        new(chasing, reached, attacking),
-        new(chasing, lost, idle),
-        new(attacking, lost, idle)
-    },
-    initialState: idle);
+machine.StartIn(idle);
+machine.Transition(from: idle, on: spotted, to: chasing);
+machine.Transition(from: chasing, on: reached, to: attacking);
+machine.Transition(from: chasing, on: lost, to: idle);
+machine.Transition(from: attacking, on: lost, to: idle);
+var definition = machine.Build();
+SignalId spottedSignal = machine.Resolve(spotted);
 
 // One definition can serve many agents. Each agent owns its current state.
 StateId current = definition.InitialState;
-StateStep step = definition.Step(current, spotted);
+StateStep step = definition.Step(current, spottedSignal);
 current = step.CurrentState;
 if (step.HasStateChanged)
     ApplyStateChange(step.PreviousState, step.CurrentState);
@@ -39,6 +36,10 @@ The host supplies signals after evaluating game conditions and applies the retur
 `HasTransition` distinguishes an explicit matching rule from a missing rule. A missing rule preserves the current state. A self transition has `HasTransition == true` and `HasStateChanged == false`. The host can deliberately respond to that self transition when a restart or repeated action is useful.
 
 ## IDs and validation
+
+`StateMachineBuilder` assigns counts and identifiers as states and signals are declared. `StartIn` is required, even for a one-state machine. `StateHandle` and `SignalHandle` belong to that builder; default and foreign handles throw before changing declarations. `Resolve` converts a handle into its stable runtime ID. Resolve IDs used by the host once during setup. A builder can produce multiple immutable snapshots; later declarations and changes to `StartIn` do not change earlier definitions. New handles only belong to snapshots built after their declaration.
+
+The definition does not retain the builder or its handles. The span-based `StateMachineDefinition` constructor remains useful for loading transition tables with an established numeric mapping. Both construction paths use the same sparse kernel and validation.
 
 State and signal IDs contain a nonnegative `int` and occupy four bytes. Their default value is zero, which identifies the first state or signal. State IDs are valid within `[0, StateCount)`, and signal IDs within `[0, SignalCount)`. The definition requires at least one state and permits zero signals for a machine accepting no input. A zero-signal machine has no valid query signal.
 
@@ -63,11 +64,11 @@ dotnet test tests/Bezoro.StateMachines.Tests/Bezoro.StateMachines.Tests.csproj -
 dotnet run -c Release --project benchmarks/Bezoro.StateMachines.Benchmarks -- --filter '*StateMachineBenchmarks*'
 ```
 
-Tests compare 100,000 seeded steps with an independent dictionary model, check concurrent use by 32 agents, and measure managed allocations after warm-up. They also cover copied input, duplicate rules, self transitions, missing rules, boundary IDs, and extremely large declared ranges. Benchmark workloads are described in the [benchmark README](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/benchmarks/Bezoro.StateMachines.Benchmarks/README.md). Managed tests do not establish engine-player or IL2CPP compatibility.
+Tests compare 100,000 seeded steps with an independent dictionary model, check concurrent use by 32 agents, and measure managed allocations after warm-up. They also cover copied input, duplicate rules, self transitions, missing rules, boundary IDs, and extremely large declared ranges. Benchmark workloads are described in the [benchmark README](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/benchmarks/Bezoro.StateMachines.Benchmarks/README.md). Managed tests do not establish engine-player or IL2CPP compatibility.
 
 ## Choosing a larger runtime
 
-This flat kernel stays dependency-free and stores no agent runtime, timer, or callback. A host can keep only a four-byte StateId and call Step on explicit events, as in the [chest example](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/samples/Bezoro.Statecharts.ConsoleDemo/README.md).
+This flat kernel stays dependency-free and stores no agent runtime, timer, or callback. A host can keep only a four-byte StateId and call Step on explicit events, as in the [chest example](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/samples/Bezoro.Statecharts.ConsoleDemo/README.md).
 
-For hierarchical states and orthogonal regions, choose the optional [Statecharts module](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/src/Bezoro.Statecharts/README.md). For AI composition, [Behaviors](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/src/Bezoro.Behaviors/README.md) can adapt this same flat definition to an owned behavior node. These choices add the workspace and lifecycle features described by those modules; using the flat kernel does not construct them.
+For hierarchical states and orthogonal regions, choose the optional [Statecharts module](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/src/Bezoro.Statecharts/README.md). For AI composition, [Behaviors](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/src/Bezoro.Behaviors/README.md) can adapt this same flat definition to an owned behavior node. These choices add the workspace and lifecycle features described by those modules; using the flat kernel does not construct them.
 

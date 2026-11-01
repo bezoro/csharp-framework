@@ -138,6 +138,40 @@
         <member name="M:Bezoro.Statecharts.StateActivation.op_Inequality(Bezoro.Statecharts.StateActivation,Bezoro.Statecharts.StateActivation)">
             <summary>Compares activation identities.</summary>
         </member>
+        <member name="T:Bezoro.Statecharts.StatechartBuilder">
+            <summary>Declares hierarchy and parallel regions through ownership relations, without coordinating table indices.</summary>
+            <remarks>
+            Each region requires an explicit initial state. Multiple root regions, or regions of the same state, run in parallel.
+            Build returns an immutable snapshot. The mutable builder and its handles are construction-only and are not retained by definitions.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Region">
+            <summary>Registers an always-enabled root region.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Region(Bezoro.StateMachines.StateHandle)">
+            <summary>Registers a child region enabled while the supplied parent state is active.</summary>
+            <exception cref="T:System.ArgumentException">The parent is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Signal">
+            <summary>Registers an input signal accepted by the chart.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Transition(Bezoro.StateMachines.StateHandle,Bezoro.StateMachines.SignalHandle,Bezoro.StateMachines.StateHandle,Bezoro.Conditions.ConditionProgram,System.Int32,Bezoro.Statecharts.ChartTransitionKind)">
+            <summary>Declares a guarded or unconditional transition with explicit lifecycle semantics and priority.</summary>
+            <exception cref="T:System.ArgumentException">A handle is default or belongs to another builder, or the kind is unknown.</exception>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Resolve(Bezoro.StateMachines.StateHandle)">
+            <summary>Resolves a state handle from this chart to its stable compact runtime identifier.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Resolve(Bezoro.StateMachines.SignalHandle)">
+            <summary>Resolves a signal handle from this chart to its stable compact runtime identifier.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Build">
+            <summary>Compiles a snapshot after every region has selected its initial state.</summary>
+            <exception cref="T:System.InvalidOperationException">A region has no initial state, or there are no regions.</exception>
+            <exception cref="T:System.ArgumentException">A transition has an invalid lifecycle domain.</exception>
+        </member>
         <member name="T:Bezoro.Statecharts.StatechartDefinition">
             <summary>Compiles an immutable hierarchy, orthogonal regions, and sparse signal transitions.</summary>
             <remarks>
@@ -197,6 +231,19 @@
         </member>
         <member name="P:Bezoro.Statecharts.StatechartDispatchResult.HasTransition">
             <summary>Gets whether any transition matched, including a self transition.</summary>
+        </member>
+        <member name="T:Bezoro.Statecharts.StatechartRegion">
+            <summary>Declares states and an initial state within one construction-time region.</summary>
+            <remarks>Regions obtained from the same parent state run in parallel. The default region is invalid.</remarks>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRegion.State">
+            <summary>Registers a state belonging to this region.</summary>
+            <exception cref="T:System.InvalidOperationException">This is the default region.</exception>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRegion.StartIn(Bezoro.StateMachines.StateHandle)">
+            <summary>Selects the initial state for this region. Later calls replace the selection for future builds.</summary>
+            <exception cref="T:System.InvalidOperationException">This is the default region.</exception>
+            <exception cref="T:System.ArgumentException">The state is default, foreign, or belongs to another region.</exception>
         </member>
         <member name="T:Bezoro.Statecharts.StatechartRunner`1">
             <summary>Owns one active configuration and bounded event workspace for a shared chart definition.</summary>

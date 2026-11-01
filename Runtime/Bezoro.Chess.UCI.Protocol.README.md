@@ -71,21 +71,21 @@ Low-level UCI transport, parsing, and engine-client orchestration for chess engi
 | `IExpectedPointsModel`, `EngineWdlExpectedPointsModel` | Replaceable probability model and engine-self-play default |
 | `MoveReviewAnnotation`, `IMoveReviewAnnotationPolicy` | Application-provided opening and special-label evidence |
 
-See the [review architecture and research](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/docs/chess-review.md) for the public Chess.com behavior studied, the implemented thresholds, and the proprietary features that are not reproduced.
+See the [review architecture and research](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/docs/chess-review.md) for the public Chess.com behavior studied, the implemented thresholds, and the proprietary features that are not reproduced.
 
 ## Local play without an engine
 
 Use the local constructor for Unity or Godot gameplay. It creates no process or transport and does not start background analysis. Moves, legal-move generation, promotion, clocks, and results run locally.
 
 ```csharp
-var match = new UciPlayableMatchSession();
+await using var match = new UciPlayableMatchSession();
 await match.StartNewGameAsync(); // Completes synchronously for a local session.
 var opening = match.Refresh();
 match.ApplyMove("e2e4");
 var reply = match.Refresh();
 ```
 
-`Refresh()` is synchronous and available for local sessions. Sessions constructed with engine clients use `RefreshAsync()` to synchronize those clients. `HasEngineClients` distinguishes these modes. `GetLegalMoveAnalysisAsync()` requires an analysis engine; it throws when called on a local session. Local tactical batch classification is optional through `WaitForCurrentMoveClassificationsAsync()`.
+`Refresh()` is synchronous in every session. `RefreshAsync()` is its awaitable counterpart. Loading, refreshing, and applying manual moves contact no engine and start no analysis, including when engine clients are configured. `GetLegalMoveAnalysisAsync()` explicitly queues and awaits Stockfish analysis; it requires an analysis engine. `WaitForCurrentMoveClassificationsAsync()` explicitly requests local tactical batch classification. Neither operation runs during ordinary refreshes.
 
 Serialize mutations to a session. Immutable returned snapshots may be retained by UI code. An asynchronous engine result is rejected if a load, move, undo, or result change made its position obsolete.
 
@@ -317,7 +317,7 @@ var positionAnalysis = await client.AnalyzePositionAsync(
 
 `EvaluateAdvantageAsync` and `AnalyzeLegalMovesAsync` package the score-normalization, MultiPV probing, fallback single-move evaluation, and display-friendly absolute move-score logic that previously only lived in the console sample. Their centipawn values are player-relative current evaluations; they are not offset against a start-position calibration.
 
-`AnalyzePositionAsync` and `UciPositionAnalysisCoordinator` are intended for non-blocking UIs that want the current advantage bar and legal-move list to come from the same full-strength analysis stream. The coordinator processes queued positions in FIFO order, caches each completed result by position key, and never skips earlier queued positions in favor of newer ones.
+`AnalyzePositionAsync` and `UciPositionAnalysisCoordinator` are intended for non-blocking UIs that want the current advantage bar and legal-move list to come from the same full-strength analysis stream. The coordinator processes accepted positions in FIFO order. Its constructor accepts `maxCachedPositions` and `maxPendingPositions`, both 128 by default. Completed results use oldest-completed eviction. A full pending budget rejects a new key before altering accepted work. Replacing a queued key releases its obsolete history. Canceling one `GetAnalysisAsync(key, token)` wait leaves shared analysis running; `Cancel()` cancels shared work and clears results. `Dispose()` cancels and permanently closes the coordinator; `DisposeAsync()` also joins the worker before its caller-owned engine can be released.
 
 ## Playable Match Workflow
 ```csharp
@@ -326,17 +326,14 @@ using Bezoro.Chess.UCI.Protocol.API.Types;
 
 await using var playingClient = new UciEngineClient(enginePath);
 await using var analysisClient = new UciEngineClient(enginePath);
-await using var moveListClient = new UciEngineClient(enginePath);
 
 await Task.WhenAll(
     playingClient.StartAsync(cancellationToken),
-    analysisClient.StartAsync(cancellationToken),
-    moveListClient.StartAsync(cancellationToken));
+    analysisClient.StartAsync(cancellationToken));
 
-var session = new UciPlayableMatchSession(
+await using var session = new UciPlayableMatchSession(
     playingClient,
     analysisClient,
-    moveListClient,
     perspectiveColor: 'w',
     whiteController: MatchSideControllerKind.Manual,
     blackController: MatchSideControllerKind.Engine);
@@ -345,7 +342,7 @@ await session.StartNewGameAsync(cancellationToken);
 
 PlayableMatchState state = await session.RefreshAsync(cancellationToken);
 var openingAnalysis = await session.GetLegalMoveAnalysisAsync(cancellationToken);
-var legalMoveClassifications = state.LegalMoveClassifications;
+var legalMoveClassifications = await session.WaitForCurrentMoveClassificationsAsync(cancellationToken);
 
 session.ApplyMove("e2e4");
 state = await session.RefreshAsync(cancellationToken);
@@ -451,7 +448,7 @@ These helpers are intentionally lightweight. They are suitable for samples, diag
 | `TryGetPositionAnalysis(key, out analysis)` | Reads a completed cached position analysis when available.           |
 | `ResolveCurrentAdvantage()`      | Resolves the best completed current advantage without blocking gameplay.    |
 | `GetMoveHistoryDisplayLines()`   | Builds simple debugging lines for played-move history.                     |
-| `CancelAnalysis()`               | Cancels in-flight full-strength analysis.                                  |
+| `CancelAnalysis()`               | Cancels in-flight full-strength analysis and local classification.                                  |
 | `PendingPromotion`               | Current pending promotion request, when a move still needs a promotion choice. |
 | `EventOccurred`                  | Canonical versioned event stream with ordered match events and rich applied-move payloads. |
 | `PerspectiveColor`               | Side used for board-orientation and player-relative evaluation helpers.    |
@@ -598,5 +595,15 @@ UCI node counts, nodes per second, tablebase hits, and elapsed milliseconds use 
 
 ### Parallel game review
 
-`UciGameReviewAnalyzer` accepts a pool of distinct, already started dedicated clients. Set `GameReviewOptions.MaxParallelPositions` to opt in; the default remains one. `ThreadsPerEngine`, `HashMegabytesPerEngine`, and `MaxGameMoves` provide explicit CPU, hash-table, and history budgets. Results remain chronological and immutable. Progress carries `PositionIndex` because searches can finish out of order. See [parallel review and resource budgets](https://github.com/bezoro/framework/blob/2ba319ac003b05275e5e8fe2c435086e8edac345/docs/chess-review.md#parallel-review-and-resource-budgets) for ownership, cancellation, and engine configuration.
+`UciGameReviewAnalyzer` accepts a pool of distinct, already started dedicated clients. Set `GameReviewOptions.MaxParallelPositions` to opt in; the default remains one. `ThreadsPerEngine`, `HashMegabytesPerEngine`, and `MaxGameMoves` provide explicit CPU, hash-table, and history budgets. Results remain chronological and immutable. Progress carries `PositionIndex` because searches can finish out of order. See [parallel review and resource budgets](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/docs/chess-review.md#parallel-review-and-resource-budgets) for ownership, cancellation, and engine configuration.
+
+## API migration
+
+The engine-backed match constructor now takes two distinct caller-owned clients: `playingClient` for explicitly controlled turns and `analysisClient` for explicitly requested legal-move analysis. Remove the previous unused middle client and pass the previous move-list client as `analysisClient`. The budget parameters are now `analysisMoveTimeMs` and `analysisFallbackMoveTimeMs`. No client starts during construction, loading, or refreshing.
+
+Refresh no longer queues Stockfish work. Call `GetLegalMoveAnalysisAsync()` for scores and `WaitForCurrentMoveClassificationsAsync()` for tactical classifications. Retained snapshots stay immutable. Dispose the match with `await using` before releasing its clients so pending analysis has finished canceling. A disposed match rejects commands. The clients remain caller-owned.
+
+`UciPositionAnalysisCoordinator.Dispose()` is terminal. Use `Cancel()` to clear and reuse a coordinator. Its cache and pending queue have finite configurable limits. `UciClientOptions.MaxCapturedPrincipalVariations` bounds recent PV snapshots retained by each awaited search, default 4096. Live events still receive every line, and `SearchResult.TryParse` preserves the complete caller-supplied transcript. Fire-and-forget searches retain no PV history.
+
+Malformed entries in position histories and `SearchMoves` now reject the whole command instead of silently dropping moves. Typed option and registration fields reject CR, LF, and NUL before transport writes. Search subsets therefore cannot silently become unrestricted searches. Process teardown starts the bounded exit or kill path while joining blocked stdin writes, allowing children that stopped reading to be released.
 

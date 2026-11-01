@@ -277,5 +277,27 @@
         <member name="P:Bezoro.Behaviors.TreeBehaviorBinding`1.Child">
             <summary>Gets the exclusively owned child runtime.</summary>
         </member>
+        <member name="T:Bezoro.Behaviors.TreeBehaviorBuilder`1">
+            <summary>Binds owned child runtimes to named compiled actions without calculating preorder offsets.</summary>
+            <remarks>
+            Bind validates construction handles before changing the builder. Build adopts the children only after complete validation.
+            A successful Build consumes this builder because mutable children can have only one owner.
+            The runtime stores compact bindings and does not retain this builder, its compilation, handles, or expression map.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehaviorBuilder`1.#ctor(Bezoro.BehaviorTrees.BehaviorTreeCompilation,Bezoro.BehaviorTrees.IBehaviorTreeHandler{`0})">
+            <summary>Chooses the compiled tree and optional handler for its unbound actions and predicates.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehaviorBuilder`1.Bind(Bezoro.BehaviorTrees.BehaviorActionHandle,Bezoro.Behaviors.Behavior{`0})">
+            <summary>Binds one action occurrence to a child runtime, without adopting the child until Build.</summary>
+            <exception cref="T:System.ArgumentException">The action is default, foreign, already bound, or the child is already bound in this builder.</exception>
+            <exception cref="T:System.ArgumentNullException">The child is null.</exception>
+            <exception cref="T:System.InvalidOperationException">Build already succeeded.</exception>
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehaviorBuilder`1.Build(Bezoro.Behaviors.BehaviorCompositionLimits)">
+            <summary>Validates composition limits and ownership, then creates the runtime and consumes this builder.</summary>
+            <remarks>A failed Build leaves the builder unconsumed and does not adopt any child.</remarks>
+            <exception cref="T:System.InvalidOperationException">Build already succeeded.</exception>
+        </member>
     </members>
 </doc>

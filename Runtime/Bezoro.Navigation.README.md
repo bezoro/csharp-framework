@@ -32,6 +32,8 @@ if (result.Status == GridPathStatus.Found)
 
 Allocate the map, pathfinder, and destination buffer during setup and reuse them. `NavigationGrid` copies input costs; modifying the caller's array after construction does not change the map. `new NavigationGrid(width, height)` creates a uniform walkable map. Coordinate values may be negative, but a search requires both endpoints inside its grid. `default(GridPoint)` is `(0, 0)`.
 
+`Contains` and `IsWalkable` return false for negative coordinates, including in assemblies compiled with checked integer arithmetic. Searches reject out-of-grid endpoints before changing their destination.
+
 ## Costs and topology
 
 - Orthogonal edges cost `1000 * destinationCellWeight`.

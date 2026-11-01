@@ -276,17 +276,6 @@
         <member name="M:Bezoro.ECS.Abstractions.IWorld.Spawn``4(``0@,``1@,``2@,``3@)">
             <summary>Creates a new entity with four initial components and returns its handle.</summary>
         </member>
-        <member name="M:Bezoro.ECS.Abstractions.IWorld.Get``1(Bezoro.ECS.Types.Entity)">
-            <summary>
-                Compatibility alias that returns the mutable reference produced by <see cref="M:Bezoro.ECS.Abstractions.IWorld.Write``1(Bezoro.ECS.Types.Entity)" />.
-            </summary>
-            <typeparam name="T">Component type.</typeparam>
-            <param name="entity">Entity whose component is requested.</param>
-            <returns>A mutable reference to the component.</returns>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="entity" /> is dead or stale.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">The entity does not have component <typeparamref name="T" />.</exception>
-        </member>
         <member name="M:Bezoro.ECS.Abstractions.IWorld.Read``1(Bezoro.ECS.Types.Entity)">
             <summary>Reads component <typeparamref name="T" /> on <paramref name="entity" /> by readonly reference.</summary>
             <typeparam name="T">Component type.</typeparam>
@@ -309,15 +298,6 @@
         </member>
         <member name="M:Bezoro.ECS.Abstractions.IWorld.TryWrite``1(Bezoro.ECS.Types.Entity,Bezoro.ECS.Types.ComponentRef{``0}@)">
             <summary>Attempts to retrieve a mutable reference wrapper for component <typeparamref name="T" />.</summary>
-        </member>
-        <member name="M:Bezoro.ECS.Abstractions.IWorld.GetResource``1">
-            <summary>
-                Compatibility alias that returns the mutable reference produced by <see cref="M:Bezoro.ECS.Abstractions.IWorld.WriteResource``1" />.
-            </summary>
-            <typeparam name="T">Resource type.</typeparam>
-            <returns>A mutable reference to the registered resource.</returns>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">No resource of type <typeparamref name="T" /> is registered.</exception>
         </member>
         <member name="M:Bezoro.ECS.Abstractions.IWorld.HasResource``1">
             <summary>Returns <c>true</c> if a resource of type <typeparamref name="T" /> is registered.</summary>
@@ -558,6 +538,16 @@
                 Gets the excluded component type.
             </summary>
         </member>
+        <member name="T:Bezoro.ECS.Attributes.NoWorldAccessAttribute">
+            <summary>
+                Declares that a system update uses only its own data and context values, without accessing world state.
+            </summary>
+            <remarks>
+                Allows parallel scheduling when no component or resource access metadata is available.
+                Recording deferred commands in the system's own command stream is allowed.
+                The system remains responsible for any shared data outside the world.
+            </remarks>
+        </member>
         <member name="T:Bezoro.ECS.Attributes.OptionalAttribute">
             <summary>
                 Declares a component that a generated query may read when present without requiring it for a match.
@@ -782,81 +772,6 @@
                 Returning false rejects the type.
             </summary>
         </member>
-        <member name="T:Bezoro.ECS.Options.WorldOptions">
-            <summary>
-                Provides compatibility settings for constructing a world.
-            </summary>
-            <remarks>
-                New code should use <see cref="T:Bezoro.ECS.Types.WorldConfig" />. The compatibility adapter maps a positive
-                <see cref="P:Bezoro.ECS.Options.WorldOptions.ChunkCapacity" /> exactly, maps a nonpositive value to 256, preserves
-                <see cref="P:Bezoro.ECS.Options.WorldOptions.MaxDegreeOfParallelism" /> exactly, and ignores <see cref="P:Bezoro.ECS.Options.WorldOptions.ChunkSizeInBytes" />.
-            </remarks>
-        </member>
-        <member name="P:Bezoro.ECS.Options.WorldOptions.ChunkCapacity">
-            <summary>
-                Gets or sets the requested number of entities per chunk.
-            </summary>
-            <remarks>A positive value is mapped exactly; a nonpositive value is mapped to 256.</remarks>
-        </member>
-        <member name="P:Bezoro.ECS.Options.WorldOptions.ChunkSizeInBytes">
-            <summary>
-                Gets or sets a legacy byte-size hint retained for source compatibility.
-            </summary>
-            <remarks>The compatibility adapter ignores this value.</remarks>
-        </member>
-        <member name="P:Bezoro.ECS.Options.WorldOptions.MaxDegreeOfParallelism">
-            <summary>
-                Gets or sets the maximum degree of parallelism for system updates.
-            </summary>
-            <remarks>The compatibility adapter preserves this value exactly; it must be positive.</remarks>
-        </member>
-        <member name="T:Bezoro.ECS.Services.EntityManager">
-            <summary>
-                Manages the lifecycle of entities within the Entity Component System (ECS).
-            </summary>
-        </member>
-        <member name="P:Bezoro.ECS.Services.EntityManager.AliveCount">
-            <summary>
-                Gets the number of currently alive entities.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Services.EntityManager.IsAlive(Bezoro.ECS.Types.Entity)">
-            <summary>
-                Determines whether the specified entity is currently alive.
-            </summary>
-            <param name="entity">The entity to query.</param>
-            <returns><c>true</c> if the entity is alive; otherwise, <c>false</c>.</returns>
-        </member>
-        <member name="M:Bezoro.ECS.Services.EntityManager.IsReserved(Bezoro.ECS.Types.Entity)">
-            <summary>
-                Determines whether the specified entity is reserved for deferred creation.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Services.EntityManager.CreateEntity">
-            <summary>
-                Creates a new entity and marks it alive immediately.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Services.EntityManager.ReserveEntity">
-            <summary>
-                Reserves a new entity for deferred activation.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Services.EntityManager.ActivateReservedEntity(Bezoro.ECS.Types.Entity)">
-            <summary>
-                Activates a reserved entity.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Services.EntityManager.CancelReservedEntity(Bezoro.ECS.Types.Entity)">
-            <summary>
-                Cancels a reserved entity without activating it.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Services.EntityManager.DestroyEntity(Bezoro.ECS.Types.Entity)">
-            <summary>
-                Destroys the specified entity and recycles its ID for future reuse.
-            </summary>
-        </member>
         <member name="T:Bezoro.ECS.Services.SystemManager">
             <summary>
                 Manages system lifecycle and staged execution.
@@ -875,16 +790,6 @@
             <summary>
                 Initializes a world with default capacity and scheduling settings.
             </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.#ctor(Bezoro.ECS.Options.WorldOptions)">
-            <summary>
-                Initializes a world by adapting legacy compatibility options to <see cref="T:Bezoro.ECS.Types.WorldConfig" />.
-            </summary>
-            <param name="options">Legacy options whose chunk capacity and parallelism settings are adapted.</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="options" /> is <see langword="null" />.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException">
-                The adapted maximum degree of parallelism is not positive.
-            </exception>
         </member>
         <member name="M:Bezoro.ECS.Services.World.#ctor(Bezoro.ECS.Types.WorldConfig)">
             <summary>
@@ -925,16 +830,6 @@
         <member name="M:Bezoro.ECS.Services.World.TryGet``1(Bezoro.ECS.Types.Entity,``0@)">
             <inheritdoc />
         </member>
-        <member name="M:Bezoro.ECS.Services.World.TryGetManaged``1(Bezoro.ECS.Types.Entity,``0@)">
-            <summary>
-                Compatibility alias that attempts to read a component copy from an entity.
-            </summary>
-            <typeparam name="T">Component type.</typeparam>
-            <param name="entity">Entity to inspect.</param>
-            <param name="component">Receives the component value when present; otherwise the default value.</param>
-            <returns><c>true</c> when the component exists; otherwise <c>false</c>.</returns>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-        </member>
         <member name="M:Bezoro.ECS.Services.World.TryRead``1(Bezoro.ECS.Types.Entity,``0@)">
             <inheritdoc />
         </member>
@@ -943,20 +838,6 @@
         </member>
         <member name="M:Bezoro.ECS.Services.World.TryWrite``1(Bezoro.ECS.Types.Entity,Bezoro.ECS.Types.ComponentRef{``0}@)">
             <inheritdoc />
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.CreateCommandBuffer">
-            <summary>
-                Creates a retained compatibility wrapper over a canonical command stream.
-            </summary>
-            <returns>A compatibility command buffer owned by this world.</returns>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.BeginCommands">
-            <summary>
-                Retained compatibility alias for <see cref="M:Bezoro.ECS.Services.World.CreateCommandStream" />.
-            </summary>
-            <returns>A command stream owned by this world.</returns>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
         </member>
         <member name="M:Bezoro.ECS.Services.World.CreateCommandStream">
             <summary>
@@ -1024,9 +905,6 @@
             </summary>
             <returns>A snapshot of schedule planning and execution state.</returns>
         </member>
-        <member name="M:Bezoro.ECS.Services.World.Get``1(Bezoro.ECS.Types.Entity)">
-            <inheritdoc />
-        </member>
         <member name="M:Bezoro.ECS.Services.World.GetOrCreateResource``1">
             <inheritdoc />
         </member>
@@ -1037,9 +915,6 @@
             <typeparam name="T">Resource type.</typeparam>
             <param name="factory">Factory invoked only when the resource is absent.</param>
             <returns>A mutable reference to the registered resource.</returns>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.GetResource``1">
-            <inheritdoc />
         </member>
         <member name="M:Bezoro.ECS.Services.World.Read``1(Bezoro.ECS.Types.Entity)">
             <inheritdoc />
@@ -1062,14 +937,14 @@
         <member name="M:Bezoro.ECS.Services.World.AddRelation``1(Bezoro.ECS.Types.Entity,Bezoro.ECS.Types.Entity)">
             <inheritdoc />
         </member>
-        <member name="M:Bezoro.ECS.Services.World.AddSystem(Bezoro.ECS.Abstractions.ISystem,Bezoro.ECS.Types.Stage)">
+        <member name="M:Bezoro.ECS.Services.World.AddSystem(Bezoro.ECS.Abstractions.ISystem,System.Nullable{Bezoro.ECS.Types.Stage})">
             <summary>
                 Registers a system in an execution stage.
             </summary>
             <param name="system">System instance to register.</param>
             <param name="stage">Stage in which the system should execute.</param>
         </member>
-        <member name="M:Bezoro.ECS.Services.World.AddSystem``1(Bezoro.ECS.Types.Stage)">
+        <member name="M:Bezoro.ECS.Services.World.AddSystem``1(System.Nullable{Bezoro.ECS.Types.Stage})">
             <summary>
                 Constructs and registers a system in an execution stage.
             </summary>
@@ -1182,7 +1057,7 @@
         </member>
         <member name="M:Bezoro.ECS.Services.World.Reset">
             <summary>
-                Resets runtime state and diagnostics to their initial values while retaining the world configuration.
+                Removes entities and change tracking while retaining resources, registered types, allocated capacity, and diagnostics.
             </summary>
             <exception cref="T:System.InvalidOperationException">Thrown when a query iteration is active.</exception>
         </member>
@@ -1194,262 +1069,6 @@
             <param name="reader">Snapshot reader providing restore payload.</param>
             <param name="options">Optional type-allowlist and validation options.</param>
             <exception cref="T:System.InvalidOperationException">Thrown when a query iteration is active or the snapshot is invalid.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.Run``3(Bezoro.ECS.Types.QueryHandle{``0},``1)">
-            <summary>
-                Compatibility forwarder that executes a struct job over one mutable unmanaged component.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain the requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.Run``4(Bezoro.ECS.Types.QueryHandle{``0},``1)">
-            <summary>
-                Compatibility forwarder that executes a struct job over one mutable and one read-only unmanaged component.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">Read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.Run``5(Bezoro.ECS.Types.QueryHandle{``0},``1)">
-            <summary>
-                Compatibility forwarder that executes a struct job over one mutable and two read-only unmanaged components.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">First read-only unmanaged component type.</typeparam>
-            <typeparam name="T3">Second read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.Run``6(Bezoro.ECS.Types.QueryHandle{``0},``1)">
-            <summary>
-                Compatibility forwarder that executes a struct job over one mutable and three read-only unmanaged components.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Job type implementing <see cref="T:Bezoro.ECS.Abstractions.IForEach`4" />.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">First read-only unmanaged component type.</typeparam>
-            <typeparam name="T3">Second read-only unmanaged component type.</typeparam>
-            <typeparam name="T4">Third read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunEntity``3(Bezoro.ECS.Types.QueryHandle{``0},``1)">
-            <summary>
-                Compatibility forwarder that executes an entity-aware struct job over one mutable unmanaged component.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Entity-aware job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain the requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunEntity``4(Bezoro.ECS.Types.QueryHandle{``0},``1)">
-            <summary>
-                Compatibility forwarder that executes an entity-aware struct job over one mutable and one read-only unmanaged component.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Entity-aware job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">Read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunEntity``5(Bezoro.ECS.Types.QueryHandle{``0},``1)">
-            <summary>
-                Compatibility forwarder that executes an entity-aware struct job over one mutable and two read-only unmanaged components.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Entity-aware job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">First read-only unmanaged component type.</typeparam>
-            <typeparam name="T3">Second read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunEntity``6(Bezoro.ECS.Types.QueryHandle{``0},``1)">
-            <summary>
-                Compatibility forwarder that executes an entity-aware struct job over one mutable and three read-only unmanaged components.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Entity-aware job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">First read-only unmanaged component type.</typeparam>
-            <typeparam name="T3">Second read-only unmanaged component type.</typeparam>
-            <typeparam name="T4">Third read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunParallel``3(Bezoro.ECS.Types.QueryHandle{``0},``1,System.Nullable{System.Int32})">
-            <summary>
-                Compatibility forwarder that executes a struct job in parallel over one mutable unmanaged component.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Job type implementing <see cref="T:Bezoro.ECS.Abstractions.IForEach`1" />.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <param name="degreeOfParallelism">
-                Optional worker limit. When null, <see cref="P:Bezoro.ECS.Types.WorldConfig.MaxDegreeOfParallelism" /> is used.
-            </param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="degreeOfParallelism" /> is not positive.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain the requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunParallel``4(Bezoro.ECS.Types.QueryHandle{``0},``1,System.Nullable{System.Int32})">
-            <summary>
-                Compatibility forwarder that executes a struct job in parallel over one mutable and one read-only unmanaged component.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Job type implementing <see cref="T:Bezoro.ECS.Abstractions.IForEach`2" />.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">Read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <param name="degreeOfParallelism">
-                Optional worker limit. When null, <see cref="P:Bezoro.ECS.Types.WorldConfig.MaxDegreeOfParallelism" /> is used.
-            </param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="degreeOfParallelism" /> is not positive.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunParallel``5(Bezoro.ECS.Types.QueryHandle{``0},``1,System.Nullable{System.Int32})">
-            <summary>
-                Compatibility forwarder that executes a struct job in parallel over one mutable and two read-only unmanaged components.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Job type implementing <see cref="T:Bezoro.ECS.Abstractions.IForEach`3" />.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">First read-only unmanaged component type.</typeparam>
-            <typeparam name="T3">Second read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <param name="degreeOfParallelism">
-                Optional worker limit. When null, <see cref="P:Bezoro.ECS.Types.WorldConfig.MaxDegreeOfParallelism" /> is used.
-            </param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="degreeOfParallelism" /> is not positive.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunParallel``6(Bezoro.ECS.Types.QueryHandle{``0},``1,System.Nullable{System.Int32})">
-            <summary>
-                Compatibility forwarder that executes a struct job in parallel over one mutable and three read-only unmanaged components.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Job type implementing <see cref="T:Bezoro.ECS.Abstractions.IForEach`4" />.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">First read-only unmanaged component type.</typeparam>
-            <typeparam name="T3">Second read-only unmanaged component type.</typeparam>
-            <typeparam name="T4">Third read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <param name="degreeOfParallelism">
-                Optional worker limit. When null, <see cref="P:Bezoro.ECS.Types.WorldConfig.MaxDegreeOfParallelism" /> is used.
-            </param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="degreeOfParallelism" /> is not positive.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunParallelEntity``3(Bezoro.ECS.Types.QueryHandle{``0},``1,System.Nullable{System.Int32})">
-            <summary>
-                Compatibility forwarder that executes an entity-aware struct job in parallel over one mutable unmanaged component.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Entity-aware job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <param name="degreeOfParallelism">Optional worker limit; the world's configured maximum is used when omitted.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="degreeOfParallelism" /> is not positive.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain the requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunParallelEntity``4(Bezoro.ECS.Types.QueryHandle{``0},``1,System.Nullable{System.Int32})">
-            <summary>
-                Compatibility forwarder that executes an entity-aware struct job in parallel over one mutable and one read-only unmanaged component.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Entity-aware job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">Read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <param name="degreeOfParallelism">Optional worker limit; the world's configured maximum is used when omitted.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="degreeOfParallelism" /> is not positive.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunParallelEntity``5(Bezoro.ECS.Types.QueryHandle{``0},``1,System.Nullable{System.Int32})">
-            <summary>
-                Compatibility forwarder that executes an entity-aware struct job in parallel over one mutable and two read-only unmanaged components.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Entity-aware job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">First read-only unmanaged component type.</typeparam>
-            <typeparam name="T3">Second read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <param name="degreeOfParallelism">Optional worker limit; the world's configured maximum is used when omitted.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="degreeOfParallelism" /> is not positive.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Services.World.RunParallelEntity``6(Bezoro.ECS.Types.QueryHandle{``0},``1,System.Nullable{System.Int32})">
-            <summary>
-                Compatibility forwarder that executes an entity-aware struct job in parallel over one mutable and three read-only unmanaged components.
-            </summary>
-            <typeparam name="TSpec">Query specification type.</typeparam>
-            <typeparam name="TJob">Entity-aware job type.</typeparam>
-            <typeparam name="T1">Mutable unmanaged component type.</typeparam>
-            <typeparam name="T2">First read-only unmanaged component type.</typeparam>
-            <typeparam name="T3">Second read-only unmanaged component type.</typeparam>
-            <typeparam name="T4">Third read-only unmanaged component type.</typeparam>
-            <param name="handle">Compiled query handle.</param>
-            <param name="job">Job instance.</param>
-            <param name="degreeOfParallelism">Optional worker limit; the world's configured maximum is used when omitted.</param>
-            <exception cref="T:System.ObjectDisposedException">The world has been disposed.</exception>
-            <exception cref="T:System.InvalidOperationException"><paramref name="handle" /> belongs to a different world.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="degreeOfParallelism" /> is not positive.</exception>
-            <exception cref="T:System.Collections.Generic.KeyNotFoundException">A matching archetype does not contain a requested component.</exception>
         </member>
         <member name="M:Bezoro.ECS.Services.World.RunPhase(Bezoro.ECS.Types.SystemLoopPhase,System.Single)">
             <summary>
@@ -1592,94 +1211,10 @@
                 Arena name.
             </summary>
         </member>
-        <member name="T:Bezoro.ECS.Types.CommandBuffer">
-            <summary>
-                Retained compatibility wrapper over the canonical <see cref="T:Bezoro.ECS.Types.CommandStream" />.
-            </summary>
-            <remarks>
-                This wrapper preserves the legacy <c>Spawn</c>, <c>Despawn</c>, <c>Add</c>, and <c>Replace</c>
-                command vocabulary while consumers migrate to <see cref="T:Bezoro.ECS.Types.CommandStream" />.
-            </remarks>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.#ctor(Bezoro.ECS.Types.CommandStream)">
-            <summary>
-                Retained compatibility wrapper over the canonical <see cref="T:Bezoro.ECS.Types.CommandStream" />.
-            </summary>
-            <remarks>
-                This wrapper preserves the legacy <c>Spawn</c>, <c>Despawn</c>, <c>Add</c>, and <c>Replace</c>
-                command vocabulary while consumers migrate to <see cref="T:Bezoro.ECS.Types.CommandStream" />.
-            </remarks>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.op_Implicit(Bezoro.ECS.Types.CommandBuffer)~Bezoro.ECS.Types.CommandStream">
-            <summary>
-                Gets the underlying command stream represented by a command buffer.
-            </summary>
-            <param name="buffer">Command buffer to unwrap.</param>
-            <returns>The underlying command stream.</returns>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.GetDiagnostics">
-            <summary>
-                Gets diagnostics for the underlying command storage.
-            </summary>
-        </member>
-        <member name="P:Bezoro.ECS.Types.CommandBuffer.HasCommands">
-            <summary>
-                Indicates whether commands are currently recorded.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.Spawn">
-            <summary>
-                Records a deferred entity spawn.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.CreateEntity">
-            <summary>
-                Records a deferred entity spawn.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.Spawn``1(``0@)">
-            <summary>
-                Records a deferred entity spawn with one initial component.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.CreateEntity``1(``0@)">
-            <summary>
-                Records a deferred entity spawn with one initial component.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.Despawn(Bezoro.ECS.Types.Entity)">
-            <summary>
-                Records a deferred entity despawn.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.Destroy(Bezoro.ECS.Types.Entity)">
-            <summary>
-                Records a deferred entity despawn.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.Add``1(Bezoro.ECS.Types.Entity,``0@)">
-            <summary>
-                Records a deferred component add.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.Replace``1(Bezoro.ECS.Types.Entity,``0@)">
-            <summary>
-                Records a deferred component replacement.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.Set``1(Bezoro.ECS.Types.Entity,``0@)">
-            <summary>
-                Records a deferred component replacement.
-            </summary>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandBuffer.Remove``1(Bezoro.ECS.Types.Entity)">
-            <summary>
-                Records a deferred component removal.
-            </summary>
-        </member>
         <member name="T:Bezoro.ECS.Types.CommandStream">
             <summary>
                 Fixed-capacity deferred command stream for structural mutations in <see cref="T:Bezoro.ECS.Services.World" />.
+                Command storage is allocated on the first recorded command and retained until disposal.
             </summary>
         </member>
         <member name="P:Bezoro.ECS.Types.CommandStream.HasCommands">
@@ -1737,25 +1272,13 @@
         </member>
         <member name="M:Bezoro.ECS.Types.CommandStream.Set``1(Bezoro.ECS.Types.Entity,``0@)">
             <summary>
-                Records a deferred unmanaged component set command.
+                Records a deferred component set command.
             </summary>
             <remarks>
                 If the stream or payload store is full the command is silently dropped and the overflow counter is incremented.
                 Use <see cref="M:Bezoro.ECS.Types.CommandStream.GetDiagnostics" /> to detect lost commands.
             </remarks>
-            <typeparam name="T">Unmanaged component type.</typeparam>
-            <param name="entity">Entity to modify.</param>
-            <param name="component">Component value.</param>
-        </member>
-        <member name="M:Bezoro.ECS.Types.CommandStream.SetManaged``1(Bezoro.ECS.Types.Entity,``0@)">
-            <summary>
-                Records a deferred managed-lane component set command.
-            </summary>
-            <remarks>
-                If the stream or payload store is full the command is silently dropped and the overflow counter is incremented.
-                Use <see cref="M:Bezoro.ECS.Types.CommandStream.GetDiagnostics" /> to detect lost commands.
-            </remarks>
-            <typeparam name="T">Managed-lane component type.</typeparam>
+            <typeparam name="T">Component value type, including structs containing references.</typeparam>
             <param name="entity">Entity to modify.</param>
             <param name="component">Component value.</param>
         </member>
@@ -1802,7 +1325,7 @@
             <param name="entity">Entity to probe.</param>
             <returns><c>true</c> when the entity is alive and contains the component; otherwise <c>false</c>.</returns>
         </member>
-        <member name="M:Bezoro.ECS.Types.ComponentAccessor`1.TryGet(Bezoro.ECS.Types.Entity,`0@)">
+        <member name="M:Bezoro.ECS.Types.ComponentAccessor`1.TryRead(Bezoro.ECS.Types.Entity,`0@)">
             <summary>
                 Tries to get a component value for the specified entity.
             </summary>
@@ -1810,7 +1333,7 @@
             <param name="component">Resolved component value when found.</param>
             <returns><c>true</c> when the entity is alive and contains <typeparamref name="T" />; otherwise <c>false</c>.</returns>
         </member>
-        <member name="M:Bezoro.ECS.Types.ComponentAccessor`1.Get(Bezoro.ECS.Types.Entity)">
+        <member name="M:Bezoro.ECS.Types.ComponentAccessor`1.Write(Bezoro.ECS.Types.Entity)">
             <summary>
                 Gets a mutable component reference for the specified entity.
             </summary>
@@ -1856,34 +1379,6 @@
             <summary>
                 Lightweight input payload passed through engine adapters.
             </summary>
-        </member>
-        <member name="T:Bezoro.ECS.Types.OnAdd`1">
-            <summary>
-                Marker used with observer registration for component add events.
-            </summary>
-        </member>
-        <member name="T:Bezoro.ECS.Types.OnAddObserver`1">
-            <summary>
-                Observer callback invoked after a component is added or set.
-            </summary>
-        </member>
-        <member name="T:Bezoro.ECS.Types.OnRemove`1">
-            <summary>
-                Marker used with observer registration for component remove events.
-            </summary>
-        </member>
-        <member name="T:Bezoro.ECS.Types.OnRemoveObserver`1">
-            <summary>
-                Observer callback invoked before a component is removed.
-            </summary>
-        </member>
-        <member name="T:Bezoro.ECS.Types.OnSetObserver`1">
-            <summary>
-                Represents a callback invoked when an existing component is set during command playback.
-            </summary>
-            <typeparam name="T">The component type.</typeparam>
-            <param name="entity">The entity whose component was updated.</param>
-            <param name="component">A reference to the updated component value.</param>
         </member>
         <member name="T:Bezoro.ECS.Types.QueryBuilder">
             <summary>
@@ -1963,6 +1458,10 @@
             <summary>
                 Cursor over one compiled-query execution result set.
             </summary>
+            <remarks>
+                Copies share one execution lifetime. Disposing any copy invalidates all copies.
+                Returned spans and component references are borrowed until disposal.
+            </remarks>
         </member>
         <member name="T:Bezoro.ECS.Types.QueryCursor.EntityRefAction`1">
             <summary>
@@ -2004,6 +1503,11 @@
                 Delegate invoked with one mutable and one read-only unmanaged component.
             </summary>
         </member>
+        <member name="P:Bezoro.ECS.Types.QueryCursor.Count">
+            <summary>
+                Gets the number of matched entities without materializing entity handles.
+            </summary>
+        </member>
         <member name="P:Bezoro.ECS.Types.QueryCursor.Current">
             <summary>
                 Current matched entities.
@@ -2016,7 +1520,16 @@
             </summary>
             <returns><c>true</c> on the first call; <c>false</c> on all subsequent calls.</returns>
         </member>
-        <member name="M:Bezoro.ECS.Types.QueryCursor.Get``1(System.Int32)">
+        <member name="M:Bezoro.ECS.Types.QueryCursor.GetEntity(System.Int32)">
+            <summary>
+                Gets one matched entity without materializing the complete entity array.
+            </summary>
+            <param name="index">Zero-based entity index in the current batch.</param>
+            <returns>The entity at <paramref name="index" />.</returns>
+            <exception cref="T:System.InvalidOperationException">Call <see cref="M:Bezoro.ECS.Types.QueryCursor.MoveNext" /> before reading the batch.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException">The index is outside the result set.</exception>
+        </member>
+        <member name="M:Bezoro.ECS.Types.QueryCursor.Write``1(System.Int32)">
             <summary>
                 Gets a mutable unmanaged component reference for the matched entity at <paramref name="index" />.
             </summary>
@@ -2838,6 +2351,7 @@
         <member name="T:Bezoro.ECS.Types.SystemContext">
             <summary>
                 Provides context for a system update execution.
+                Scheduler-provided contexts are valid only during their system's Update call.
             </summary>
         </member>
         <member name="M:Bezoro.ECS.Types.SystemContext.#ctor(System.Single,Bezoro.ECS.Types.Stage,Bezoro.ECS.Services.World,Bezoro.ECS.Types.CommandStream)">
@@ -2847,28 +2361,20 @@
             <param name="deltaTime">The elapsed time passed to this system update.</param>
             <param name="stage">The stage executing this context.</param>
             <param name="world">The world instance executing this context.</param>
-            <param name="commandStream">The command stream for deferred structural changes.</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="commandStream" /> is <see langword="null" />.</exception>
-        </member>
-        <member name="M:Bezoro.ECS.Types.SystemContext.#ctor(System.Single,Bezoro.ECS.Types.Stage,Bezoro.ECS.Services.World,Bezoro.ECS.Types.CommandBuffer)">
-            <summary>
-                Initializes a new system update context by forwarding a compatibility command buffer to the canonical command stream constructor.
-            </summary>
-            <param name="deltaTime">The elapsed time passed to this system update.</param>
-            <param name="stage">The stage executing this context.</param>
-            <param name="world">The world instance executing this context.</param>
-            <param name="commands">The compatibility command buffer for deferred structural changes.</param>
-            <exception cref="T:System.ArgumentNullException">The command buffer does not contain a command stream.</exception>
+            <param name="commandStream">The caller-owned command stream for deferred structural changes.</param>
+            <exception cref="T:System.ArgumentNullException">The world or command stream is null.</exception>
+            <exception cref="T:System.ArgumentException">The command stream belongs to a different world.</exception>
         </member>
         <member name="P:Bezoro.ECS.Types.SystemContext.CommandStream">
             <summary>
-                Gets the canonical command stream for deferred structural changes.
+                Gets the command stream for deferred structural changes.
             </summary>
-        </member>
-        <member name="P:Bezoro.ECS.Types.SystemContext.Commands">
-            <summary>
-                Gets a retained compatibility wrapper over <see cref="P:Bezoro.ECS.Types.SystemContext.CommandStream" />.
-            </summary>
+            <remarks>
+                For scheduler-provided contexts, first access creates the stream. The scheduler plays back
+                commands after the batch and then disposes the stream. Explicitly constructed contexts use
+                the supplied caller-owned stream.
+            </remarks>
+            <exception cref="T:System.ObjectDisposedException">This scheduler-provided context has expired.</exception>
         </member>
         <member name="P:Bezoro.ECS.Types.SystemContext.DeltaTime">
             <summary>
@@ -3092,8 +2598,9 @@
         </member>
         <member name="P:Bezoro.ECS.Types.WorldConfig.ComponentTypeCapacity">
             <summary>
-                Maximum number of registered component types.
+                Maximum number of registered component types and per-target relation markers.
             </summary>
+            <remarks>Registrations remain reserved after entity destruction, Reset, and Clear. Recreate the world to restart this catalog.</remarks>
         </member>
         <member name="P:Bezoro.ECS.Types.WorldConfig.EntityCapacity">
             <summary>
@@ -3159,6 +2666,11 @@
             <summary>
                 Snapshot payload containing resources, entities/components, and relations.
             </summary>
+            <remarks>
+                This mutable transport DTO retains the supplied arrays. Captured reference objects are shared with their
+                source values until a serializer materializes independent objects. Restore transfers resource ownership to
+                the destination world; do not restore the same disposable resource instance into multiple owners.
+            </remarks>
             <param name="resources">Serialized resources.</param>
             <param name="entities">Serialized entity/component payloads.</param>
             <param name="relations">Serialized relation edges.</param>
@@ -3167,6 +2679,11 @@
             <summary>
                 Snapshot payload containing resources, entities/components, and relations.
             </summary>
+            <remarks>
+                This mutable transport DTO retains the supplied arrays. Captured reference objects are shared with their
+                source values until a serializer materializes independent objects. Restore transfers resource ownership to
+                the destination world; do not restore the same disposable resource instance into multiple owners.
+            </remarks>
             <param name="resources">Serialized resources.</param>
             <param name="entities">Serialized entity/component payloads.</param>
             <param name="relations">Serialized relation edges.</param>

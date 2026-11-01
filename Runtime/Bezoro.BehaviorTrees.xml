@@ -4,6 +4,10 @@
         <name>Bezoro.BehaviorTrees</name>
     </assembly>
     <members>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorActionHandle">
+            <summary>Identifies one action occurrence resolved by a construction-time compilation.</summary>
+            <remarks>The default handle is invalid. Resolve it through its originating compilation before passing compact IDs to a runtime.</remarks>
+        </member>
         <member name="T:Bezoro.BehaviorTrees.BehaviorActivation">
             <summary>Identifies one action activation in one runner. Tokens are not durable IDs.</summary>
         </member>
@@ -166,6 +170,30 @@
         </member>
         <member name="P:Bezoro.BehaviorTrees.BehaviorTickResult.BudgetExhausted">
             <summary>Gets whether evaluation yielded because the visit allowance was exhausted.</summary>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorTreeCompilation">
+            <summary>Compiles a tree while retaining construction-time action references for occurrence-safe binding.</summary>
+            <remarks>
+            Retain an Action expression in a named variable and call GetAction after compilation.
+            This resolver owns the expression-to-occurrence map; its immutable Definition and runners retain no such map.
+            Reusing the same expression twice is ambiguous. Use distinct Action expressions when binding separate occurrences.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeCompilation.#ctor(Bezoro.BehaviorTrees.BehaviorNode,System.Int32,System.Int32)">
+            <summary>Compiles with the same expanded-node and depth limits as a standalone definition.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeCompilation.Definition">
+            <summary>Gets the immutable definition, which can outlive this construction-time resolver.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeCompilation.GetAction(Bezoro.BehaviorTrees.BehaviorNode)">
+            <summary>Resolves a named Action expression that occurs exactly once in this construction graph.</summary>
+            <remarks>Actions copied from a compiled Subtree have no construction-expression identity in this compilation.</remarks>
+            <exception cref="T:System.ArgumentNullException">The expression is null.</exception>
+            <exception cref="T:System.ArgumentException">The expression is not an action in this tree, or appears more than once.</exception>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeCompilation.Resolve(Bezoro.BehaviorTrees.BehaviorActionHandle)">
+            <summary>Resolves one of this compilation's handles to its compact runtime node ID.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another compilation.</exception>
         </member>
         <member name="T:Bezoro.BehaviorTrees.BehaviorTreeDefinition">
             <summary>Compiles a construction expression into an immutable preorder control-flow table.</summary>
