@@ -19,16 +19,27 @@ namespace Bezoro.UnityApiSmoke
             if (!guard.Evaluate(in context, ref evaluator, scratch))
                 throw new InvalidOperationException("Typed condition failed.");
 
-            StateId grounded = new StateId(0), inAir = new StateId(1), normal = new StateId(2), hit = new StateId(3);
-            var chart = new StatechartDefinition(new[] { new ChartState(new RegionId(0)), new ChartState(new RegionId(0)),
-                new ChartState(new RegionId(1)), new ChartState(new RegionId(1)) },
-                new[] { new ChartRegion(grounded), new ChartRegion(normal) },
-                new[] { new ChartTransition(normal, default, hit, ConditionExpression.Predicate(0).Compile()) }, 1);
+            var chartSetup = new StatechartBuilder();
+            var locomotion = chartSetup.Region();
+            var groundedState = locomotion.State();
+            var inAirState = locomotion.State();
+            locomotion.StartIn(groundedState);
+            var reaction = chartSetup.Region();
+            var normalState = reaction.State();
+            var hitState = reaction.State();
+            reaction.StartIn(normalState);
+            var damage = chartSetup.Signal();
+            chartSetup.Transition(from: normalState, on: damage, to: hitState,
+                guard: ConditionExpression.Predicate(0).Compile());
+            var chart = chartSetup.Build();
+            StateId grounded = chartSetup.Resolve(groundedState);
+            StateId normal = chartSetup.Resolve(normalState), hit = chartSetup.Resolve(hitState);
+            SignalId damageSignal = chartSetup.Resolve(damage);
             var stateHandler = new ChartHandler(grounded);
             var stateRunner = new StatechartRunner<Context>(chart, stateHandler);
             stateRunner.Start(ref context);
             StateActivation old = stateRunner.GetActivation(normal);
-            stateRunner.Dispatch(default, ref context);
+            stateRunner.Dispatch(damageSignal, ref context);
             if (!stateRunner.IsActive(grounded) || !stateRunner.IsActive(hit) || stateRunner.IsActive(old))
                 throw new InvalidOperationException("Orthogonal statechart failed.");
             stateRunner.Stop(ref context);
@@ -47,14 +58,23 @@ namespace Bezoro.UnityApiSmoke
 
             // BT -> flat FSM -> BT, using one shared visit allowance through every level.
             context.Ticks = 0;
-            StateId work = new StateId(0), done = new StateId(1);
-            var flat = new StateMachineDefinition(2, 1, new[] { new StateTransition(work, default, done) });
+            var machineSetup = new StateMachineBuilder();
+            var work = machineSetup.State();
+            var done = machineSetup.State();
+            var completed = machineSetup.Signal();
+            machineSetup.StartIn(work);
+            machineSetup.Transition(from: work, on: completed, to: done);
+            var flat = machineSetup.Build();
             var child = new TreeBehavior<Context>(new BehaviorTreeDefinition(BehaviorNode.Action(7)), handler);
             var machine = new StateMachineBehavior<Context>(flat,
-                new[] { new StateBehaviorBinding<Context>(work, child, successSignal: new SignalId(0)) },
-                successStates: new[] { done });
-            var outer = new TreeBehavior<Context>(new BehaviorTreeDefinition(BehaviorNode.Action(99)),
-                bindings: new[] { new TreeBehaviorBinding<Context>(0, machine) });
+                new[] { new StateBehaviorBinding<Context>(machineSetup.Resolve(work), child,
+                    successSignal: machineSetup.Resolve(completed)) },
+                successStates: new[] { machineSetup.Resolve(done) });
+            var runMachine = BehaviorNode.Action(99);
+            var compilation = new BehaviorTreeCompilation(runMachine);
+            var outerSetup = new TreeBehaviorBuilder<Context>(compilation);
+            outerSetup.Bind(compilation.GetAction(runMachine), machine);
+            var outer = outerSetup.Build();
             outer.Start(ref context);
             for (int update = 0; update < 32 && outer.Status == BehaviorStatus.Running; update++)
             {

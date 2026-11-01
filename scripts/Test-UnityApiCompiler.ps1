@@ -20,19 +20,23 @@ $outputRoot = Resolve-RepositoryPath $OutputPath
 if (-not (Test-Path $compiler -PathType Leaf)) { throw "Compiler DLL not found: $compiler" }
 $references = @(Get-ChildItem $referenceRoot -File -Filter '*.dll' | Sort-Object Name | ForEach-Object FullName)
 if ($references.Count -eq 0) { throw 'No .NET Standard reference assemblies were found.' }
-foreach ($name in @('Core', 'Simulation', 'Navigation', 'Persistence', 'Inventory', 'StateMachines', 'Spatial', 'Conditions', 'Statecharts', 'BehaviorTrees', 'Behaviors')) {
+foreach ($name in @('Core', 'Simulation', 'Navigation', 'Persistence', 'Inventory', 'StateMachines', 'Spatial', 'Conditions', 'Statecharts', 'BehaviorTrees', 'Behaviors', 'ECS', 'Events', 'GameSystems', 'Logging', 'TypingSystem', 'Chess.UCI.Protocol', 'Chess.UCI')) {
     $dll = Join-Path $frameworkRoot "Bezoro.$name.dll"
     if (-not (Test-Path $dll -PathType Leaf)) { throw "Framework DLL not found: $dll" }
-    $references += $dll
 }
+
+# Include the staged dependency closure required by public API signatures.
+$references += @(Get-ChildItem -LiteralPath $frameworkRoot -File -Filter '*.dll' | Sort-Object Name | ForEach-Object FullName)
 
 New-Item $outputRoot -ItemType Directory -Force | Out-Null
 $outputAssembly = Join-Path $outputRoot 'Bezoro.UnityApiSmoke.dll'
 $response = Join-Path $outputRoot 'consumer.rsp'
-$arguments = @('/nostdlib+', '/target:library', '/langversion:9.0', '/nullable:enable', '/warnaserror+')
+# Match the SDK's default suppression for reference-assembly version unification.
+# .NET Standard 2.0 dependencies legitimately bind to the supplied 2.1 profile.
+$arguments = @('/nostdlib+', '/target:library', '/langversion:9.0', '/nullable:enable', '/warnaserror+', '/nowarn:1701,1702')
 $arguments += '/out:"' + $outputAssembly + '"'
 $arguments += @($references | ForEach-Object { '/reference:"' + $_ + '"' })
-foreach ($file in @('FoundationConsumer.cs', 'ToolkitConsumer.cs', 'BehaviorConsumer.cs')) {
+foreach ($file in @('FoundationConsumer.cs', 'ToolkitConsumer.cs', 'BehaviorConsumer.cs', 'FrameworkConsumer.cs')) {
     $arguments += '"' + (Join-Path $repositoryRoot "samples/Bezoro.UnityApiSmoke/$file") + '"'
 }
 [IO.File]::WriteAllLines($response, $arguments, [Text.UTF8Encoding]::new($false))

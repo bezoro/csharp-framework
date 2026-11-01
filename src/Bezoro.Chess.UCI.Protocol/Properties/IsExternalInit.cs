@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 
 #if NETSTANDARD || NETSTANDARD2_0 || NETSTANDARD2_1
 // ReSharper disable once CheckNamespace
@@ -10,4 +10,7 @@ namespace System.Runtime.CompilerServices
 	[EditorBrowsable(EditorBrowsableState.Never)]
 	internal static class IsExternalInit { }
 }
+#else
+// Preserve init-setter signatures when a .NET Standard consumer loads the .NET build.
+[assembly: System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Runtime.CompilerServices.IsExternalInit))]
 #endif

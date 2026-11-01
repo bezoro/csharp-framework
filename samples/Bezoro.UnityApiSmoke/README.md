@@ -1,20 +1,27 @@
 # Unity API consumption check
 
-This managed consumer intentionally compiles with C# 9 and targets .NET Standard 2.1. Framework projects retain `LangVersion=latest`. The check catches public APIs that require newer consumer syntax or types absent from that target.
+This consumer targets .NET Standard 2.1 and deliberately uses C# 9. Framework projects retain `LangVersion=latest`. Its four source files reference all 18 runtime libraries and check public APIs without an engine dependency.
 
-The solution normally builds it against project references. After staging the Unity package, compile the same consumer against the actual DLLs:
+The solution normally builds against project references. After staging the Unity package, compile against its actual DLLs:
 
 ```sh
 dotnet build samples/Bezoro.UnityApiSmoke -c Release -p:FrameworkBinaryRoot=/absolute/path/to/framework/artifacts/unity-package/Runtime
 ```
 
-It exercises the foundations and toolkit, including spans, readonly results, generational handles, binary cursors with stack buffers, inventories, state evaluation, spatial queries, scalar helpers, and asynchronous save interfaces. The toolkit console example also executes the synchronous consumer methods. This is a compiler/API check. It does not launch the Unity Editor, perform IL2CPP linking, or establish platform export compatibility.
+## Consumer coverage
+
+| Consumer | Operations | Expected result |
+| --- | --- | ---: |
+| FoundationConsumer | Random, bounded collections, simulation, navigation and persistence | 4 |
+| ToolkitConsumer | Inventory, spatial queries, binary spans, scalar helpers and declarative FSM construction | 4 |
+| BehaviorConsumer | Conditions, parallel statecharts, trees and named action bindings with a one-visit budget | 2 |
+| FrameworkConsumer | ECS Read/Write, bounded event delivery, health, typing, LogPayload construction and engine-free chess | 97 |
+
+The console examples execute these methods. They are finite managed checks, not scene or player tests. The ECS check uses component APIs without a source generator; authoring new generated query/job types requires a compatible analyzer host separately.
 
 ## Checking an older compiler
 
-LangVersion selects syntax in the SDK's compiler. It does not reproduce an older compiler's lifetime inference. An additional check with Microsoft.Net.Compilers.Toolset 3.8.0, compiler version 3.8.0-5.20562.2, found that out-spans receiving stack-backed views must first be initialized from that buffer. Both consumers now use empty views to establish that lifetime without a heap allocation.
-
-After staging the package, pass an extracted compiler DLL and the .NET Standard 2.1 reference pack to the optional helper:
+The SDK's LangVersion selects syntax, not an older compiler's metadata handling or lifetime inference. The optional helper uses a supplied compiler DLL and reference pack without downloading packages or changing the framework compiler:
 
 ```powershell
 ./scripts/Test-UnityApiCompiler.ps1 `
@@ -22,10 +29,10 @@ After staging the package, pass an extracted compiler DLL and the .NET Standard 
   -ReferenceAssemblyPath /path/to/netstandard.library.ref/2.1.0/ref/netstandard2.1
 ```
 
-The helper supplies references and compiles the three consumers. It does not download packages, replace the framework compiler, or run in ordinary builds. The recorded Roslyn 3.8 check also executed the produced IL and both methods returned 4. That is evidence for this compiler, not a claim about Unity's exact compiler or IL2CPP.
+The helper compiles all four files with the staged runtime dependency closure. Warnings are errors except CS1701/CS1702, matching the SDK's default suppression for reference-assembly version unification. .NET Standard 2.0 dependencies legitimately bind to the supplied 2.1 profile. Other compiler warnings and errors remain fatal.
 
-## Behavior APIs
+Real Roslyn 3.8.0-5.20562.2 checks found two important contracts. Stack-backed out-span views must first be initialized from their buffer, so the span consumers use empty views without allocating. Constructors with C# 11 required members cannot be called by that compiler, even with a complete object initializer; LogPayload now has a validated ordinary constructor instead.
 
-BehaviorConsumer adds Conditions, Statecharts, BehaviorTrees and Behaviors to both project-reference and staged-DLL checks. It verifies orthogonal states, compact typed conditions, tree lifecycle and BT -> flat FSM -> BT composition with one visit per update. Its result is 2; the existing FoundationConsumer and ToolkitConsumer results are 4 each.
+The .NET 10 builds also forward the .NET Standard IsExternalInit shim to the runtime type. This keeps init-setter signatures callable when a .NET host selects the .NET framework DLLs for a consumer compiled against .NET Standard. Build tests execute that mixed-target combination, including pool options, WorldConfig, typing options, logging metadata and chess options.
 
-The same three source files are accepted by the optional Roslyn 3.8 check. This validates managed API consumption and execution of its generated IL, not a Unity Editor, IL2CPP or Godot export.
+The recorded check also executes the IL emitted by Roslyn 3.8 on the managed test host and verifies the results above. It does not launch Unity Editor, run IL2CPP, establish Godot export compatibility, or reproduce every engine compiler/linker configuration.
