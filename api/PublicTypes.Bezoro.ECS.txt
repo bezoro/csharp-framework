@@ -27,6 +27,7 @@ Bezoro.ECS.Attributes.BeforeAttribute | public sealed class | stable-shape | Att
 Bezoro.ECS.Attributes.ChangedAttribute | public sealed class | stable-shape | Attributes/ChangedAttribute.cs
 Bezoro.ECS.Attributes.ExclusiveAttribute | public sealed class | stable-shape | Attributes/ExclusiveAttribute.cs
 Bezoro.ECS.Attributes.NoneAttribute | public sealed class | stable-shape | Attributes/NoneAttribute.cs
+Bezoro.ECS.Attributes.NoWorldAccessAttribute | public sealed class | stable-shape | Attributes/NoWorldAccessAttribute.cs
 Bezoro.ECS.Attributes.OptionalAttribute | public sealed class | stable-shape | Attributes/OptionalAttribute.cs
 Bezoro.ECS.Attributes.QueryAttribute | public sealed class | stable-shape | Attributes/QueryAttribute.cs
 Bezoro.ECS.Attributes.ReadsAttribute | public sealed class | stable-shape | Attributes/ReadsAttribute.cs
@@ -40,19 +41,15 @@ Bezoro.ECS.Attributes.WithoutAttribute | public sealed class | stable-shape | At
 Bezoro.ECS.Attributes.WritesAttribute | public sealed class | stable-shape | Attributes/WritesAttribute.cs
 Bezoro.ECS.Attributes.WritesResourceAttribute | public sealed class | stable-shape | Attributes/WritesResourceAttribute.cs
 Bezoro.ECS.Options.SnapshotDeserializationOptions | public sealed class | stable-shape | Options/SnapshotDeserializationOptions.cs
-Bezoro.ECS.Options.WorldOptions | public sealed class | stable-shape | Options/WorldOptions.cs
 Bezoro.ECS.Services.World | public class | review-unsealed-class | Services/World.cs
 Bezoro.ECS.Services.WorldGroup | public sealed class | stable-shape | Services/WorldGroup.cs
 Bezoro.ECS.Types.ArenaDiagnostics | public sealed class | stable-shape | Types/ArenaDiagnostics.cs
-Bezoro.ECS.Types.CommandBuffer | public readonly struct | stable-shape | Types/CommandBuffer.cs
 Bezoro.ECS.Types.CommandStream | public sealed class | stable-shape | Types/CommandStream.cs
 Bezoro.ECS.Types.CommandStreamDiagnostics | public sealed class | stable-shape | Types/CommandStreamDiagnostics.cs
 Bezoro.ECS.Types.ComponentAccessor<T> | public struct | review-mutable-struct | Types/ComponentAccessor.cs
 Bezoro.ECS.Types.ComponentRef<T> | public readonly ref struct | stable-shape | Types/ComponentRef.cs
 Bezoro.ECS.Types.Entity | public readonly record struct | stable-shape | Types/Entity.cs
 Bezoro.ECS.Types.InputStateProxy | public readonly struct | stable-shape | Types/InputStateProxy.cs
-Bezoro.ECS.Types.OnAdd<T> | public readonly struct | stable-shape | Types/OnAdd.cs
-Bezoro.ECS.Types.OnRemove<T> | public readonly struct | stable-shape | Types/OnRemove.cs
 Bezoro.ECS.Types.QueryBuilder | public struct | review-mutable-struct | Types/QueryBuilder.cs
 Bezoro.ECS.Types.QueryCursor | public struct | review-mutable-struct | Types/QueryCursor.cs
 Bezoro.ECS.Types.QueryDiagnostics | public sealed class | stable-shape | Types/QueryDiagnostics.cs
@@ -73,9 +70,6 @@ Bezoro.ECS.Types.SystemMetadata | public readonly struct | stable-shape | Types/
 Bezoro.ECS.Types.SystemRunConditionContext | public readonly struct | stable-shape | Types/SystemRunConditionContext.cs
 Bezoro.ECS.Types.SystemUpdateSettings | public readonly struct | stable-shape | Types/SystemUpdateSettings.cs
 Bezoro.ECS.Types.TransformProxy | public readonly struct | stable-shape | Types/TransformProxy.cs
-Bezoro.ECS.Types.void | public delegate | stable-shape | Types/OnAddObserver.cs
-Bezoro.ECS.Types.void | public delegate | stable-shape | Types/OnRemoveObserver.cs
-Bezoro.ECS.Types.void | public delegate | stable-shape | Types/OnSetObserver.cs
 Bezoro.ECS.Types.void | public delegate | stable-shape | Types/QueryCursor.cs
 Bezoro.ECS.Types.void | public delegate | stable-shape | Types/QueryCursor.cs
 Bezoro.ECS.Types.void | public delegate | stable-shape | Types/QueryCursor.cs

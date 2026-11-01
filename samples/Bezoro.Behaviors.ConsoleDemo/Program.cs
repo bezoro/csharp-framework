@@ -6,40 +6,58 @@ using Bezoro.Statecharts;
 using Bezoro.StateMachines;
 using Bezoro.UnityApiSmoke;
 
-StateId patrolling = new(0), combat = new(1), finished = new(2);
-SignalId threatSeen = new(0), combatFinished = new(1);
 var context = new NpcContext();
 var actions = new NpcActions();
 var patrolDefinition = new BehaviorTreeDefinition(BehaviorNode.Sequence(
     BehaviorNode.Condition(0), BehaviorNode.Action(10)));
 var patrol = new TreeBehavior<NpcContext>(patrolDefinition, actions);
 
-// A flat FSM runs inside a tree action, and owns another tree while aiming.
-StateId aiming = new(0), ready = new(1);
+// A flat FSM runs inside a named tree action, and owns another tree while aiming.
+var aimingSetup = new StateMachineBuilder();
+var aimingState = aimingSetup.State();
+var readyState = aimingSetup.State();
+var aimCompleted = aimingSetup.Signal();
+aimingSetup.StartIn(aimingState);
+aimingSetup.Transition(from: aimingState, on: aimCompleted, to: readyState);
+var aimingDefinition = aimingSetup.Build();
 var aimingTree = new TreeBehavior<NpcContext>(new BehaviorTreeDefinition(BehaviorNode.Action(20)), actions);
-var aimingMachine = new StateMachineBehavior<NpcContext>(
-    new StateMachineDefinition(2, 1, new[] { new StateTransition(aiming, default, ready) }),
-    new[] { new StateBehaviorBinding<NpcContext>(aiming, aimingTree, successSignal: new SignalId(0)) },
-    successStates: new[] { ready });
+var aimingMachine = new StateMachineBehavior<NpcContext>(aimingDefinition,
+    new[] { new StateBehaviorBinding<NpcContext>(aimingSetup.Resolve(aimingState), aimingTree,
+        successSignal: aimingSetup.Resolve(aimCompleted)) },
+    successStates: new[] { aimingSetup.Resolve(readyState) });
 var attackDefinition = new BehaviorTreeDefinition(BehaviorNode.Sequence(
     BehaviorNode.Condition(1), BehaviorNode.Action(30)));
-var combatDefinition = new BehaviorTreeDefinition(BehaviorNode.Sequence(
-    BehaviorNode.Action(99), BehaviorNode.Subtree(attackDefinition)));
-var combatTree = new TreeBehavior<NpcContext>(combatDefinition, actions,
-    new[] { new TreeBehaviorBinding<NpcContext>(1, aimingMachine) });
-var modeDefinition = new StatechartDefinition(
-    new[] { new ChartState(default), new ChartState(default), new ChartState(default) },
-    new[] { new ChartRegion(patrolling) },
-    new[] { new ChartTransition(patrolling, threatSeen, combat, ConditionExpression.Predicate(0).Compile()),
-        new ChartTransition(combat, combatFinished, finished) }, 2);
+var aim = BehaviorNode.Action(99);
+var combatCompilation = new BehaviorTreeCompilation(BehaviorNode.Sequence(aim, BehaviorNode.Subtree(attackDefinition)));
+var combatSetup = new TreeBehaviorBuilder<NpcContext>(combatCompilation, actions);
+combatSetup.Bind(combatCompilation.GetAction(aim), aimingMachine);
+var combatTree = combatSetup.Build();
+
+var modeSetup = new StatechartBuilder();
+var activity = modeSetup.Region();
+var patrolState = activity.State();
+var combatState = activity.State();
+var finishedState = activity.State();
+var sighting = modeSetup.Signal();
+var victory = modeSetup.Signal();
+activity.StartIn(patrolState);
+modeSetup.Transition(from: patrolState, on: sighting, to: combatState,
+    guard: ConditionExpression.Predicate(0).Compile());
+modeSetup.Transition(from: combatState, on: victory, to: finishedState);
+var modeDefinition = modeSetup.Build();
+StateId patrolling = modeSetup.Resolve(patrolState), combat = modeSetup.Resolve(combatState);
+SignalId threatSeen = modeSetup.Resolve(sighting), combatFinished = modeSetup.Resolve(victory);
 var perception = new Perception();
 var modes = new StatechartBehavior<NpcContext>(modeDefinition, perception,
     new[] { new StateBehaviorBinding<NpcContext>(patrolling, patrol),
         new StateBehaviorBinding<NpcContext>(combat, combatTree, successSignal: combatFinished) },
-    successStates: new[] { finished });
-// The outer tree demonstrates a statechart as a BT node as well.
-var root = new TreeBehavior<NpcContext>(new BehaviorTreeDefinition(BehaviorNode.Action(100)),
-    bindings: new[] { new TreeBehaviorBinding<NpcContext>(0, modes) });
+    successStates: new[] { modeSetup.Resolve(finishedState) });
+// The outer tree demonstrates a statechart as a named BT action as well.
+var liveModes = BehaviorNode.Action(100);
+var rootCompilation = new BehaviorTreeCompilation(liveModes);
+var rootSetup = new TreeBehaviorBuilder<NpcContext>(rootCompilation);
+rootSetup.Bind(rootCompilation.GetAction(liveModes), modes);
+var root = rootSetup.Build();
 // A tree action enters during its first budgeted tick. Start the nested chart before reading its token.
 root.Start(ref context);
 var startupBudget = new BehaviorBudget(16);
@@ -70,6 +88,7 @@ Require(context.WalkTicks > 0 && context.WalkAborts == 1 && context.AimTicks == 
 Require(perception.SightChecks == 1 && !modes.IsActive(patrolActivation), "The old patrol activation must be invalid.");
 root.Stop(ref context);
 Require(BehaviorConsumer.ExerciseDataApis() == 2, "The C# 9 behavior consumer must execute successfully.");
+Require(FrameworkConsumer.ExerciseDataApis() == 97, "The C# 9 framework consumer must execute successfully.");
 Console.WriteLine($"Patrol guard {actions.PatrolGuards}x, walking {context.WalkTicks} ticks, abort {context.WalkAborts}x.");
 Console.WriteLine($"Perception {perception.SightChecks}x at 500 ms; aiming {context.AimTicks} ticks; attacks {context.Attacks}.");
 Console.WriteLine("Nested BT -> statechart -> BT -> flat FSM -> BT completed; C# 9 consumer passed.");
