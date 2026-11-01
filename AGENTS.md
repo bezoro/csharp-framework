@@ -19,3 +19,7 @@ Rules:
 - Preserve the pay-for-use principle. A readable API must not introduce unnecessary allocations, processing, or mandatory abstractions.
 
 Reason: Consumers should be able to understand what their code does by reading its public API calls, even when the implementation uses advanced optimizations.
+
+## Breaking changes
+
+Breaking changes are always welcome when they result in a better codebase. Prefer a clearer, simpler, more robust or more efficient design over preserving backward compatibility. Document affected contracts and migration steps, and mark breaking changes using Conventional Commits and Semantic Versioning.
