@@ -13,6 +13,7 @@ Bezoro.Chess.UCI.Protocol.API.Common.Extensions.FenMoveClassificationExtensions 
 Bezoro.Chess.UCI.Protocol.API.Common.Extensions.FenRulesExtensions | public static class | stable-shape | API/Common/Extensions/FenRulesExtensions.cs
 Bezoro.Chess.UCI.Protocol.API.Common.Extensions.MoveClassificationExtensions | public static class | stable-shape | API/Common/Extensions/MoveClassificationExtensions.cs
 Bezoro.Chess.UCI.Protocol.API.Common.Extensions.MoveEvaluationExtensions | public static class | stable-shape | API/Common/Extensions/MoveEvaluationExtensions.cs
+Bezoro.Chess.UCI.Protocol.API.Common.Extensions.PlayableFenExtensions | public static class | stable-shape | API/Common/Extensions/PlayableFenExtensions.cs
 Bezoro.Chess.UCI.Protocol.API.Common.Extensions.PlayedMoveExtensions | public static class | stable-shape | API/Common/Extensions/PlayedMoveExtensions.cs
 Bezoro.Chess.UCI.Protocol.API.Common.Extensions.PlayedMoveHistoryExtensions | public static class | stable-shape | API/Common/Extensions/PlayedMoveHistoryExtensions.cs
 Bezoro.Chess.UCI.Protocol.API.Common.Extensions.PositionAdvantageExtensions | public static class | stable-shape | API/Common/Extensions/PositionAdvantageExtensions.cs
@@ -57,6 +58,7 @@ Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchRequest | public readonly recor
 Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchRequestKind | public enum | stable-shape | API/Types/PlayableMatchRequestKind.cs
 Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult | public readonly record struct | stable-shape | API/Types/PlayableMatchResult.cs
 Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResultReason | public enum | stable-shape | API/Types/PlayableMatchResultReason.cs
+Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave | public readonly record struct | stable-shape | API/Types/PlayableMatchSave.cs
 Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSecondaryMove | public readonly record struct | stable-shape | API/Types/PlayableMatchSecondaryMove.cs
 Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup | public readonly record struct | stable-shape | API/Types/PlayableMatchSetup.cs
 Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState | public readonly record struct | stable-shape | API/Types/PlayableMatchState.cs
