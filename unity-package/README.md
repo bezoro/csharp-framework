@@ -35,6 +35,12 @@ To move to the latest published package:
 
 - `Bezoro.Chess.UCI.dll`
 - `Bezoro.Chess.UCI.Protocol.dll`
+- `Bezoro.Chess.Study.dll`
+- `Bezoro.Chess.Presentation.dll`
+- `Bezoro.Chess.Networking.dll`
+- `Bezoro.Commerce.dll`
+- `Bezoro.PlayerProfiles.dll`
+- `Bezoro.Progression.dll`
 - `Bezoro.Core.dll`
 - `Bezoro.ECS.dll`
 - `Bezoro.Events.dll`

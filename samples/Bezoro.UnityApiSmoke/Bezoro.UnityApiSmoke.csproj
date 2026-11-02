@@ -25,8 +25,20 @@
     <ProjectReference Include="../../src/Bezoro.TypingSystem/Bezoro.TypingSystem.csproj" />
     <ProjectReference Include="../../src/Bezoro.Chess.UCI.Protocol/Bezoro.Chess.UCI.Protocol.csproj" />
     <ProjectReference Include="../../src/Bezoro.Chess.UCI/Bezoro.Chess.UCI.csproj" />
+    <ProjectReference Include="../../src/Bezoro.Chess.Study/Bezoro.Chess.Study.csproj" />
+    <ProjectReference Include="../../src/Bezoro.Chess.Presentation/Bezoro.Chess.Presentation.csproj" />
+    <ProjectReference Include="../../src/Bezoro.Chess.Networking/Bezoro.Chess.Networking.csproj" />
+    <ProjectReference Include="../../src/Bezoro.Commerce/Bezoro.Commerce.csproj" />
+    <ProjectReference Include="../../src/Bezoro.PlayerProfiles/Bezoro.PlayerProfiles.csproj" />
+    <ProjectReference Include="../../src/Bezoro.Progression/Bezoro.Progression.csproj" />
   </ItemGroup>
   <ItemGroup Condition="'$(FrameworkBinaryRoot)' != ''">
+    <Reference Include="Bezoro.Progression"><HintPath>$(FrameworkBinaryRoot)/Bezoro.Progression.dll</HintPath></Reference>
+    <Reference Include="Bezoro.PlayerProfiles"><HintPath>$(FrameworkBinaryRoot)/Bezoro.PlayerProfiles.dll</HintPath></Reference>
+    <Reference Include="Bezoro.Commerce"><HintPath>$(FrameworkBinaryRoot)/Bezoro.Commerce.dll</HintPath></Reference>
+    <Reference Include="Bezoro.Chess.Networking"><HintPath>$(FrameworkBinaryRoot)/Bezoro.Chess.Networking.dll</HintPath></Reference>
+    <Reference Include="Bezoro.Chess.Presentation"><HintPath>$(FrameworkBinaryRoot)/Bezoro.Chess.Presentation.dll</HintPath></Reference>
+    <Reference Include="Bezoro.Chess.Study"><HintPath>$(FrameworkBinaryRoot)/Bezoro.Chess.Study.dll</HintPath></Reference>
     <Reference Include="Bezoro.Core"><HintPath>$(FrameworkBinaryRoot)/Bezoro.Core.dll</HintPath></Reference>
     <Reference Include="Bezoro.Simulation"><HintPath>$(FrameworkBinaryRoot)/Bezoro.Simulation.dll</HintPath></Reference>
     <Reference Include="Bezoro.Navigation"><HintPath>$(FrameworkBinaryRoot)/Bezoro.Navigation.dll</HintPath></Reference>

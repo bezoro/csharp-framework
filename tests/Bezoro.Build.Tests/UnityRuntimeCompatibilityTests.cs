@@ -29,6 +29,7 @@ public sealed class UnityRuntimeCompatibilityTests
             ToolkitConsumer.ExerciseDataApis().Should().Be(4);
             BehaviorConsumer.ExerciseDataApis().Should().Be(2);
             FrameworkConsumer.ExerciseDataApis().Should().Be(97);
+            ChessProductConsumer.ExerciseDataApis().Should().Be(50);
         });
     }
 
