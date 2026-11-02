@@ -835,12 +835,13 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	public void AcceptDraw()
 	{
 		EnsureMatchIsPlayable();
-		EnsureTurnHasTimeRemaining(_timeControl.HasValue ? _utcNowProvider() : null);
+		DateTimeOffset? completedAt = _timeControl.HasValue ? _utcNowProvider() : null;
+		EnsureTurnHasTimeRemaining(completedAt);
 		if (!_drawOfferedBy.HasValue)
 			throw new InvalidOperationException("There is no opposing draw offer to accept.");
 
 		_drawOfferedBy = null;
-		SetForcedResult(new(PlayableMatchResultReason.DrawAgreement, null));
+		SetForcedResult(new(PlayableMatchResultReason.DrawAgreement, null), completedAt);
 	}
 
 	/// <summary>Accepts a draw only when the supplied side is the recipient of the pending offer.</summary>
@@ -885,11 +886,12 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	public void ClaimDraw()
 	{
 		EnsureMatchIsPlayable();
-		EnsureTurnHasTimeRemaining(_timeControl.HasValue ? _utcNowProvider() : null);
+		DateTimeOffset? completedAt = _timeControl.HasValue ? _utcNowProvider() : null;
+		EnsureTurnHasTimeRemaining(completedAt);
 		if (!_claimableResult.HasValue || !_claimableResult.Value.IsDraw)
 			throw new InvalidOperationException("There is no claimable draw available.");
 
-		SetForcedResult(_claimableResult.Value);
+		SetForcedResult(_claimableResult.Value, completedAt);
 	}
 
 	/// <summary>
@@ -912,13 +914,14 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	public void ClaimDraw(string intendedMove)
 	{
 		EnsureMatchIsPlayable();
-		EnsureTurnHasTimeRemaining(_timeControl.HasValue ? _utcNowProvider() : null);
+		DateTimeOffset? completedAt = _timeControl.HasValue ? _utcNowProvider() : null;
+		EnsureTurnHasTimeRemaining(completedAt);
 		if (_pendingPromotion.HasValue)
 			throw new InvalidOperationException("Choose a promotion piece before claiming an intended move.");
 		var result = ResolveIntendedDrawClaim(NormalizeCompletedMove(intendedMove));
 		if (!result.HasValue)
 			throw new InvalidOperationException("The intended move does not permit a draw claim.");
-		SetForcedResult(result.Value, declaredDrawMove: NormalizeCompletedMove(intendedMove));
+		SetForcedResult(result.Value, completedAt, NormalizeCompletedMove(intendedMove));
 	}
 
 	private PlayableMatchResult? ResolveIntendedDrawClaim(string move)
@@ -952,11 +955,12 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	{
 		char side = NormalizeColor(resigningSide, nameof(resigningSide));
 		EnsureMatchIsPlayable();
-		EnsureTurnHasTimeRemaining(_timeControl.HasValue ? _utcNowProvider() : null);
+		DateTimeOffset? completedAt = _timeControl.HasValue ? _utcNowProvider() : null;
+		EnsureTurnHasTimeRemaining(completedAt);
 		var state = CurrentState;
 		char opponent = Opposite(side);
 		SetForcedResult(new(PlayableMatchResultReason.Resignation,
-			LocalPositionRules.CanPossiblyMate(state.Fen, opponent) ? opponent : null));
+			LocalPositionRules.CanPossiblyMate(state.Fen, opponent) ? opponent : null), completedAt);
 	}
 
 	/// <summary>

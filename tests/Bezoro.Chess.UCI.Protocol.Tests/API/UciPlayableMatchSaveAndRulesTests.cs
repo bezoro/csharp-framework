@@ -202,6 +202,42 @@ public sealed class UciPlayableMatchSaveAndRulesTests
         await ignoredSession.Invoking(m => m.LoadSaveAsync(valid with { TimeControl = ignored })).Should().ThrowAsync<ArgumentException>();
     }
 
+    [Theory]
+    [InlineData("resign")]
+    [InlineData("agreement")]
+    [InlineData("claim")]
+    [InlineData("intended")]
+    public async Task FinishingActionFreezesTheClockAtTheValidatedTimestamp(string action)
+    {
+        var origin = DateTimeOffset.Parse("2026-01-01T12:00:00Z");
+        var now = origin;
+        bool advancesOnRead = false;
+        DateTimeOffset ReadClock()
+        {
+            var result = now;
+            if (advancesOnRead) now += TimeSpan.FromSeconds(1);
+            return result;
+        }
+        var control = new PlayableMatchTimeControl(TimeSpan.FromSeconds(3), TimeSpan.Zero);
+        using var match = new UciPlayableMatchSession(timeControl: control, utcNowProvider: ReadClock,
+            claimableDrawPolicy: PlayableMatchClaimableDrawPolicy.ClaimRequired);
+        int halfmoves = action == "claim" ? 100 : action == "intended" ? 99 : 0;
+        await match.LoadMatchAsync(new(Fen.Parse($"7k/8/8/8/8/8/P7/KR6 w - - {halfmoves} 51")!.Value));
+        if (action == "agreement") match.OfferDraw('w');
+        now = origin + TimeSpan.FromSeconds(2);
+        advancesOnRead = true;
+        switch (action)
+        {
+            case "resign": match.Resign('w'); break;
+            case "agreement": match.AcceptDraw('b'); break;
+            case "claim": match.ClaimDraw(); break;
+            default: match.ClaimDraw("b1b2"); break;
+        }
+        var save = match.CaptureSave();
+        save.Setup.Clock!.Value.WhiteRemaining.Should().Be(TimeSpan.FromSeconds(1));
+        (await match.LoadSaveAsync(save)).Result.Should().Be(save.Result);
+    }
+
     [Fact]
     public async Task SaveRequiresTheDeclaredMoveForAnIntendedFiftyMoveClaim()
     {
