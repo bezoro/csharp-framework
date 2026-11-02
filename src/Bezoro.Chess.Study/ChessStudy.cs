@@ -20,6 +20,7 @@ public sealed class ChessStudy
         if (maxNodes < 1) throw new ArgumentOutOfRangeException(nameof(maxNodes));
         Fen position = startingPosition ?? Fen.Default;
         if (position.PiecePlacement is null) throw new ArgumentException("A parsed FEN is required.", nameof(startingPosition));
+        position.ValidateForPlay();
         _maxNodes = maxNodes;
         Root = Current = new StudyNode(this, null, position, null, null);
         _readOnlyTags = new ReadOnlyDictionary<string, string>(_tags);

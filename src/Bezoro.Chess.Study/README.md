@@ -19,4 +19,16 @@ string saved = Pgn.Write(study);  // every variation, comment and annotation
 
 The module does not claim identical Chess.com evaluation scores. To analyze a selected line, send `study.Root.Position` plus `study.GetCurrentMoves()` to an explicitly requested local or remote engine review. See [chess review](../../docs/chess-review.md) for the documented classification model and its limits.
 
+`ChessLesson` validates an exercise's accepted UCI solution lines once, then shares its solution tree across independent `StartAttempt()` owners. Learner alternatives are supported; scripted opponent replies must be unambiguous. `TryPlay` rejects wrong moves without changing the board, applies a scripted reply immediately, and reports completion. `Undo` rewinds a learner decision together with its reply; `Reset` also clears mistakes. Hints are queried explicitly. Completion means reaching an authored solution; it does not infer pedagogical quality or engine objectives. Use story-stage IDs from `Bezoro.Progression` to unlock exercises, and keep localized teaching text, assets and reward policy in the game.
+
+```csharp
+var lesson = new ChessLesson(Fen.Default, new[] {
+    new[] { "e2e4", "e7e5", "g1f3" },
+    new[] { "d2d4", "d7d5", "c2c4" }
+});
+var attempt = lesson.StartAttempt();
+var feedback = attempt.TryPlay("e2e4"); // also applies the scripted e7e5
+attempt.Undo();                         // returns to the starting position
+```
+
 Format reference: [Steven J. Edwards's PGN specification](https://www.saremba.de/chessgml/standards/pgn/pgn-complete.htm).
