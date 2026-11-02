@@ -27,3 +27,7 @@ Breaking changes are always welcome when they result in a better codebase. Prefe
 ## Implementation economy
 
 Maximize useful impact with the least code necessary. Prefer simple, cohesive solutions; every additional abstraction, dependency and line of code must justify its cost. Remove duplication and unnecessary machinery while preserving readability, correctness, performance and explicit ownership. Measure economy by the complete solution, including integration and maintenance, rather than by terse syntax or line count alone.
+
+## Commits and versioning
+
+Commit cohesive, validated increments as work progresses. Use Conventional Commits and Semantic Versioning: identify breaking changes with `!` or a `BREAKING CHANGE` footer, and classify releases according to their public API impact. Resolve package versions through the canonical version script described above; keep release notes and migration guidance current.
