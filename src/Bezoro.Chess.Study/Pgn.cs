@@ -91,7 +91,7 @@ public static class Pgn
                     }
                     byte? suffixGlyph = StripGlyph(ref symbol);
                     try { study.ImportSan(symbol); }
-                    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or FormatException)
+                    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or FormatException or OverflowException)
                     { throw new FormatException("Invalid PGN move: " + token.Text, exception); }
                     if (suffixGlyph.HasValue) study.AddAnnotation(study.Current, suffixGlyph.Value);
                     if (leadingComment.Length != 0)

@@ -45,7 +45,8 @@ public sealed class ChessLesson
         var endings = new HashSet<Node>();
         foreach (IEnumerable<string> line in acceptedLines)
         {
-            if (++suppliedLines > maxNodes) throw new ArgumentException("Lesson solution limit exceeded.", nameof(acceptedLines));
+            if (suppliedLines == maxNodes) throw new ArgumentException("Lesson solution limit exceeded.", nameof(acceptedLines));
+            suppliedLines++;
             if (line is null) throw new ArgumentException("Solution lines cannot be null.", nameof(acceptedLines));
             Node current = Root;
             int moves = 0;
@@ -63,7 +64,7 @@ public sealed class ChessLesson
                     if (nodes == maxNodes) throw new ArgumentException("Lesson node limit exceeded.", nameof(acceptedLines));
                     Fen nextPosition;
                     try { nextPosition = current.Position.ApplyMove(normalized); }
-                    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+                    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or OverflowException)
                     { throw new ArgumentException("A solution contains an illegal move.", nameof(acceptedLines), exception); }
                     next = new Node(nextPosition, current, normalized);
                     current.Add(next);

@@ -161,6 +161,7 @@ public sealed class StudyTests
     [Theory]
     [InlineData("[SetUp \"1\"] [FEN \"8/8/8/8/8/8/8/8 w - - 0 1\"] *")]
     [InlineData("[Variant \"Chess960\"] *")]
+    [InlineData("[SetUp \"1\"] [FEN \"4k3/8/8/8/8/8/8/4K2R b - - 0 2147483647\"] 2147483647... Kd7 *")]
     public void InvalidPlayableSetupsAndUnsupportedVariantsHaveTheImportExceptionContract(string input) =>
         Assert.Throws<FormatException>(() => Pgn.Parse(input));
 
