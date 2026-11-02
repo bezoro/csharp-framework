@@ -2308,19 +2308,39 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	private void CompleteClassificationRun(int generation)
 	{
 		UciState? snapshot;
-		long version;
+		lock (_sync)
+			_classificationRuntime.CompleteRun(_state, generation, out snapshot);
+		var completed = ClassificationCompleted;
+		var published = EventPublished;
+		if (snapshot.HasValue && (completed is not null || published is not null))
+			DispatchClassificationCompletion(generation, completed, published);
+	}
+
+	private void DispatchClassificationCompletion(int generation, Action<UciState>? completed,
+		Action<UciGameEngineSessionEvent>? published)
+	{
+		// Completion survives unrelated state updates. Each UI delivery reads a fresh snapshot while
+		// atomically checking that it still belongs to the completed classification generation.
+		if (completed is not null)
+			_events.Raise(() =>
+			{
+				if (TryGetClassificationCompletionState(generation, out var state)) completed(state);
+			});
+		if (published is not null)
+			_events.Raise(() =>
+			{
+				if (TryGetClassificationCompletionState(generation, out var state))
+					published(UciGameEngineSessionEvent.ForState(UciGameEngineSessionEventKind.ClassificationCompleted, state));
+			});
+	}
+
+	private bool TryGetClassificationCompletionState(int generation, out UciState state)
+	{
 		lock (_sync)
 		{
-			_classificationRuntime.CompleteRun(_state, generation, out snapshot);
-			version = _stateVersion;
+			state = _state;
+			return Volatile.Read(ref _disposed) == 0 && generation == _classificationRuntime.Generation;
 		}
-		if (snapshot.HasValue)
-			RaiseStateEventForAnalysis(
-				ClassificationCompleted,
-				UciGameEngineSessionEventKind.ClassificationCompleted,
-				snapshot.Value,
-				new AnalysisGenerationGuard(this, generation, isPonder: false, version)
-			);
 	}
 
 	private void FaultClassificationRun(int generation, Exception ex) =>

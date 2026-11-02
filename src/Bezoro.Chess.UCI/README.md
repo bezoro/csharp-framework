@@ -69,6 +69,8 @@ Queued analysis notifications recheck their generation when the UI context deliv
 
 Ephemeral `StateChanged` snapshots also check a shared state version, preventing an older worker update from overwriting a newer paused clock or draw offer while the board position stays the same. Typed gameplay events and typed evaluation/classification results keep their own history and generation semantics.
 
+`ClassificationCompleted` reports lifecycle completion. While its classification generation remains current, queued typed and canonical completion notifications survive subsequent evaluations or clock/draw metadata changes and read the latest state when delivered. Loading another position, moving, undoing, ending the game or disposing the session invalidates obsolete completions.
+
 Migration: undo no longer resets both clocks to their initial values. Draw-offer expiry follows the recipient's move. Loaded positions that violate playable-position constraints now throw before replacing the current game. Uninitialized or invalid coordinator options fail at construction.
 
 ```csharp

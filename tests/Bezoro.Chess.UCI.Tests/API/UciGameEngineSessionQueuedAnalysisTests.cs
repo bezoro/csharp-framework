@@ -204,6 +204,98 @@ public sealed class UciGameEngineSessionQueuedAnalysisTests
         Assert.True(snapshots[^1].Clock!.Value.IsPaused);
     }
 
+    [Theory]
+    [InlineData("pause")]
+    [InlineData("resume")]
+    [InlineData("offer")]
+    [InlineData("evaluation")]
+    public async Task QueuedCompletion_SurvivesSameGenerationChangesAndDeliversTheLatestStateOnce(string change)
+    {
+        var context = new BlockingQueuedContext();
+        var options = new UciCoordinatorOptions
+        {
+            TimeControl = new PlayableMatchTimeControl(TimeSpan.FromMinutes(5), TimeSpan.Zero)
+        };
+        await using var session = new UciGameEngineSession(syncContext: context, options: options,
+            utcNowProvider: () => DateTimeOffset.UnixEpoch);
+        await session.LoadMatchAsync(PlayableMatchSetup.Standard);
+        if (change == "resume") await session.PauseClockAsync();
+        var typed = new List<UciState>();
+        var canonical = new List<UciState>();
+        session.ClassificationCompleted += typed.Add;
+        session.EventPublished += value =>
+        {
+            if (value.Kind == UciGameEngineSessionEventKind.ClassificationCompleted)
+                canonical.Add(value.State!.Value);
+        };
+        context.Drain();
+        int generation = session.AcceptedClassificationGenerationForTests;
+        session.CompleteClassificationForTests(generation);
+        Assert.Empty(typed);
+        Assert.Empty(canonical);
+        if (change == "pause") await session.PauseClockAsync();
+        else if (change == "resume") await session.ResumeClockAsync();
+        else if (change == "offer") await session.OfferDrawAsync();
+        else Publish(session, "evaluation");
+        Assert.Equal(generation, session.AcceptedClassificationGenerationForTests);
+        UciState expected = session.State;
+        context.Drain();
+        Assert.Equal(expected, Assert.Single(typed));
+        Assert.Equal(expected, Assert.Single(canonical));
+        context.Drain();
+        Assert.Single(typed);
+        Assert.Single(canonical);
+    }
+
+    [Fact]
+    public async Task QueuedCompletion_IsDiscardedAfterLoadingTheSamePositionIntoANewGeneration()
+    {
+        var context = new BlockingQueuedContext();
+        await using var session = new UciGameEngineSession(syncContext: context);
+        await session.LoadMatchAsync(PlayableMatchSetup.Standard);
+        int notifications = 0;
+        session.ClassificationCompleted += _ => notifications++;
+        session.EventPublished += value =>
+        {
+            if (value.Kind == UciGameEngineSessionEventKind.ClassificationCompleted) notifications++;
+        };
+        session.CompleteClassificationForTests(session.AcceptedClassificationGenerationForTests);
+        await session.LoadMatchAsync(PlayableMatchSetup.Standard);
+        context.Drain();
+        Assert.Equal(0, notifications);
+    }
+
+    [Fact]
+    public async Task CanonicalCompletion_ReadsTheStateAtItsOwnDelivery()
+    {
+        var context = new BlockingQueuedContext();
+        var options = new UciCoordinatorOptions
+        {
+            TimeControl = new PlayableMatchTimeControl(TimeSpan.FromMinutes(5), TimeSpan.Zero)
+        };
+        await using var session = new UciGameEngineSession(syncContext: context, options: options,
+            utcNowProvider: () => DateTimeOffset.UnixEpoch);
+        await session.LoadMatchAsync(PlayableMatchSetup.Standard);
+        var typed = new List<UciState>();
+        var canonical = new List<UciState>();
+        session.ClassificationCompleted += typed.Add;
+        session.EventPublished += value =>
+        {
+            if (value.Kind == UciGameEngineSessionEventKind.ClassificationCompleted)
+                canonical.Add(value.State!.Value);
+        };
+        context.Drain();
+        session.CompleteClassificationForTests(session.AcceptedClassificationGenerationForTests);
+        Assert.True(context.DrainOne());
+        Assert.False(Assert.Single(typed).Clock!.Value.IsPaused);
+        Assert.Empty(canonical);
+        await session.PauseClockAsync();
+        context.Drain();
+        Assert.Equal(session.State, Assert.Single(canonical));
+        Assert.True(canonical[0].Clock!.Value.IsPaused);
+        Assert.Single(typed);
+    }
+
     private static void Publish(UciGameEngineSession session, string notification)
     {
         int classification = session.AcceptedClassificationGenerationForTests;
@@ -260,7 +352,14 @@ public sealed class UciGameEngineSessionQueuedAnalysisTests
 
         internal void Drain()
         {
-            while (_pending.TryDequeue(out var item)) item.Callback(item.State);
+            while (DrainOne()) { }
+        }
+
+        internal bool DrainOne()
+        {
+            if (!_pending.TryDequeue(out var item)) return false;
+            item.Callback(item.State);
+            return true;
         }
     }
 }
