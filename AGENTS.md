@@ -31,3 +31,7 @@ Maximize useful impact with the least code necessary. Prefer simple, cohesive so
 ## Commits and versioning
 
 Commit cohesive, validated increments as work progresses. Use Conventional Commits and Semantic Versioning: identify breaking changes with `!` or a `BREAKING CHANGE` footer, and classify releases according to their public API impact. Resolve package versions through the canonical version script described above; keep release notes and migration guidance current.
+
+## Pull request visibility
+
+For changes intended for integration, open a draft pull request as soon as the first coherent implementation is pushed, so the user can follow progress. Keep its scope, description and validation status current as commits arrive. Mark it ready for review when implementation and the relevant checks are complete.
