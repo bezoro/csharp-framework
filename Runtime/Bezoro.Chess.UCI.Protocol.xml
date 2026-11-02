@@ -234,6 +234,9 @@
                 Extension methods for deterministic local chess rules derived from a FEN.
             </summary>
         </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Common.Extensions.FenRulesExtensions.IsInCheck(Bezoro.Chess.UCI.Protocol.API.Types.Fen)">
+            <summary>Returns whether the side to move is in check, using local rules without an engine.</summary>
+        </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.Common.Extensions.FenRulesExtensions.ApplyMove(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.String)">
             <summary>
                 Applies a legal UCI move locally and returns the resulting FEN.
@@ -279,6 +282,19 @@
             </summary>
             <param name="evaluation">Move evaluation to format.</param>
             <returns>Formatted debug display string.</returns>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.Protocol.API.Common.Extensions.PlayableFenExtensions">
+            <summary>Validates positions used by playable sessions and game review.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Common.Extensions.PlayableFenExtensions.ValidateForPlay(Bezoro.Chess.UCI.Protocol.API.Types.Fen)">
+            <summary>Rejects positions that violate basic playable-position constraints without contacting an engine.</summary>
+            <remarks>
+            Checks kings, pawn ranks, piece counts, castling prerequisites, en-passant consistency,
+            and that the inactive king is not in check. This does not prove historical reachability from the starting position.
+            FEN parsing itself remains syntactic so editors can represent incomplete positions.
+            </remarks>
+            <param name="fen">Syntactically parsed position to validate.</param>
+            <exception cref="T:System.ArgumentException">The position violates a playable-position constraint.</exception>
         </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.API.Common.Extensions.PlayedMoveExtensions">
             <summary>
@@ -1607,7 +1623,7 @@
         </member>
         <member name="F:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy.ExpireOnMove">
             <summary>
-                Clears any pending offer as soon as the next move is completed.
+                Clears a pending offer when its recipient completes a move. The offer survives the offering side's own move.
             </summary>
         </member>
         <member name="F:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy.PersistUntilResponse">
@@ -1718,6 +1734,9 @@
         </member>
         <member name="F:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchEventKind.IllegalMoveRejected">
             <summary>An attempted move or request was rejected as illegal.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchEventKind.PromotionCanceled">
+            <summary>An uncompleted promotion choice was canceled; the board and turn are unchanged.</summary>
         </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchMoveData">
             <summary>
@@ -1914,6 +1933,9 @@
         <member name="F:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchRequestKind.CancelAnalysis">
             <summary>Cancels any in-flight background analysis.</summary>
         </member>
+        <member name="F:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchRequestKind.CancelPendingPromotion">
+            <summary>Dismisses a pending promotion without undoing a completed move.</summary>
+        </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult">
             <summary>
                 Represents an adjudicated match result.
@@ -1981,6 +2003,68 @@
         </member>
         <member name="F:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResultReason.SeventyFiveMoveRule">
             <summary>Seventy-five moves per side passed without a pawn move or capture.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave">
+            <summary>
+                An immutable local save containing the move history, retained clock history, promotion, draw offer and result.
+                Engines and analysis caches are deliberately excluded. Serialize this value using the application's storage format.
+            </summary>
+            <param name="Setup">Initial position, complete move list, and exact current live clock for a timed match.</param>
+            <param name="TimeControl">Clock configuration required by the receiving session, or null for an untimed match.</param>
+            <param name="ClockHistory">Turn-start clock snapshots for each retained position, including the current turn's original baseline.</param>
+            <param name="ClockHistoryOriginMoveCount">Move-list index represented by the first clock snapshot.</param>
+            <param name="Result">Adjudicated result, including resignation, agreement or a claimed draw.</param>
+            <param name="DrawOfferedBy">Side with a pending draw offer, if any.</param>
+            <param name="PendingPromotionMove">Uncompleted promotion move prefix, if any.</param>
+            <param name="ClaimableDrawPolicy">Draw-claim policy required by the receiving session.</param>
+            <param name="DrawOfferPolicy">Draw-offer lifetime policy required by the receiving session.</param>
+            <param name="DeclaredDrawMove">Legal intended move declared when claiming a draw without executing that move.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.#ctor(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl},System.Collections.Immutable.ImmutableArray{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockRestore},System.Int32,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult,System.Nullable{System.Char},System.String,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy,System.String)">
+            <summary>
+                An immutable local save containing the move history, retained clock history, promotion, draw offer and result.
+                Engines and analysis caches are deliberately excluded. Serialize this value using the application's storage format.
+            </summary>
+            <param name="Setup">Initial position, complete move list, and exact current live clock for a timed match.</param>
+            <param name="TimeControl">Clock configuration required by the receiving session, or null for an untimed match.</param>
+            <param name="ClockHistory">Turn-start clock snapshots for each retained position, including the current turn's original baseline.</param>
+            <param name="ClockHistoryOriginMoveCount">Move-list index represented by the first clock snapshot.</param>
+            <param name="Result">Adjudicated result, including resignation, agreement or a claimed draw.</param>
+            <param name="DrawOfferedBy">Side with a pending draw offer, if any.</param>
+            <param name="PendingPromotionMove">Uncompleted promotion move prefix, if any.</param>
+            <param name="ClaimableDrawPolicy">Draw-claim policy required by the receiving session.</param>
+            <param name="DrawOfferPolicy">Draw-offer lifetime policy required by the receiving session.</param>
+            <param name="DeclaredDrawMove">Legal intended move declared when claiming a draw without executing that move.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.Setup">
+            <summary>Initial position, complete move list, and exact current live clock for a timed match.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.TimeControl">
+            <summary>Clock configuration required by the receiving session, or null for an untimed match.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.ClockHistory">
+            <summary>Turn-start clock snapshots for each retained position, including the current turn's original baseline.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.ClockHistoryOriginMoveCount">
+            <summary>Move-list index represented by the first clock snapshot.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.Result">
+            <summary>Adjudicated result, including resignation, agreement or a claimed draw.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.DrawOfferedBy">
+            <summary>Side with a pending draw offer, if any.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.PendingPromotionMove">
+            <summary>Uncompleted promotion move prefix, if any.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.ClaimableDrawPolicy">
+            <summary>Draw-claim policy required by the receiving session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.DrawOfferPolicy">
+            <summary>Draw-offer lifetime policy required by the receiving session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave.DeclaredDrawMove">
+            <summary>Legal intended move declared when claiming a draw without executing that move.</summary>
         </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSecondaryMove">
             <summary>
@@ -3380,6 +3464,9 @@
         <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.UciWdl.OpponentPerspective">
             <summary>Gets the same distribution from the opponent's perspective.</summary>
         </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.UciWdl.ToString">
+            <summary>Formats the three UCI values without recursively formatting the opponent-perspective property.</summary>
+        </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.API.UciEngineClient">
             <summary>
                 Provides high-level async orchestration and lifecycle management for a UCI engine process/transport.
@@ -3700,6 +3787,9 @@
         <member name="P:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.HasEngineClients">
             <summary>Gets whether this session has explicitly configured engine clients for analysis and controlled turns.</summary>
         </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.BaseFen">
+            <summary>Gets the initial position from which the complete played-move history begins.</summary>
+        </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.#ctor(Bezoro.Chess.UCI.Protocol.API.UciEngineClient,Bezoro.Chess.UCI.Protocol.API.UciEngineClient,System.Char,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,System.Int32,System.Int32,System.Int32,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchControlledMoveFallbackPolicy,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl},System.Func{System.DateTimeOffset})">
             <summary>
                 Creates a playable match session.
@@ -3826,6 +3916,21 @@
             <param name="ct">Cancellation token.</param>
             <returns>The refreshed match state after the setup is loaded.</returns>
         </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.CaptureSave">
+            <summary>
+                Captures the complete local game, including every available clock checkpoint needed for undo after a reload.
+                Snapshot arrays are allocated only on this explicit request. Refreshes and adjudicates the current clock first.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.LoadSaveAsync(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+                Restores a saved local match and its undo history after validating the whole save before replacing the game.
+            </summary>
+            <param name="save">Save produced by <see cref="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.CaptureSave" /> or authored with the same invariants.</param>
+            <param name="countTimeSinceSave">Whether an unpaused clock includes time elapsed since saving. Defaults to resuming at load time.</param>
+            <param name="ct">Cancellation before replacement leaves the existing game unchanged.</param>
+            <remarks>The receiving session must use equal time-control and draw policies. Clock history may begin after move zero.</remarks>
+        </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.LoadPositionAsync(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
             <summary>
                 Loads an arbitrary base position and optional played-move sequence into the session.
@@ -3898,29 +4003,63 @@
             </summary>
             <param name="promotionPiece">Promotion suffix such as <c>q</c>, <c>r</c>, <c>b</c>, or <c>n</c>.</param>
         </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.CancelPendingPromotion">
+            <summary>
+                Dismisses an uncompleted promotion so the player can select another legal move. The board, turn and clock
+                continue unchanged. Returns false when there is no pending choice; a terminal game cannot be reopened.
+            </summary>
+        </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.OfferDraw">
             <summary>
                 Offers a draw from the current side.
             </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.OfferDraw(System.Char)">
+            <summary>Offers a draw on behalf of either side, including while the opponent is thinking.</summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.AcceptDraw">
             <summary>
                 Accepts a pending draw offer from the opposing side.
             </summary>
         </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.AcceptDraw(System.Char)">
+            <summary>Accepts a draw only when the supplied side is the recipient of the pending offer.</summary>
+        </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.DeclineDraw">
             <summary>
                 Declines a pending draw offer from the opposing side.
             </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.DeclineDraw(System.Char)">
+            <summary>Declines a draw only when the supplied side is the recipient of the pending offer.</summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.ClaimDraw">
             <summary>
                 Claims the current claimable draw result when explicit draw claims are enabled.
             </summary>
         </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.CanClaimDraw(System.String)">
+            <summary>
+                Checks whether a legal intended move would permit a fifty-move or threefold-repetition draw claim.
+                The move is inspected without changing the board, clocks, history or cached analysis.
+            </summary>
+            <remarks>Returns false for an ended match or while promotion is pending. Invalid UCI notation throws.</remarks>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.ClaimDraw(System.String)">
+            <summary>
+                Claims a draw by declaring a legal intended move under FIDE articles 9.2.1.1 and 9.3.1.
+                The declared move is not executed. No increment is awarded and the clock stops at claim time.
+            </summary>
+        </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.Resign">
             <summary>
                 Resigns on behalf of the current side.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.Resign(System.Char)">
+            <summary>
+                Resigns on behalf of either side, including off turn. The game is drawn if the opponent has no possible mate
+                under the conservative material test used for timeout adjudication (FIDE article 5.1.2).
             </summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.PauseClock">
@@ -5021,6 +5160,15 @@
             <summary>
                 Default timeout in seconds before logging a warning that WriteLineAsync is blocked waiting for channel space.
             </summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.Protocol.Internal.PlayableMatchAdjudication">
+            <summary>Pure result adjudication shared by live sessions and persisted-state validation.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.Protocol.Internal.PlayableMatchHistoryValidator">
+            <summary>Validates a live game's authored history without allowing play beyond an automatic result.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.Protocol.Internal.PlayableMatchSaveValidator">
+            <summary>Validates persisted state independently of either session's mutable runtime.</summary>
         </member>
         <member name="T:System.Runtime.CompilerServices.IsExternalInit">
             <summary>

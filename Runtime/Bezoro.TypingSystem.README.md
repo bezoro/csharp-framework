@@ -94,12 +94,12 @@ Consume through `IWordSource`, mutate the concrete provider, and load files thro
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/framework/blob/e7472a00169f392e3724e170581fe384c0e024ef/global.json):
 
 ```bash
 dotnet build src/Bezoro.TypingSystem/Bezoro.TypingSystem.csproj -c Release
 dotnet test tests/Bezoro.TypingSystem.Tests/Bezoro.TypingSystem.Tests.csproj -c Release -f net10.0
 ```
 
-See [the TypingSystem tests](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/tests/Bezoro.TypingSystem.Tests/README.md) for completion, single-pass source, removal, and concurrent-consumer coverage.
+See [the TypingSystem tests](https://github.com/bezoro/framework/blob/e7472a00169f392e3724e170581fe384c0e024ef/tests/Bezoro.TypingSystem.Tests/README.md) for completion, single-pass source, removal, and concurrent-consumer coverage.
 

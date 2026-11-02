@@ -19,7 +19,7 @@ Low-level UCI transport, parsing, and engine-client orchestration for chess engi
 | `MoveEvaluation`             | `Bezoro.Chess.UCI.Protocol.API.Types` | Absolute player-relative score for a legal move candidate's resulting position plus classification data.  |
 | `MatchSideControllerKind`    | `Bezoro.Chess.UCI.Protocol.API.Types` | Per-side control mode for playable matches: manual or engine-driven.                                      |
 | `PlayableMatchClaimableDrawPolicy` | `Bezoro.Chess.UCI.Protocol.API.Types` | Controls whether repetition and fifty-move draws are automatic or must be explicitly claimed.        |
-| `PlayableMatchDrawOfferPolicy` | `Bezoro.Chess.UCI.Protocol.API.Types` | Controls whether pending draw offers expire on the next move or persist until answered.                  |
+| `PlayableMatchDrawOfferPolicy` | `Bezoro.Chess.UCI.Protocol.API.Types` | Controls whether pending draw offers expire on the recipient's next move or persist until answered.                  |
 | `PlayableMatchControlledMoveFallbackPolicy` | `Bezoro.Chess.UCI.Protocol.API.Types` | Controls whether engine-controlled turns fall back to a local legal move or throw on search failure. |
 | `PlayableMatchTimeoutPolicy` | `Bezoro.Chess.UCI.Protocol.API.Types` | Controls whether flag fall is automatic loss or ignored by the protocol session.                          |
 | `PlayableMatchTimeControl`   | `Bezoro.Chess.UCI.Protocol.API.Types` | Symmetric clock configuration with increment, delay, timeout policy, and optional staged controls.        |
@@ -28,6 +28,7 @@ Low-level UCI transport, parsing, and engine-client orchestration for chess engi
 | `PlayableMatchClockRestore`  | `Bezoro.Chess.UCI.Protocol.API.Types` | Authored clock snapshot used to restore arbitrary remaining time while loading a match position.          |
 | `PlayableMatchClockSetup`    | `Bezoro.Chess.UCI.Protocol.API.Types` | Authored clock values for match setup loading; active side, move counts, and stage can be derived.       |
 | `PlayableMatchSetup`         | `Bezoro.Chess.UCI.Protocol.API.Types` | Complete authored or saved match state: base FEN, played moves, and optional clock setup.                |
+| `PlayableMatchSave`          | `Bezoro.Chess.UCI.Protocol.API.Types` | Complete local save with available clock history, result, draw offer and pending promotion, preserving undo after reload. |
 | `PlayableMatchResult`        | `Bezoro.Chess.UCI.Protocol.API.Types` | Adjudicated terminal result with winner information when decisive.                                        |
 | `PlayableMatchResultReason`  | `Bezoro.Chess.UCI.Protocol.API.Types` | Terminal reason such as checkmate, stalemate, repetition, fifty-move rule, insufficient material, or timeout. |
 | `PendingPromotionRequest`    | `Bezoro.Chess.UCI.Protocol.API.Types` | Promotion request/response payload for moves that still need a promotion piece.                           |
@@ -71,7 +72,7 @@ Low-level UCI transport, parsing, and engine-client orchestration for chess engi
 | `IExpectedPointsModel`, `EngineWdlExpectedPointsModel` | Replaceable probability model and engine-self-play default |
 | `MoveReviewAnnotation`, `IMoveReviewAnnotationPolicy` | Application-provided opening and special-label evidence |
 
-See the [review architecture and research](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/docs/chess-review.md) for the public Chess.com behavior studied, the implemented thresholds, and the proprietary features that are not reproduced.
+See the [review architecture and research](https://github.com/bezoro/framework/blob/e7472a00169f392e3724e170581fe384c0e024ef/docs/chess-review.md) for the public Chess.com behavior studied, the implemented thresholds, and the proprietary features that are not reproduced.
 
 ## Local play without an engine
 
@@ -90,6 +91,12 @@ var reply = match.Refresh();
 Serialize mutations to a session. Immutable returned snapshots may be retained by UI code. An asynchronous engine result is rejected if a load, move, undo, or result change made its position obsolete.
 
 Threefold repetition and the fifty-move rule follow the configured claim policy. Fivefold repetition and the seventy-five-move rule end the game automatically; checkmate takes priority. Terminal results freeze the clock until a new setup or undo. Timeout is a draw if the opponent cannot possibly mate by material, with a conservative material test rather than a solver for all blocked dead positions. Additional clock-stage triggers must be strictly increasing.
+
+`CanClaimDraw(intendedMove)` and `ClaimDraw(intendedMove)` support declaring a legal move that would complete a third repetition or the fifty-move limit before executing it (FIDE articles 9.2.1.1 and 9.3.1). A successful claim leaves the board and move history unchanged and stops the clock without awarding an increment. The query inspects board/history availability; the command also adjudicates the live clock. A `ClaimDraw` request can carry the intended UCI move through its `Move` field.
+
+Use `OfferDraw(side)`, `AcceptDraw(side)`, `DeclineDraw(side)` and `Resign(side)` when the actor may differ from the side to move, as in an authenticated multiplayer server. Only the recipient can accept or decline an offer. Under `ExpireOnMove`, an offer survives the offering side's own move and expires when its recipient moves. Resignation draws if the opponent cannot possibly mate by the same conservative material test (FIDE article 5.1.2). `Fen.IsInCheck()` exposes allocation-free local check detection for presentation code.
+
+`CancelPendingPromotion()` dismisses an uncompleted promotion without undoing a committed move, stopping the clock or granting increment. It returns whether a pending choice was dismissed and emits `PromotionCanceled`. Expired clocks and other terminal results dismiss promotion automatically. `Fen.Parse` checks notation syntax; `Fen.ValidateForPlay()` checks basic position legality for gameplay. Loading a match validates its base position and rejects move histories that continue beyond an automatic result. Position validation is not a proof of full historical reachability. These contracts follow the [FIDE Laws of Chess](https://handbook.fide.com/chapter/E012023); physical tournament procedures and arbiters remain outside the local game API.
 
 Clock timestamps use the supplied `utcNowProvider`, with `DateTimeOffset.UtcNow` as the default. The kernel clamps negative elapsed time to zero; wall-clock changes such as NTP adjustments can still change the charged time. Applications needing a monotonic clock should provide timestamps derived from a fixed UTC origin plus `Stopwatch` elapsed time.
 
@@ -378,11 +385,25 @@ PlayableMatchState loaded = await session.LoadMatchAsync(setup, cancellationToke
 EngineMoveResult? reply = await session.PlayControlledMoveIfNeededAsync(cancellationToken);
 ```
 
-`UciPlayableMatchSession` keeps the sample's reusable match orchestration in the library: local legal-move generation and FEN ownership, move-history tracking, controller-driven automatic engine turns, request/response promotion flow, draw and timeout adjudication, optional clocks, serializable request processing, canonical protocol-side events, and current advantage resolution from the same full-strength move evaluations used for move lists and debugging history. Structural move types are available immediately; check, mate, and stalemate are resolved by the background classifier without blocking gameplay.
+`UciPlayableMatchSession` keeps the sample's reusable match orchestration in the library: local legal-move generation and FEN ownership, move-history tracking, controller-driven automatic engine turns, request/response promotion flow, draw and timeout adjudication, optional clocks, serializable request processing, canonical protocol-side events, and current advantage resolution from the same full-strength move evaluations used for move lists and debugging history. Applied moves include structural, check, mate and stalemate classifications immediately. Classifying every possible move is a separate explicit batch request.
 
 The classifier publishes completed tactical results as one immutable batch per position. After cancellation, replacement classification waits for the retiring classifier to exit before it starts.
 
 `UndoMoves` restores the retained checkpoint's clock values, move counts, and stage, then restarts that position's turn unpaused at the undo time with its full current-stage delay. For a clocked authored setup, undo is available back to the loaded position; earlier played moves have no clock checkpoints to restore and cannot be undone through this session.
+
+Use `CaptureSave()` and `LoadSaveAsync(save)` to retain available undo checkpoints across a reload:
+
+```csharp
+PlayableMatchSave save = session.CaptureSave();
+// Persist the immutable value using the application's serializer/storage.
+await restoredSession.LoadSaveAsync(save, ct: cancellationToken);
+restoredSession.UndoMoves();
+PlayableMatchState priorPosition = restoredSession.Refresh();
+```
+
+The receiving session must have the same time-control configuration and draw policies. `Setup.Clock` holds the exact live clock; every `ClockHistory` entry holds its original turn-start baseline. Keeping these separate preserves both remaining time on resume and correct undo after a subsequently played move. Loading validates clock entries, board-derived results and winners, and any declared draw move before replacing the current game. The default resumes unpaused clocks at load time, preserving saved remaining time and partially consumed delay. Pass `countTimeSinceSave: true` for a running server clock that must include elapsed time since the snapshot. Paused and terminal clocks remain paused. Saves include the base FEN, full move list, available clock history and its undo boundary, result, declared draw move, draw offer and pending promotion. They exclude engines, transports, caches and UI state. Snapshot arrays are created only when saving; ordinary gameplay retains no additional save structure. A save is application-owned data, not an authenticated network command or proof that a resignation/agreement was authorized.
+
+Unchanged refreshes and repeated `MoveHistory` reads reuse an immutable history snapshot. New moves, undo, loading and changed classifications invalidate that snapshot; previously returned arrays remain immutable. Engine-free refreshes reuse the parsed current FEN and perform check/material queries on the stack. Allocation-free steady-state refresh is verified on .NET 10; Unity Mono/IL2CPP performance must be measured in the consuming project.
 
 Insufficient-material adjudication recognizes kings only, a lone knight, and bishop-only positions where every bishop remains on the same square-color complex.
 
@@ -424,8 +445,9 @@ These helpers are intentionally lightweight. They are suitable for samples, diag
 ### `UciPlayableMatchSession`
 | Member                           | Description                                                                 |
 |----------------------------------|-----------------------------------------------------------------------------|
-| `StartNewGameAsync(ct)`          | Clears local state, resets protocol-owned clocks/promotion/result state, and sends `ucinewgame` to the playing, snapshot, and move-list clients. |
+| `StartNewGameAsync(ct)`          | Clears local state and resets clocks, promotion and result without contacting an engine. |
 | `LoadMatchAsync(setup, ct)`      | Loads a complete `PlayableMatchSetup`, refreshes state, restores optional clock values, and returns the loaded state. |
+| `CaptureSave()` / `LoadSaveAsync(save, countTimeSinceSave, ct)` | Captures/restores local match metadata and the available clock history, preserving undo after reload. |
 | `LoadPositionAsync(baseFen, moves, ct)` | Obsolete migration shim for older callers; prefer `LoadMatchAsync`. |
 | `RefreshAsync(ct)`               | Rebuilds the current local FEN, legal moves, result, clock snapshot, move history, and live non-blocking advantage. |
 | `GetLegalMoveAnalysisAsync(ct)`  | Awaits the full-strength move analysis for the current position.           |
@@ -435,12 +457,15 @@ These helpers are intentionally lightweight. They are suitable for samples, diag
 | `ApplyMove(move)`                | Validates and applies a move for the current manually controlled side, or raises a pending promotion request when a promotion suffix is still needed. |
 | `ApplyHumanMove(move)`           | Obsolete compatibility alias. Migration message: "Use ApplyMove instead." |
 | `ChoosePromotion(piece)`         | Completes the current pending promotion using `q`, `r`, `b`, or `n`.       |
+| `CancelPendingPromotion()`       | Dismisses an uncompleted promotion, leaving the board, move history and running clock unchanged. |
 | `PlayControlledMoveAsync(ct)`    | Plays the current side's move when that side is engine-controlled.         |
 | `PlayControlledMoveIfNeededAsync(ct)` | Plays only when the current side is engine-controlled and the match is still playable; otherwise returns `null`. |
 | `PlayEngineMoveAsync(ct)`        | Obsolete compatibility alias. Migration message: "Use PlayControlledMoveAsync instead." |
 | `PlayUntilTerminalAsync(maxPlies, ct)` | Plays engine-controlled turns in sequence until the game is terminal or the ply cap is reached. |
 | `CanUndoMoves(count)`            | Reports whether the requested number of moves and any required retained clock checkpoint are available. |
 | `UndoMoves(count)`               | Rewinds played moves, preserves reachable caches and retained clock values, and restarts the retained turn unpaused at the undo time; clocked authored setups cannot rewind before their loaded checkpoint. |
+| `CanClaimDraw(move)` / `ClaimDraw(move)` | Inspects or claims a third repetition/fifty-move draw by a legal intended move without executing it. |
+| `OfferDraw(side)` / `AcceptDraw(side)` / `DeclineDraw(side)` / `Resign(side)` | Identifies the actor explicitly for either side, including off-turn actions. |
 | `ProcessAsync(request, ct)`      | Applies a serializable `PlayableMatchRequest` against the session.         |
 | `ProcessBatchAsync(requests, ct)` | Applies a request batch and returns the ordered emitted events for that batch. |
 | `TryGetPlayedMoveScore(move, out score)` | Resolves a played move back to its parent-position high-quality score. |
@@ -456,11 +481,12 @@ These helpers are intentionally lightweight. They are suitable for samples, diag
 | `GetController(side)`            | Returns the configured controller for `w` or `b`.                          |
 | `PlayerColor` / `EngineColor`    | Compatibility helpers for single-human/single-engine sessions only.        |
 | `PlayedMoves` / `MoveHistory`    | Current raw played moves and structured played-move history.               |
+| `BaseFen`                       | Initial position from which the complete move history begins. |
 | `CurrentState`                   | Latest refreshed match snapshot including optional pending promotion, claimable draw state, clock, and adjudicated result. |
 
 Constructor policies:
 - `claimableDrawPolicy`: automatic vs explicit claim for repetition and fifty-move draws
-- `drawOfferPolicy`: expire on move vs persist until explicit response
+- `drawOfferPolicy`: expire on the recipient's move vs persist until explicit response
 - `controlledMoveFallbackPolicy`: local fallback vs throw when an engine turn cannot produce a valid `bestmove`
 
 ### `UciEngineClient`
@@ -595,7 +621,7 @@ UCI node counts, nodes per second, tablebase hits, and elapsed milliseconds use 
 
 ### Parallel game review
 
-`UciGameReviewAnalyzer` accepts a pool of distinct, already started dedicated clients. Set `GameReviewOptions.MaxParallelPositions` to opt in; the default remains one. `ThreadsPerEngine`, `HashMegabytesPerEngine`, and `MaxGameMoves` provide explicit CPU, hash-table, and history budgets. Results remain chronological and immutable. Progress carries `PositionIndex` because searches can finish out of order. See [parallel review and resource budgets](https://github.com/bezoro/framework/blob/982e46cf9b40bf00327541237e08d6f6d5bedd04/docs/chess-review.md#parallel-review-and-resource-budgets) for ownership, cancellation, and engine configuration.
+`UciGameReviewAnalyzer` accepts a pool of distinct, already started dedicated clients. Set `GameReviewOptions.MaxParallelPositions` to opt in; the default remains one. `ThreadsPerEngine`, `HashMegabytesPerEngine`, and `MaxGameMoves` provide explicit CPU, hash-table, and history budgets. Results remain chronological and immutable. Progress carries `PositionIndex` because searches can finish out of order. See [parallel review and resource budgets](https://github.com/bezoro/framework/blob/e7472a00169f392e3724e170581fe384c0e024ef/docs/chess-review.md#parallel-review-and-resource-budgets) for ownership, cancellation, and engine configuration.
 
 ## API migration
 

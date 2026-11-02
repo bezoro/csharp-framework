@@ -782,6 +782,32 @@
             <exception cref="T:System.ArgumentNullException"><paramref name="moveNotation" /> is <see langword="null" />.</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="moveNotation" /> has an unsupported length.</exception>
         </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent">
+            <summary>Identifies a canceled promotion prompt. The position and running clock remain in place.</summary>
+            <param name="GameId">Identifier of the current gameplay session.</param>
+            <param name="PendingPromotionId">Canceled request identifier.</param>
+            <param name="Fen">Unchanged position before the move.</param>
+            <param name="TimestampUtc">Time when cancellation was accepted.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent.#ctor(System.Guid,System.Int64,Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.DateTimeOffset)">
+            <summary>Identifies a canceled promotion prompt. The position and running clock remain in place.</summary>
+            <param name="GameId">Identifier of the current gameplay session.</param>
+            <param name="PendingPromotionId">Canceled request identifier.</param>
+            <param name="Fen">Unchanged position before the move.</param>
+            <param name="TimestampUtc">Time when cancellation was accepted.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent.GameId">
+            <summary>Identifier of the current gameplay session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent.PendingPromotionId">
+            <summary>Canceled request identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent.Fen">
+            <summary>Unchanged position before the move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent.TimestampUtc">
+            <summary>Time when cancellation was accepted.</summary>
+        </member>
         <member name="T:Bezoro.Chess.UCI.API.Types.PromotionChosenEvent">
             <summary>
                 Represents the resolution of a pending promotion choice.
@@ -917,22 +943,30 @@
                 Configuration options for the UCI Coordinator.
             </summary>
         </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions.#ctor">
+            <summary>Creates the documented defaults, including finite search budgets and disabled automatic analysis.</summary>
+        </member>
         <member name="P:Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions.Default">
             <summary>
                 Gets the default configuration options.
-                Use this instead of default(UciCoordinatorOptions) or new UciCoordinatorOptions()
-                which would initialize all fields to zero.
+                The parameterless constructor produces the same value. An uninitialized default value is invalid.
             </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions.Validate">
+            <summary>Rejects invalid resource budgets, draw policies, and clock settings before a session uses them.</summary>
         </member>
         <member name="T:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent">
             <summary>
                 Compact typed event payload emitted by <see cref="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EventPublished" />.
             </summary>
         </member>
-        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.#ctor(Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind,System.DateTimeOffset,System.Nullable{Bezoro.Chess.UCI.API.Types.UciState},System.Nullable{Bezoro.Chess.UCI.API.Types.GameStartedEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.PositionLoadedEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.GameMoveEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.MoveUndoneEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.PromotionChosenEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.TurnChangedEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent},System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation},System.Nullable{Bezoro.Chess.UCI.API.Types.Move},System.Exception)">
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.#ctor(Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind,System.DateTimeOffset,System.Nullable{Bezoro.Chess.UCI.API.Types.UciState},System.Nullable{Bezoro.Chess.UCI.API.Types.GameStartedEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.PositionLoadedEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.GameMoveEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.MoveUndoneEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.PromotionChosenEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.TurnChangedEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent},System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation},System.Nullable{Bezoro.Chess.UCI.API.Types.Move},System.Exception,System.Nullable{Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent})">
             <summary>
                 Compact typed event payload emitted by <see cref="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EventPublished" />.
             </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForPromotionCanceled(Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent)">
+            <summary>Creates a pending-promotion cancellation event.</summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.Create(Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind)">
             <summary>Creates an event without a specialized payload.</summary>
@@ -1076,6 +1110,9 @@
         </member>
         <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.Stopped">
             <summary>The session stopped.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.PromotionCanceled">
+            <summary>A pending promotion prompt was canceled before a move was applied.</summary>
         </member>
         <member name="T:Bezoro.Chess.UCI.API.Types.UciState">
             <summary>
@@ -1252,6 +1289,9 @@
                 Raised when a pending promotion choice is resolved.
             </summary>
         </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.PromotionCanceled">
+            <summary>Raised when a matching pending promotion is canceled before a move is applied.</summary>
+        </member>
         <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.Check">
             <summary>
                 Raised when an applied move gives check.
@@ -1327,7 +1367,7 @@
                 Raised for every canonical session event through a compact typed stream.
             </summary>
         </member>
-        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.#ctor(System.Threading.SynchronizationContext,System.Nullable{Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions},System.Char)">
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.#ctor(System.Threading.SynchronizationContext,System.Nullable{Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions},System.Char,System.Func{System.DateTimeOffset})">
             <summary>
                 Creates a local playable session. Loading positions, moving, promotion, and undo need no engine process.
                 Use the constructor accepting an engine path when external analysis is needed.
@@ -1335,8 +1375,9 @@
             <param name="syncContext">Optional context for game-facing events.</param>
             <param name="options">Clock, match policies, and opt-in background analysis settings.</param>
             <param name="perspectiveColor">Board perspective, either w or b.</param>
+            <param name="utcNowProvider">Optional clock source. A fixed UTC origin plus monotonic elapsed time avoids wall-clock adjustments.</param>
         </member>
-        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.#ctor(System.String,System.Collections.Generic.IEnumerable{System.String},System.String,System.Threading.SynchronizationContext,System.Nullable{Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions},System.Char,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind)">
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.#ctor(System.String,System.Collections.Generic.IEnumerable{System.String},System.String,System.Threading.SynchronizationContext,System.Nullable{Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions},System.Char,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,System.Func{System.DateTimeOffset})">
             <summary>
                 Constructs a new UciGameEngineSession with engines initialized for the given enginePath, arguments, and working
                 directory.
@@ -1349,15 +1390,16 @@
             <param name="perspectiveColor">The board perspective color, either <c>w</c> or <c>b</c>.</param>
             <param name="whiteController">Controller kind for the white side.</param>
             <param name="blackController">Controller kind for the black side.</param>
+            <param name="utcNowProvider">Optional clock source. A fixed UTC origin plus monotonic elapsed time avoids wall-clock adjustments.</param>
         </member>
         <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.IsHealthy">
             <summary>
-                Gets a value indicating whether all underlying engines are healthy and responsive.
+                Gets whether the primary engine and every started optional worker are healthy and responsive.
             </summary>
         </member>
         <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.IsStarted">
             <summary>
-                Gets a value indicating whether all underlying engines have been started.
+                Gets whether the primary engine has been started. Optional workers start only when requested.
             </summary>
         </member>
         <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.CurrentFen">
@@ -1461,7 +1503,7 @@
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.SetOptionAsync(System.String,System.String,System.Threading.CancellationToken)">
             <summary>
-                Sets a UCI option on the ponder engine.
+                Sets a UCI option on the currently started engines. Workers started later retain their own defaults.
             </summary>
             <param name="name">The option name.</param>
             <param name="value">The option value, or null to use the engine's default.</param>
@@ -1469,12 +1511,12 @@
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.SetDebugAsync(System.Boolean,System.Threading.CancellationToken)">
             <summary>
-                Sends the standard UCI <c>debug on/off</c> command to all internal engines.
+                Sends the standard UCI <c>debug on/off</c> command to the currently started engines.
             </summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.RegisterAsync(Bezoro.Chess.UCI.Protocol.API.Types.UciRegistration,System.Threading.CancellationToken)">
             <summary>
-                Sends the standard UCI <c>register</c> command to all internal engines.
+                Sends the standard UCI <c>register</c> command to the currently started engines.
             </summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.SetPositionAsync(System.String,System.Threading.CancellationToken)">
@@ -1487,7 +1529,7 @@
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.StartAsync(System.Threading.CancellationToken)">
             <summary>
-                Starts all engines and resets state. Sets UCI options on the ponder engine based on configuration.
+                Starts the primary engine. Automatic background analysis explicitly opts into starting both optional workers.
             </summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.StartSearchAsync(System.Threading.CancellationToken)">
@@ -1521,6 +1563,18 @@
             <param name="setup">Complete match setup to load.</param>
             <param name="ct">Cancellation token.</param>
             <returns>The refreshed state after the setup is loaded.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.CaptureSaveAsync(System.Threading.CancellationToken)">
+            <summary>Captures the local game and every available clock checkpoint for undo after reloading.</summary>
+            <param name="ct">Cancellation while waiting for the serialized command gate.</param>
+            <returns>An immutable save compatible with both playable session APIs. Snapshot arrays are allocated only on this request.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.LoadSaveAsync(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave,System.Boolean,System.Threading.CancellationToken)">
+            <summary>Validates and restores a local save, retaining historical clocks for later takebacks.</summary>
+            <param name="save">Save captured by either playable session API, using equal time-control and draw policies.</param>
+            <param name="countTimeSinceSave">Whether a running clock includes time elapsed since saving. Defaults to resuming at load time.</param>
+            <param name="ct">Cancellation before replacement leaves the current match in place.</param>
+            <returns>The restored game snapshot. Engine processes and analysis caches are excluded from saves.</returns>
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.UpdatePositionAsync(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
             <summary>
@@ -1614,9 +1668,16 @@
             <param name="pieceType">The chosen promotion piece type.</param>
             <param name="ct">Cancellation token.</param>
         </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.CancelPendingPromotionAsync(System.Int64,System.Threading.CancellationToken)">
+            <summary>Cancels a matching promotion prompt without moving a piece or rewinding the clock.</summary>
+            <param name="pendingPromotionId">Identifier from the promotion request. Stale requests cannot cancel a newer prompt.</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>True when a matching prompt was canceled; false when it is no longer pending.</returns>
+        </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.UndoAsync(System.Int32,System.Threading.CancellationToken)">
             <summary>
-                Reverts one or more moves and updates the engines.
+                Reverts one or more moves locally. Retained clock values, stages, and move counts are restored;
+                the retained turn restarts unpaused at the undo time.
             </summary>
             <param name="count">Number of moves to undo. Defaults to 1.</param>
             <param name="ct">Cancellation token.</param>
@@ -1627,25 +1688,42 @@
                 Offers a draw from the current side.
             </summary>
         </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.OfferDrawAsync(System.Char,System.Threading.CancellationToken)">
+            <summary>Offers a draw on behalf of either side, including while the opponent is thinking.</summary>
+        </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.AcceptDrawAsync(System.Threading.CancellationToken)">
             <summary>
                 Accepts the current pending draw offer and ends the game as a draw.
             </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.AcceptDrawAsync(System.Char,System.Threading.CancellationToken)">
+            <summary>Accepts a draw only when the supplied side is the recipient of the pending offer.</summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.DeclineDrawAsync(System.Threading.CancellationToken)">
             <summary>
                 Declines the current pending draw offer.
             </summary>
         </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.DeclineDrawAsync(System.Char,System.Threading.CancellationToken)">
+            <summary>Declines a draw only when the supplied side is the recipient of the pending offer.</summary>
+        </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ClaimDrawAsync(System.Threading.CancellationToken)">
             <summary>
                 Claims the currently claimable draw result when available.
             </summary>
         </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ClaimDrawAsync(System.String,System.Threading.CancellationToken)">
+            <summary>Claims a threefold or fifty-move draw by declaring a legal intended move without playing it.</summary>
+            <param name="intendedMove">Legal move in UCI notation that would make the draw claim available.</param>
+            <param name="ct">Cancellation token.</param>
+        </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ResignAsync(System.Threading.CancellationToken)">
             <summary>
                 Resigns on behalf of the current side.
             </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ResignAsync(System.Char,System.Threading.CancellationToken)">
+            <summary>Resigns on behalf of either side, including while the opponent is thinking.</summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.PauseClockAsync(System.Threading.CancellationToken)">
             <summary>
