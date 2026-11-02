@@ -58,13 +58,13 @@ Real Roslyn 3.8/C# 9 consumption, mixed-target managed execution and .NET tests 
 
 ### Recorded local verification
 
-Runtime changes through `41d8a321` were checked with .NET SDK 10.0.203/runtime 10.0.7 and Stockfish 19 on Linux. The consolidated result is **3,657 passed tests across 25 suites**, with zero failures or skipped cases. This includes 773 protocol/rules tests, 279 facade tests, 35 networking tests, 24 presentation tests, 40 study tests and 37 build/compatibility tests; the other framework suites remain covered as well.
+Runtime changes through `db8fc78b` were checked with .NET SDK 10.0.203/runtime 10.0.7 and Stockfish 19 on Linux. The consolidated result is **3,663 passed tests across 25 suites**, with zero failures or skipped cases. This includes 773 protocol/rules tests, 285 facade tests, 35 networking tests, 24 presentation tests, 40 study tests and 37 build/compatibility tests; the other framework suites remain covered as well.
 
-- Both runtime targets built with zero warnings/errors, using the canonical package version `0.1.0-preview.1665` for this recorded build.
+- Both runtime targets built with zero warnings/errors, using the canonical package version `0.1.0-preview.1667` for this recorded build.
 - Staging produced 31 runtime DLLs and 59 unique Unity GUIDs. Public-type inventory checks passed.
 - Real Roslyn 3.8 compiled all five C# 9 consumers and the two actual Unity adapter files against the test-only Unity surface. Executing its generated consumer IL on the managed host returned the expected `4, 4, 2, 97, 50`; four existing console examples also completed.
 - Six reference perft positions totaled 500,117 leaves. Independent python-chess 1.11.2 comparisons found no mismatch across 5,593 rule positions (48 deterministic games, seed 113589) and 1,498 SAN vectors.
-- Checked-arithmetic runs passed for progression, commerce and study. Model tests cover event counters, claim replay and restoration; queued-callback tests cover moves, takebacks, terminal results, clock changes and draw offers.
+- Checked-arithmetic runs passed for progression, commerce and study. Model tests cover event counters, claim replay and restoration; queued-callback tests cover moves, takebacks, terminal results, clock changes and draw offers. Completion notifications retain exactly-once delivery for their current generation and obtain the latest payload, including changes made between typed and canonical callbacks.
 - Warmed .NET 10 checks observed zero managed allocation for unchanged protocol refreshes with history, board projection/queries, and the documented progression query/update paths. Snapshot/save creation, changed history and explicit serialization still allocate. These checks are not Unity-player latency or allocation guarantees.
 
 The recorded package version identifies this verification build, not a fixed installation requirement. Publication resolves the merge revision's version through `Get-PackageVersion.ps1`. Real Unity/Godot player testing, deployed networking/backend services, art and authored curriculum remain outside these managed checks.
