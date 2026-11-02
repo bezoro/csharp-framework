@@ -1,4 +1,5 @@
 using Bezoro.Chess.UCI.Protocol.API.Common.Extensions;
+using Bezoro.Chess.UCI.Protocol.Internal;
 using FluentAssertions;
 
 namespace Bezoro.Chess.UCI.Protocol.Tests.API;
@@ -119,6 +120,151 @@ public sealed class UciPlayableMatchSaveAndRulesTests
         state.Fen.Should().Be(Fen.Default);
         state.Clock!.Value.WhiteRemaining.Should().Be(TimeSpan.FromSeconds(30));
         state.Clock.Value.BlackRemaining.Should().Be(TimeSpan.FromSeconds(30));
+    }
+
+    [Fact]
+    public async Task UndoAfterRestoredMoveUsesOriginalTurnStartClock()
+    {
+        var now = DateTimeOffset.Parse("2026-01-01T12:00:00Z");
+        var control = new PlayableMatchTimeControl(TimeSpan.FromSeconds(30), TimeSpan.Zero);
+        using var original = new UciPlayableMatchSession(timeControl: control, utcNowProvider: () => now);
+        await original.StartNewGameAsync();
+        original.Refresh();
+        now += TimeSpan.FromSeconds(5);
+        original.ApplyMove("e2e4");
+        now += TimeSpan.FromSeconds(2);
+        var save = original.CaptureSave();
+        save.ClockHistory[^1].BlackRemaining.Should().Be(TimeSpan.FromSeconds(30));
+        save.Setup.Clock!.Value.BlackRemaining.Should().Be(TimeSpan.FromSeconds(28));
+        using var restored = new UciPlayableMatchSession(timeControl: control, utcNowProvider: () => now);
+        await restored.LoadSaveAsync(save);
+        now += TimeSpan.FromSeconds(1);
+        original.ApplyMove("e7e5");
+        restored.ApplyMove("e7e5");
+        original.UndoMoves();
+        restored.UndoMoves();
+        restored.Refresh().Clock!.Value.BlackRemaining.Should().Be(TimeSpan.FromSeconds(30));
+        restored.CurrentState.Clock.Should().Be(original.Refresh().Clock);
+    }
+
+    [Theory]
+    [InlineData(PlayableMatchResultReason.Checkmate, 'w')]
+    [InlineData(PlayableMatchResultReason.Checkmate, 'b')]
+    [InlineData(PlayableMatchResultReason.Checkmate, null)]
+    [InlineData(PlayableMatchResultReason.Stalemate, null)]
+    [InlineData(PlayableMatchResultReason.InsufficientMaterial, null)]
+    [InlineData(PlayableMatchResultReason.FiftyMoveRule, null)]
+    [InlineData(PlayableMatchResultReason.ThreefoldRepetition, null)]
+    [InlineData(PlayableMatchResultReason.FivefoldRepetition, null)]
+    [InlineData(PlayableMatchResultReason.SeventyFiveMoveRule, null)]
+    [InlineData(PlayableMatchResultReason.Timeout, 'b')]
+    [InlineData(PlayableMatchResultReason.Resignation, null)]
+    public async Task SaveRejectsResultsUnsupportedByTheBoardAndHistory(PlayableMatchResultReason reason, char? winner)
+    {
+        using var match = new UciPlayableMatchSession();
+        var valid = match.CaptureSave();
+        var invalid = valid with { Result = new(reason, winner) };
+        var before = match.CurrentState;
+        await match.Invoking(m => m.LoadSaveAsync(invalid)).Should().ThrowAsync<ArgumentException>();
+        match.CurrentState.Should().Be(before);
+    }
+
+    [Fact]
+    public async Task SaveRejectsWrongCheckmateWinnerAndMissingTerminalResult()
+    {
+        using var match = new UciPlayableMatchSession();
+        await match.LoadMatchAsync(new(Fen.Parse("7k/6Q1/7K/8/8/8/8/8 b - - 1 1")!.Value));
+        var valid = match.CaptureSave();
+        valid.Result.Winner.Should().Be('w');
+        foreach (char? winner in new char?[] { 'b', null })
+            await match.Invoking(m => m.LoadSaveAsync(valid with { Result = new(PlayableMatchResultReason.Checkmate, winner) }))
+                .Should().ThrowAsync<ArgumentException>();
+        await match.Invoking(m => m.LoadSaveAsync(valid with { Result = default })).Should().ThrowAsync<ArgumentException>();
+        match.CurrentState.Result.Should().Be(valid.Result);
+    }
+
+    [Fact]
+    public async Task SaveChecksTimeoutAgainstCurrentClockAndTimeControl()
+    {
+        var now = DateTimeOffset.Parse("2026-01-01T12:00:00Z");
+        var control = new PlayableMatchTimeControl(TimeSpan.FromSeconds(30), TimeSpan.Zero);
+        using var match = new UciPlayableMatchSession(timeControl: control, utcNowProvider: () => now);
+        await match.StartNewGameAsync();
+        now += TimeSpan.FromSeconds(31);
+        var valid = match.CaptureSave();
+        (await match.LoadSaveAsync(valid)).Result.Should().Be(new PlayableMatchResult(PlayableMatchResultReason.Timeout, 'b'));
+        await match.Invoking(m => m.LoadSaveAsync(valid with { Result = new(PlayableMatchResultReason.Timeout, 'w') }))
+            .Should().ThrowAsync<ArgumentException>();
+        await match.Invoking(m => m.LoadSaveAsync(valid with { Result = default })).Should().ThrowAsync<ArgumentException>();
+        var ignored = new PlayableMatchTimeControl(TimeSpan.FromSeconds(30), TimeSpan.Zero, timeoutPolicy: PlayableMatchTimeoutPolicy.Ignore);
+        using var ignoredSession = new UciPlayableMatchSession(timeControl: ignored, utcNowProvider: () => now);
+        ignoredSession.Refresh();
+        await ignoredSession.Invoking(m => m.LoadSaveAsync(valid with { TimeControl = ignored })).Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task SaveRequiresTheDeclaredMoveForAnIntendedFiftyMoveClaim()
+    {
+        using var match = new UciPlayableMatchSession();
+        await match.LoadMatchAsync(new(Fen.Parse("7k/8/8/8/8/8/P7/KR6 w - - 99 50")!.Value));
+        match.ClaimDraw("b1b2");
+        var save = match.CaptureSave();
+        save.DeclaredDrawMove.Should().Be("b1b2");
+        using var restored = new UciPlayableMatchSession();
+        (await restored.LoadSaveAsync(save)).Result.Should().Be(save.Result);
+        await restored.Invoking(m => m.LoadSaveAsync(save with { DeclaredDrawMove = null })).Should().ThrowAsync<ArgumentException>();
+        await restored.Invoking(m => m.LoadSaveAsync(save with { DeclaredDrawMove = "a2a3" })).Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task SavePreservesAnIntendedRepetitionClaim()
+    {
+        using var match = new UciPlayableMatchSession(claimableDrawPolicy: PlayableMatchClaimableDrawPolicy.ClaimRequired);
+        await match.LoadMatchAsync(new(Fen.Default, ["g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1"]));
+        match.ClaimDraw("f6g8");
+        var save = match.CaptureSave();
+        using var restored = new UciPlayableMatchSession(claimableDrawPolicy: PlayableMatchClaimableDrawPolicy.ClaimRequired);
+        (await restored.LoadSaveAsync(save)).Result.Should().Be(save.Result);
+        await restored.Invoking(m => m.LoadSaveAsync(save with { DeclaredDrawMove = null })).Should().ThrowAsync<ArgumentException>();
+        await restored.Invoking(m => m.LoadSaveAsync(save with { DeclaredDrawMove = "a7a6" })).Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public void UnchangedLocalRefreshReusesImmutableHistoryAndAllocatesNoMemory()
+    {
+        using var match = new UciPlayableMatchSession();
+        match.Refresh();
+        match.ApplyMove("e2e4");
+        var retained = match.Refresh().MoveHistory;
+        for (int index = 0; index < 100; index++) match.Refresh();
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int index = 0; index < 1000; index++) match.Refresh();
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        allocated.Should().Be(0);
+        match.CurrentState.MoveHistory.Equals(retained).Should().BeTrue();
+        match.ApplyMove("e7e5");
+        var advanced = match.Refresh().MoveHistory;
+        advanced.Should().HaveCount(2);
+        retained.Should().ContainSingle();
+        match.UndoMoves();
+        match.Refresh().MoveHistory.Should().ContainSingle();
+        advanced.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ChangedClassificationsInvalidateHistoryWithoutChangingRetainedSnapshots()
+    {
+        using var match = new UciPlayableMatchSession();
+        var retained = (await match.LoadMatchAsync(new(Fen.Default, ["e2e4"]))).MoveHistory;
+        retained[0].Classification.IsResolved.Should().BeFalse();
+        var coordinator = (MoveClassificationCoordinator)typeof(UciPlayableMatchSession)
+            .GetField("_classifications", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(match)!;
+        coordinator.Enqueue(Fen.Default.Raw, Fen.Default, Fen.Default.GetLegalMoves());
+        await coordinator.WaitAsync(Fen.Default.Raw);
+        var enriched = match.Refresh().MoveHistory;
+        enriched[0].Classification.IsResolved.Should().BeTrue();
+        retained[0].Classification.IsResolved.Should().BeFalse();
+        match.Refresh().MoveHistory.Equals(enriched).Should().BeTrue();
     }
 
     [Fact]

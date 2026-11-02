@@ -23,11 +23,15 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
     private readonly List<PlayableMatchClockCheckpoint> _clockHistory = [];
 	private readonly int                            _engineMoveTimeMs;
 	private readonly List<PlayedMove>               _moveHistory = [];
+	private ImmutableArray<PlayedMove> _moveHistorySnapshot = [];
+	private bool _moveHistorySnapshotDirty;
+	private long _enrichedClassificationVersion;
 	private readonly List<string>                   _playedMoves = [];
 	private readonly Dictionary<string, int>         _repetitionCounts = new(StringComparer.Ordinal);
 	private readonly List<string>                    _repetitionKeys = [];
 	private Fen? _cachedLegalMovesFen;
 	private ImmutableArray<string> _cachedLegalMoves;
+	private Func<string, PositionAnalysisResult?>? _positionAnalysisResolver;
 	private readonly UciEngineClient?               _playingClient;
 	private readonly UciPositionAnalysisCoordinator? _positionAnalysis;
 	private readonly PlayableMatchClaimableDrawPolicy _claimableDrawPolicy;
@@ -43,6 +47,7 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	private          PlayableMatchResult?           _claimableResult;
 	private          char?                          _drawOfferedBy;
 	private          PlayableMatchResult            _forcedResult;
+	private          string?                        _declaredDrawMove;
 	private          PlayableMatchResult            _lastResult;
 	private          PendingPromotionRequest?       _pendingPromotion;
 	private          bool                           _disposed;
@@ -196,7 +201,18 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	/// <summary>
 	///     Gets the current played-move history.
 	/// </summary>
-	public ImmutableArray<PlayedMove> MoveHistory => [.. _moveHistory];
+	public ImmutableArray<PlayedMove> MoveHistory
+	{
+		get
+		{
+			if (_moveHistorySnapshotDirty)
+			{
+				_moveHistorySnapshot = [.. _moveHistory];
+				_moveHistorySnapshotDirty = false;
+			}
+			return _moveHistorySnapshot;
+		}
+	}
 
 	/// <summary>
 	///     Gets the current raw played move list.
@@ -270,11 +286,7 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	public PositionAdvantage ResolveCurrentAdvantage()
 	{
 		var state = CurrentState;
-		return _moveHistory.ResolveCurrentAdvantage(
-			state.PositionKey,
-			state.LegalMoves.Length,
-			ResolvePositionAnalysis
-		);
+		return ResolveAdvantage(state.PositionKey, state.LegalMoves.Length);
 	}
 
 	/// <summary>
@@ -328,7 +340,10 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 
 		int retainedHistoryCount = Math.Min(_moveHistory.Count, remainingMoveCount);
 		if (_moveHistory.Count > retainedHistoryCount)
+		{
 			_moveHistory.RemoveRange(retainedHistoryCount, _moveHistory.Count - retainedHistoryCount);
+			_moveHistorySnapshotDirty = true;
+		}
 
 		if (_clockHistory.Count > 0)
 		{
@@ -345,6 +360,7 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		RewindRepetitionHistory(remainingMoveCount);
 		_pendingPromotion = null;
 		_forcedResult = default;
+		_declaredDrawMove = null;
 		_claimableResult = null;
 		_drawOfferedBy = null;
 
@@ -384,17 +400,24 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 			for (int index = 0; index < _clockHistory.Count; index++)
 			{
 				var checkpoint = _clockHistory[index];
-				var snapshot = index == _clockHistory.Count - 1
-					? state.Clock!.Value
-					: PlayableMatchClockKernel.SnapshotAtTurnStart(_timeControl.Value, checkpoint);
+				var snapshot = PlayableMatchClockKernel.SnapshotAtTurnStart(_timeControl.Value, checkpoint);
 				clocks.Add(new(snapshot.WhiteRemaining, snapshot.BlackRemaining, snapshot.ActiveColor,
 					snapshot.DelayRemaining, snapshot.IsPaused, checkpoint.WhiteMovesCompleted,
 					checkpoint.BlackMovesCompleted, snapshot.ActiveStageIndex, snapshot.SnapshotUtc));
 			}
 		}
-		return new(new(_baseFen, _playedMoves), _timeControl, clocks.MoveToImmutable(),
+		PlayableMatchClockSetup? liveClock = null;
+		if (state.Clock.HasValue)
+		{
+			var current = state.Clock.Value;
+			var checkpoint = _clockHistory[^1];
+			liveClock = PlayableMatchClockSetup.FromExactRestore(new(current.WhiteRemaining, current.BlackRemaining,
+				current.ActiveColor, current.DelayRemaining, current.IsPaused, checkpoint.WhiteMovesCompleted,
+				checkpoint.BlackMovesCompleted, current.ActiveStageIndex, current.SnapshotUtc));
+		}
+		return new(new(_baseFen, _playedMoves, liveClock), _timeControl, clocks.MoveToImmutable(),
 			_clockHistoryOriginMoveCount, state.Result, _drawOfferedBy, _pendingPromotion?.MovePrefix,
-			_claimableDrawPolicy, _drawOfferPolicy);
+			_claimableDrawPolicy, _drawOfferPolicy, _declaredDrawMove);
 	}
 
 	/// <summary>
@@ -409,93 +432,22 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	{
 		ThrowIfDisposed();
 		ct.ThrowIfCancellationRequested();
-		var checkpoints = ValidateSave(save, ct, out var currentFen, out var promotion);
-		if (checkpoints.Count > 0 && !countTimeSinceSave)
-		{
-			var last = save.ClockHistory[^1] with { SnapshotUtc = _utcNowProvider() };
-			checkpoints[^1] = PlayableMatchClockKernel.Restore(_timeControl!.Value, currentFen.ActiveColor, last);
-		}
+		var validated = PlayableMatchSaveValidator.ValidateAndResolve(save, _timeControl, _claimableDrawPolicy,
+			_drawOfferPolicy, ct, !countTimeSinceSave && _timeControl.HasValue ? _utcNowProvider() : null);
 		ct.ThrowIfCancellationRequested();
 		await LoadMatchCoreAsync(save.Setup, ct).ConfigureAwait(false);
 		_clockHistory.Clear();
-		_clockHistory.AddRange(checkpoints);
+		_clockHistory.AddRange(validated.ClockHistory);
 		_clockHistoryOriginMoveCount = save.ClockHistoryOriginMoveCount;
-		_pendingPromotion = promotion;
+		_pendingPromotion = validated.PendingPromotion;
 		_drawOfferedBy = save.DrawOfferedBy;
 		_forcedResult = save.Result;
+		_declaredDrawMove = save.DeclaredDrawMove;
 		var state = Refresh();
 		RaiseEvent(PlayableMatchEventKind.PositionLoaded, state: state);
 		return state;
 	}
 
-	private List<PlayableMatchClockCheckpoint> ValidateSave(
-		PlayableMatchSave save, CancellationToken ct, out Fen currentFen, out PendingPromotionRequest? promotion)
-	{
-		if (save.Setup.Clock.HasValue)
-			throw new ArgumentException("Saved clocks must be supplied through ClockHistory, not Setup.Clock.", nameof(save));
-		if (!TimeControlsEqual(_timeControl, save.TimeControl))
-			throw new ArgumentException("The saved time control does not match this session.", nameof(save));
-		if (save.ClaimableDrawPolicy != _claimableDrawPolicy || save.DrawOfferPolicy != _drawOfferPolicy)
-			throw new ArgumentException("The saved draw policies do not match this session.", nameof(save));
-		if (save.ClockHistory.IsDefault || save.ClockHistoryOriginMoveCount < 0 ||
-			save.Setup.PlayedMoves.IsDefault || save.ClockHistoryOriginMoveCount > save.Setup.PlayedMoves.Length)
-			throw new ArgumentException("The saved clock history is not initialized or has an invalid origin.", nameof(save));
-		int expectedClocks = _timeControl.HasValue
-			? save.Setup.PlayedMoves.Length - save.ClockHistoryOriginMoveCount + 1 : 0;
-		if (save.ClockHistory.Length != expectedClocks ||
-			!_timeControl.HasValue && save.ClockHistoryOriginMoveCount != 0)
-			throw new ArgumentException("The saved clock history must contain one snapshot per retained position.", nameof(save));
-		if (!Enum.IsDefined(typeof(PlayableMatchResultReason), save.Result.Reason) ||
-			save.Result.Winner.HasValue && save.Result.Winner is not ('w' or 'b') ||
-			!save.Result.IsTerminal && save.Result.Winner.HasValue ||
-			save.Result.Winner.HasValue && save.Result.Reason is not (PlayableMatchResultReason.Checkmate or
-				PlayableMatchResultReason.Resignation or PlayableMatchResultReason.Timeout) ||
-			save.DrawOfferedBy.HasValue && save.DrawOfferedBy is not ('w' or 'b') ||
-			save.Result.IsTerminal && (save.DrawOfferedBy.HasValue || save.PendingPromotionMove is not null))
-			throw new ArgumentException("The save has inconsistent result, draw-offer or promotion metadata.", nameof(save));
-		currentFen = PlayableMatchHistoryValidator.ValidateAndResolve(save.Setup, _claimableDrawPolicy, ct);
-		var checkpoints = new List<PlayableMatchClockCheckpoint>(expectedClocks);
-		if (_timeControl.HasValue)
-		{
-			char baseColor = save.Setup.BaseFen.ActiveColor;
-			for (int index = 0; index < save.ClockHistory.Length; index++)
-			{
-				ct.ThrowIfCancellationRequested();
-				var restore = save.ClockHistory[index];
-				int moveIndex = index + save.ClockHistoryOriginMoveCount;
-				char activeColor = (moveIndex & 1) == 0 ? baseColor : Opposite(baseColor);
-				var checkpoint = PlayableMatchClockKernel.Restore(_timeControl.Value, activeColor, restore);
-				if (index > 0)
-				{
-					var previous = checkpoints[^1];
-					if (restore.WhiteMovesCompleted != previous.WhiteMovesCompleted + (previous.ActiveColor == 'w' ? 1 : 0) ||
-						restore.BlackMovesCompleted != previous.BlackMovesCompleted + (previous.ActiveColor == 'b' ? 1 : 0))
-						throw new ArgumentException("Saved clock move counts must advance once per played move.", nameof(save));
-				}
-				checkpoints.Add(checkpoint);
-			}
-		}
-		promotion = null;
-		if (save.PendingPromotionMove is not null)
-		{
-			if (!LocalPositionRules.TryCreatePendingPromotion(currentFen, save.PendingPromotionMove,
-				currentFen.GetLegalMoves(), out var request))
-				throw new ArgumentException("The saved promotion is not legal in the saved position.", nameof(save));
-			promotion = request;
-		}
-		return checkpoints;
-	}
-
-	private static bool TimeControlsEqual(PlayableMatchTimeControl? first, PlayableMatchTimeControl? second)
-	{
-		if (!first.HasValue || !second.HasValue)
-			return first.HasValue == second.HasValue;
-		var a = first.Value;
-		var b = second.Value;
-		return a.InitialTime == b.InitialTime && a.IncrementPerMove == b.IncrementPerMove &&
-			a.DelayPerMove == b.DelayPerMove && a.TimeoutPolicy == b.TimeoutPolicy &&
-			a.AdditionalStages.SequenceEqual(b.AdditionalStages);
-	}
 
 	/// <summary>
 	///     Loads an arbitrary base position and optional played-move sequence into the session.
@@ -532,11 +484,14 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		_playedMoves.Clear();
 		_playedMoves.AddRange(setup.PlayedMoves);
 		_moveHistory.Clear();
+		_moveHistorySnapshot = [];
+		_moveHistorySnapshotDirty = false;
 		ResetRepetitionHistory();
 		UpdateMoveHistory(currentFen.Raw);
 		_pendingPromotion = null;
 		_lastResult = default;
 		_forcedResult = default;
+		_declaredDrawMove = null;
 		_claimableResult = null;
 		_drawOfferedBy = null;
 		if (checkpoint.HasValue)
@@ -683,14 +638,15 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		string positionKey = currentFen.Raw;
 
 		UpdateMoveHistory(positionKey);
-		if (_classifications.HasKnownPositions)
-			EnrichMoveHistoryClassifications();
+		long classificationsVersion = _classifications.KnownVersion;
+		if (classificationsVersion != _enrichedClassificationVersion)
+		{
+			if (classificationsVersion != 0)
+				EnrichMoveHistoryClassifications();
+			_enrichedClassificationVersion = classificationsVersion;
+		}
 
-		var advantage = _moveHistory.ResolveCurrentAdvantage(
-			positionKey,
-			legalMoves.Length,
-			ResolvePositionAnalysis
-		);
+		var advantage = ResolveAdvantage(positionKey, legalMoves.Length);
 
 		var classifications = _classifications.GetKnown(positionKey);
 		var clock = GetClockSnapshot();
@@ -712,7 +668,7 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 			legalMoves,
 			classifications,
 			advantage,
-			[.. _moveHistory],
+			MoveHistory,
 			_pendingPromotion,
 			currentResult,
 			outcome.ClaimableResult,
@@ -962,7 +918,7 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		var result = ResolveIntendedDrawClaim(NormalizeCompletedMove(intendedMove));
 		if (!result.HasValue)
 			throw new InvalidOperationException("The intended move does not permit a draw claim.");
-		SetForcedResult(result.Value);
+		SetForcedResult(result.Value, declaredDrawMove: NormalizeCompletedMove(intendedMove));
 	}
 
 	private PlayableMatchResult? ResolveIntendedDrawClaim(string move)
@@ -1230,6 +1186,7 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 				continue;
 
 			_moveHistory[i] = move with { Classification = classification };
+			_moveHistorySnapshotDirty = true;
 		}
 	}
 
@@ -1288,6 +1245,7 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 					classification
 				)
 			);
+			_moveHistorySnapshotDirty = true;
 		}
 
 		if (_moveHistory.Count > 0 && _moveHistory[^1].PositionKey != currentPositionKey)
@@ -1297,7 +1255,13 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	private Fen BuildCurrentFen()
 	{
 		if (_moveHistory.Count == _playedMoves.Count)
-			return _moveHistory.Count == 0 ? _baseFen : Fen.Parse(_moveHistory[^1].PositionKey)!.Value;
+		{
+			if (_moveHistory.Count == 0)
+				return _baseFen;
+			string key = _moveHistory[^1].PositionKey;
+			return _cachedLegalMovesFen.HasValue && _cachedLegalMovesFen.Value.Raw == key
+				? _cachedLegalMovesFen.Value : Fen.Parse(key)!.Value;
+		}
 
 		var current = _baseFen;
 		foreach (string move in _playedMoves)
@@ -1318,10 +1282,12 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		_positionRevision++;
 		_playedMoves.Add(move);
 		_moveHistory.Add(new(previousFen.FullmoveNumber, movingSide, move, previousFen.Raw, resultingFen.Raw, classification));
+		_moveHistorySnapshotDirty = true;
 		AddRepetition(resultingFen);
 		if (_drawOfferPolicy == PlayableMatchDrawOfferPolicy.ExpireOnMove && _drawOfferedBy != movingSide)
 			_drawOfferedBy = null;
 		_forcedResult = default;
+		_declaredDrawMove = null;
         PlayableMatchClockState? clock = _timeControl.HasValue && _clockHistory.Count > 0
             ? PlayableMatchClockKernel.SnapshotAtTurnStart(_timeControl.Value, _clockHistory[^1])
             : null;
@@ -1420,52 +1386,13 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	}
 
 	private MatchOutcome EvaluateOutcome(
-		Fen                    fen,
-		ImmutableArray<string> legalMoves,
-		PlayableMatchClockState? clock)
+		Fen fen, ImmutableArray<string> legalMoves, PlayableMatchClockState? clock)
 	{
 		if (_forcedResult.IsTerminal)
 			return new(_forcedResult, null);
-
-		if (legalMoves.IsDefaultOrEmpty || legalMoves.Length == 0)
-		{
-			return LocalPositionRules.IsCurrentPlayerInCheck(fen)
-				? new(new(PlayableMatchResultReason.Checkmate, Opposite(fen.ActiveColor)), null)
-				: new(new(PlayableMatchResultReason.Stalemate, null), null);
-		}
-
-		if (clock.HasValue)
-		{
-			TimeSpan activeRemaining = fen.ActiveColor == 'w'
-				? clock.Value.WhiteRemaining
-				: clock.Value.BlackRemaining;
-			if (_timeControl.HasValue &&
-				_timeControl.Value.TimeoutPolicy == PlayableMatchTimeoutPolicy.AutomaticLoss &&
-				activeRemaining <= TimeSpan.Zero)
-			{
-				char opponent = Opposite(fen.ActiveColor);
-				return new(new(PlayableMatchResultReason.Timeout,
-					LocalPositionRules.CanPossiblyMate(fen, opponent) ? opponent : null), null);
-			}
-		}
-
-		if (fen.HalfmoveClock >= 150)
-			return new(new(PlayableMatchResultReason.SeventyFiveMoveRule, null), null);
-
-		if (LocalPositionRules.HasInsufficientMaterial(fen))
-			return new(new(PlayableMatchResultReason.InsufficientMaterial, null), null);
-
-		int repetitions = CountRepetitions(fen);
-		if (repetitions >= 5)
-			return new(new(PlayableMatchResultReason.FivefoldRepetition, null), null);
-
-		if (fen.HalfmoveClock >= 100)
-			return CreateClaimableOrAutomaticResult(PlayableMatchResultReason.FiftyMoveRule);
-
-		if (repetitions >= 3)
-			return CreateClaimableOrAutomaticResult(PlayableMatchResultReason.ThreefoldRepetition);
-
-		return new(default, null);
+		var outcome = PlayableMatchAdjudication.Evaluate(fen, legalMoves.Length, clock, _timeControl,
+			CountRepetitions(fen), _claimableDrawPolicy);
+		return new(outcome.Result, outcome.ClaimableResult);
 	}
 
 	private ImmutableArray<string> GetCachedLegalMoves(Fen fen)
@@ -1513,16 +1440,18 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		return _repetitionCounts.TryGetValue(key, out int count) ? count : 0;
 	}
 
-	private MatchOutcome CreateClaimableOrAutomaticResult(PlayableMatchResultReason reason)
-	{
-		var drawResult = new PlayableMatchResult(reason, null);
-		return _claimableDrawPolicy == PlayableMatchClaimableDrawPolicy.Automatic
-			? new(drawResult, null)
-			: new(default, drawResult);
-	}
 
 	private PositionAnalysisResult? ResolvePositionAnalysis(string positionKey) =>
 		TryGetPositionAnalysis(positionKey, out var analysis) ? analysis : null;
+
+	private PositionAdvantage ResolveAdvantage(string positionKey, int legalMoveCount)
+	{
+		if (_positionAnalysis is null)
+			return legalMoveCount == 0 ? PositionAdvantage.GameOver()
+				: _moveHistory.Count == 0 ? PositionAdvantage.GameStart() : PositionAdvantage.Pending();
+		return _moveHistory.ResolveCurrentAdvantage(positionKey, legalMoveCount,
+			_positionAnalysisResolver ??= ResolvePositionAnalysis);
+	}
 
 	private PositionScore? ResolvePlayedMoveScore(PlayedMove move) =>
 		TryGetPlayedMoveScore(move, out var score) ? score : null;
@@ -1537,9 +1466,12 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		int?                     undoCount        = null,
 		string?                  error            = null)
 	{
+		var handlers = EventOccurred;
+		if (handlers is null)
+			return;
 		try
 		{
-			EventOccurred?.Invoke(
+			handlers.Invoke(
 				new(
 					kind,
 					DateTimeOffset.UtcNow,
@@ -1559,10 +1491,11 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		}
 	}
 
-	private void SetForcedResult(PlayableMatchResult result, DateTimeOffset? completedAtUtc = null)
+	private void SetForcedResult(PlayableMatchResult result, DateTimeOffset? completedAtUtc = null, string? declaredDrawMove = null)
 	{
 		_positionRevision++;
 		_forcedResult = result;
+		_declaredDrawMove = declaredDrawMove;
 		_pendingPromotion = null;
 		FreezeClock(completedAtUtc);
 		_claimableResult = null;

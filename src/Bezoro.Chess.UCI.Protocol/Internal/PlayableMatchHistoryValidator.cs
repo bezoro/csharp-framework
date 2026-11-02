@@ -9,16 +9,17 @@ namespace Bezoro.Chess.UCI.Protocol.Internal;
 internal static class PlayableMatchHistoryValidator
 {
     internal static Fen ValidateAndResolve(PlayableMatchSetup setup, PlayableMatchClaimableDrawPolicy claimPolicy,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, Dictionary<string, int>? repetitionCounts = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (setup.PlayedMoves.IsDefault)
             throw new ArgumentException("The setup must contain an initialized move list.", nameof(setup));
         PlayablePositionValidator.Validate(setup.BaseFen);
         var current = setup.BaseFen;
-        if (setup.PlayedMoves.IsEmpty)
+        if (setup.PlayedMoves.IsEmpty && repetitionCounts is null)
             return current;
-        var repetitions = new Dictionary<string, int>(StringComparer.Ordinal);
+        var repetitions = repetitionCounts ?? new Dictionary<string, int>(StringComparer.Ordinal);
+        repetitions.Clear();
         string key = LocalPositionRules.BuildRepetitionKey(current);
         repetitions.Add(key, 1);
         for (int index = 0; index < setup.PlayedMoves.Length; index++)

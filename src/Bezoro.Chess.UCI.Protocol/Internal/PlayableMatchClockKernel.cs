@@ -60,6 +60,34 @@ internal static class PlayableMatchClockKernel
         };
     }
 
+    // Preserve the original turn-start amounts so a move played after restoring can still be undone exactly.
+    internal static PlayableMatchClockCheckpoint RestoreWithBaseline(
+        PlayableMatchTimeControl timeControl, char expectedActiveColor,
+        PlayableMatchClockRestore turnStart, PlayableMatchClockRestore current)
+    {
+        var baseline = Restore(timeControl, expectedActiveColor, turnStart);
+        Restore(timeControl, expectedActiveColor, current);
+        var stage = GetStage(timeControl, GetMovesCompleted(baseline, expectedActiveColor));
+        if (turnStart.DelayRemaining != stage.Delay ||
+            turnStart.WhiteMovesCompleted != current.WhiteMovesCompleted ||
+            turnStart.BlackMovesCompleted != current.BlackMovesCompleted ||
+            turnStart.ActiveStageIndex != current.ActiveStageIndex)
+            throw new ArgumentException("The live clock must match the retained turn-start checkpoint.", nameof(current));
+        TimeSpan activeAtStart = expectedActiveColor == 'w' ? turnStart.WhiteRemaining : turnStart.BlackRemaining;
+        TimeSpan activeNow = expectedActiveColor == 'w' ? current.WhiteRemaining : current.BlackRemaining;
+        TimeSpan inactiveAtStart = expectedActiveColor == 'w' ? turnStart.BlackRemaining : turnStart.WhiteRemaining;
+        TimeSpan inactiveNow = expectedActiveColor == 'w' ? current.BlackRemaining : current.WhiteRemaining;
+        if (activeNow > activeAtStart || inactiveNow != inactiveAtStart ||
+            activeNow < activeAtStart && current.DelayRemaining > TimeSpan.Zero)
+            throw new ArgumentException("The live clock cannot increase time or charge main time before its delay expires.", nameof(current));
+        TimeSpan elapsed = checked((stage.Delay - current.DelayRemaining) + (activeAtStart - activeNow));
+        return baseline with
+        {
+            TurnStartedAtUtc = current.SnapshotUtc - elapsed,
+            PausedAtUtc = current.IsPaused ? current.SnapshotUtc : null
+        };
+    }
+
     internal static PlayableMatchClockCheckpoint CompleteMove(
         PlayableMatchTimeControl timeControl, PlayableMatchClockCheckpoint checkpoint,
         char movingSide,
