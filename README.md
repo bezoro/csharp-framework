@@ -3,6 +3,8 @@
 This package publishes the precompiled `netstandard2.1` Bezoro Framework assemblies for Unity through a Git URL.
 The build pipeline stages the assemblies and their NuGet runtime dependencies under `Runtime`, copies each project README and XML documentation beside its DLL, and preserves the checked-in `.meta` files. Unity consumes compiled .NET Standard 2.1 assemblies; its C# compiler does not compile the framework source, which uses the .NET 10 SDK and modern C# syntax.
 
+Every staged asset and folder needs checked-in importer metadata, including XML documentation. Staging rejects missing metadata and invalid or duplicate GUIDs before publication; keep existing GUIDs when rebuilding the package.
+
 ## Versioning
 
 The published package version is resolved from SemVer Git tags by `scripts/Get-PackageVersion.ps1`.
