@@ -35,3 +35,5 @@ Commit cohesive, validated increments as work progresses. Use Conventional Commi
 ## Pull request visibility
 
 For changes intended for integration, open a draft pull request as soon as the first coherent implementation is pushed, so the user can follow progress. Keep its scope, description and validation status current as commits arrive. Mark it ready for review when implementation and the relevant checks are complete.
+
+Every pull request description must start with a concise summary of what it does, followed by a `## Changes` section listing all changes and a `## Verification` section listing every verification performed and its result. Clearly identify pending checks separately from completed verification.
