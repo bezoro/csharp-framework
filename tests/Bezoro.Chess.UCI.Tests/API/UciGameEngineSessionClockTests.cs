@@ -159,7 +159,7 @@ public sealed class UciGameEngineSessionClockTests
 	}
 
 	[IntegrationTest]
-	public async Task UndoAsync_WhenClockWasDebited_ShouldResetAtInjectedUndoTime()
+	public async Task UndoAsync_WhenReturningToTheOpening_ShouldRestoreInitialCheckpointAtInjectedUndoTime()
 	{
 		var now = new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero);
 		await using var session = CreateSession(() => now);
@@ -180,7 +180,7 @@ public sealed class UciGameEngineSessionClockTests
 	}
 
 	[IntegrationTest]
-	public async Task UndoAsync_WhenAdditionalStageWasReached_ShouldResetTimeStageAndMoveCounts()
+	public async Task UndoAsync_WhenAdditionalStageWasReached_ShouldRestoreRetainedTimeStageAndMoveCounts()
 	{
 		var now = new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero);
 		var timeControl = new PlayableMatchTimeControl(
@@ -198,14 +198,14 @@ public sealed class UciGameEngineSessionClockTests
 		stagedState.Clock!.Value.ActiveStageIndex.Should().Be(1);
 
 		var undoneState = await session.UndoAsync();
-		undoneState.Clock!.Value.WhiteRemaining.Should().Be(TimeSpan.FromSeconds(10));
+		undoneState.Clock!.Value.WhiteRemaining.Should().Be(TimeSpan.FromSeconds(30));
 		undoneState.Clock.Value.BlackRemaining.Should().Be(TimeSpan.FromSeconds(10));
 		undoneState.Clock.Value.ActiveStageIndex.Should().Be(0);
 
 		var replayedState = await session.MakeMoveAsync("e7e5");
-		replayedState.Clock!.Value.WhiteRemaining.Should().Be(TimeSpan.FromSeconds(10));
+		replayedState.Clock!.Value.WhiteRemaining.Should().Be(TimeSpan.FromSeconds(30));
 		replayedState.Clock.Value.BlackRemaining.Should().Be(TimeSpan.FromSeconds(30));
-		replayedState.Clock.Value.ActiveStageIndex.Should().Be(0);
+		replayedState.Clock.Value.ActiveStageIndex.Should().Be(1);
 	}
 
 	[IntegrationTest]

@@ -43,9 +43,29 @@ await session.UndoAsync(ct: cancellationToken);
 
 Capture, castling, promotion, check, mate, and stalemate come from local board rules. An absent engine score stays absent. A predicted forced mate in an engine variation does not mark an ordinary move as immediate checkmate.
 
+`CancelPendingPromotionAsync(requestId)` dismisses a matching promotion prompt while leaving the board and running clock in place, and publishes `PromotionCanceled`. A stale request identifier cannot cancel a newer prompt.
+
+`UndoAsync` restores the retained position's clock checkpoint, including remaining times, increments already awarded, completed-move counts, and time-control stages. The retained turn restarts unpaused at the undo time. A loaded match containing only a current clock snapshot has no historical clock values: undo cannot cross that load point.
+
+`CaptureSaveAsync` / `LoadSaveAsync` preserve all available clock checkpoints for later takebacks, plus the current clock debit, pending promotion, draw offer, adjudicated result, and any declared draw-claim move. `PlayableMatchSave` is shared with `UciPlayableMatchSession.CaptureSave` / `LoadSaveAsync`; either session API can consume the other's save. Both use the same save validator and pure result adjudicator. The receiving session must use equal clock and draw policies. Loading resumes at load time by default; opt into `countTimeSinceSave` to charge time spent offline. Engines and analysis caches are excluded. A restored promotion publishes a fresh request identifier so an old dialog cannot resolve the new prompt.
+
+Both public constructors accept `utcNowProvider`. For a Unity clock that is unaffected by system clock changes, capture a UTC origin once and add elapsed `Stopwatch` time in the provider. The framework does not create a timer or poll clocks automatically.
+
+Draw offers survive the offering player's move and expire when the recipient moves. The side-aware `OfferDrawAsync`, `AcceptDrawAsync`, `DeclineDrawAsync`, and `ResignAsync` overloads support off-turn actions; hosts must authenticate the side. A player cannot accept their own offer. Resignation draws when the opponent cannot possibly mate according to the conservative material test. `ClaimDrawAsync(intendedMove)` declares a legal move that would establish threefold repetition or the fifty-move threshold, leaving the board unchanged.
+
+Loaded positions now use the same basic validation as game review: both kings, legal pawn ranks and piece counts, consistent castling and en-passant fields, and no check against the inactive king. `Fen.Parse` remains syntactic; use `fen.ValidateForPlay()` to validate authored content before starting a match. Validation does not prove historical reachability or solve every blocked dead position.
+
 ## Optional engine analysis
 
 `StartAsync` and `CreateAsync(enginePath, ...)` explicitly start engines. Call `SearchAsync`, `StartSearchAsync`, or `ClassifyMoveAsync` when analysis is needed. Automatic pondering and scored classification after each position change require `EnableBackgroundAnalysis = true`; the default is `false`.
+
+`new UciCoordinatorOptions()` uses the documented defaults. Sessions validate resource budgets and enum policies at construction; `default(UciCoordinatorOptions)` is an uninitialized, invalid configuration.
+
+Current-position searches send the base FEN and complete played history so the engine retains repetition context. Terminal results cancel automatic classification and pondering, and discard obsolete search hints.
+
+Queued analysis notifications recheck their generation when the UI context delivers them. Results from a previous position cannot overwrite the Unity view after moving, undoing, loading, ending the match, or disposing the session. Gameplay event history is retained.
+
+Migration: undo no longer resets both clocks to their initial values. Draw-offer expiry follows the recipient's move. Loaded positions that violate playable-position constraints now throw before replacing the current game. Uninitialized or invalid coordinator options fail at construction.
 
 ```csharp
 using Bezoro.Chess.UCI.API.Types;

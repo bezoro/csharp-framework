@@ -29,6 +29,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	private readonly GameEngineEventDispatcher        _events;
 	private readonly MatchSideControllerKind          _blackController;
 	private readonly List<PlayableMatchClockCheckpoint> _clockHistory = [];
+	private int _clockHistoryOriginMoveCount;
 	private readonly List<Task> _analysisTasks = [];
 	private Task _ponderOperation = Task.CompletedTask;
 	private readonly char                             _perspectiveColor;
@@ -51,6 +52,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	private long                     _nextPendingPromotionId;
 	private ImmutableList<GameMoveEvent> _appliedMoveHistory = [];
 	private PlayableMatchResult      _forcedResult;
+	private string?                 _declaredDrawMove;
 	private PlayableMatchResult?     _claimableResult;
 	private char?                    _drawOfferedBy;
 	private PlayableMatchResult      _lastResult;
@@ -173,6 +175,9 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	/// </summary>
 	public event Action<PromotionChosenEvent>? PromotionChosen;
 
+	/// <summary>Raised when a matching pending promotion is canceled before a move is applied.</summary>
+	public event Action<PromotionCanceledEvent>? PromotionCanceled;
+
 	/// <summary>
 	///     Raised when an applied move gives check.
 	/// </summary>
@@ -256,9 +261,10 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	/// <param name="syncContext">Optional context for game-facing events.</param>
 	/// <param name="options">Clock, match policies, and opt-in background analysis settings.</param>
 	/// <param name="perspectiveColor">Board perspective, either w or b.</param>
+	/// <param name="utcNowProvider">Optional clock source. A fixed UTC origin plus monotonic elapsed time avoids wall-clock adjustments.</param>
 	public UciGameEngineSession(SynchronizationContext? syncContext = null, UciCoordinatorOptions? options = null,
-		char perspectiveColor = 'w')
-		: this(null, syncContext, options, perspectiveColor, MatchSideControllerKind.Manual, MatchSideControllerKind.Manual)
+		char perspectiveColor = 'w', Func<DateTimeOffset>? utcNowProvider = null)
+		: this(null, syncContext, options, perspectiveColor, MatchSideControllerKind.Manual, MatchSideControllerKind.Manual, utcNowProvider)
 	{
 		_state = UciState.Default with { LegalMoves = Fen.Default.GetLegalMoves().ToImmutableList() };
 		InitializeClocks('w');
@@ -277,6 +283,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	/// <param name="perspectiveColor">The board perspective color, either <c>w</c> or <c>b</c>.</param>
 	/// <param name="whiteController">Controller kind for the white side.</param>
 	/// <param name="blackController">Controller kind for the black side.</param>
+	/// <param name="utcNowProvider">Optional clock source. A fixed UTC origin plus monotonic elapsed time avoids wall-clock adjustments.</param>
 	public UciGameEngineSession(
 		string                  enginePath,
 		IEnumerable<string>?    args             = null,
@@ -285,14 +292,16 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		UciCoordinatorOptions?  options          = null,
 		char                    perspectiveColor = 'w',
 		MatchSideControllerKind whiteController  = MatchSideControllerKind.Manual,
-		MatchSideControllerKind blackController  = MatchSideControllerKind.Manual)
+		MatchSideControllerKind blackController  = MatchSideControllerKind.Manual,
+		Func<DateTimeOffset>?    utcNowProvider   = null)
 		: this(
 			GameEngineClients.Create(enginePath, args, workingDirectory),
 			syncContext,
 			options,
 			perspectiveColor,
 			whiteController,
-			blackController
+			blackController,
+			utcNowProvider
 		) { }
 
 	internal UciGameEngineSession(
@@ -319,6 +328,11 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	{
 		_events      = new(syncContext);
 		_options     = options ?? UciCoordinatorOptions.Default;
+		_options.Validate();
+		if (whiteController is not (MatchSideControllerKind.Manual or MatchSideControllerKind.Engine))
+			throw new ArgumentOutOfRangeException(nameof(whiteController));
+		if (blackController is not (MatchSideControllerKind.Manual or MatchSideControllerKind.Engine))
+			throw new ArgumentOutOfRangeException(nameof(blackController));
 		_engineClients = engineClients;
 		_classificationRuntime = new(_sync);
 		_perspectiveColor      = NormalizeColor(perspectiveColor, nameof(perspectiveColor));
@@ -326,7 +340,6 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		_blackController       = blackController;
 		_timeControl           = _options.TimeControl;
 		_utcNowProvider        = utcNowProvider ?? (static () => DateTimeOffset.UtcNow);
-		_timeControl?.Validate();
 		_claimableDrawPolicy   = _options.ClaimableDrawPolicy;
 		_drawOfferPolicy       = _options.DrawOfferPolicy;
 		_controlledMoveFallbackPolicy = _options.ControlledMoveFallbackPolicy;
@@ -711,7 +724,11 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	/// </summary>
 	/// <param name="ct">Cancellation token.</param>
 	public Task StartSearchAsync(CancellationToken ct = default) =>
-		StartSearchAsync(CurrentFen, null, ct);
+		RunCommandAsync(() =>
+		{
+			var state = State;
+			return StartSearchCoreAsync(state.BaseFen, state.PlayedMoves, ct);
+		}, ct);
 
 	/// <summary>
 	///     Begins an infinite search from the specified position. Cancels any previous search.
@@ -841,6 +858,51 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		).ConfigureAwait(false);
 	}
 
+	/// <summary>Captures the local game and every available clock checkpoint for undo after reloading.</summary>
+	/// <param name="ct">Cancellation while waiting for the serialized command gate.</param>
+	/// <returns>An immutable save compatible with both playable session APIs. Snapshot arrays are allocated only on this request.</returns>
+	public Task<PlayableMatchSave> CaptureSaveAsync(CancellationToken ct = default) =>
+		RunCommandAsync(() =>
+		{
+			ct.ThrowIfCancellationRequested();
+			var state = UpdateMatchMetadata();
+			var clocks = ImmutableArray.CreateBuilder<PlayableMatchClockRestore>(_clockHistory.Count);
+			PlayableMatchClockSetup? currentClock = null;
+			if (_timeControl.HasValue)
+			{
+				foreach (var checkpoint in _clockHistory)
+				{
+					var start = PlayableMatchClockKernel.SnapshotAtTurnStart(_timeControl.Value, checkpoint);
+					clocks.Add(new(start.WhiteRemaining, start.BlackRemaining, start.ActiveColor, start.DelayRemaining,
+						start.IsPaused, checkpoint.WhiteMovesCompleted, checkpoint.BlackMovesCompleted,
+						start.ActiveStageIndex, start.SnapshotUtc));
+				}
+				var snapshot = state.Clock!.Value;
+				var last = _clockHistory[^1];
+				currentClock = PlayableMatchClockSetup.FromExactRestore(new(snapshot.WhiteRemaining, snapshot.BlackRemaining,
+					snapshot.ActiveColor, snapshot.DelayRemaining, snapshot.IsPaused, last.WhiteMovesCompleted,
+					last.BlackMovesCompleted, snapshot.ActiveStageIndex, snapshot.SnapshotUtc));
+			}
+			return Task.FromResult(new PlayableMatchSave(new(state.BaseFen, state.PlayedMoves, currentClock),
+				_timeControl, clocks.MoveToImmutable(), _clockHistoryOriginMoveCount, state.Result, _drawOfferedBy,
+				_pendingPromotion.HasValue ? _pendingPromotion.Value.From + _pendingPromotion.Value.To : null,
+				_claimableDrawPolicy, _drawOfferPolicy, _declaredDrawMove));
+		}, ct);
+
+	/// <summary>Validates and restores a local save, retaining historical clocks for later takebacks.</summary>
+	/// <param name="save">Save captured by either playable session API, using equal time-control and draw policies.</param>
+	/// <param name="countTimeSinceSave">Whether a running clock includes time elapsed since saving. Defaults to resuming at load time.</param>
+	/// <param name="ct">Cancellation before replacement leaves the current match in place.</param>
+	/// <returns>The restored game snapshot. Engine processes and analysis caches are excluded from saves.</returns>
+	public Task<UciState> LoadSaveAsync(PlayableMatchSave save, bool countTimeSinceSave = false, CancellationToken ct = default) =>
+		RunCommandAsync(() =>
+		{
+			ct.ThrowIfCancellationRequested();
+			var validated = PlayableMatchSaveValidator.ValidateAndResolve(save, _timeControl, _claimableDrawPolicy,
+				_drawOfferPolicy, ct, countTimeSinceSave ? null : _utcNowProvider());
+			return UpdatePositionCoreAsync(save.Setup.BaseFen, save.Setup.PlayedMoves, null, ct, new(save, validated));
+		}, ct);
+
 	/// <summary>
 	///     Updates the locally validated board position and legal moves, then optionally schedules background analysis.
 	///     Completes without waiting for an external engine.
@@ -879,10 +941,13 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		Fen                                    fen,
 		IEnumerable<string>?                   playedMoves,
 		Func<Fen, PlayableMatchClockRestore?>? resolveClockRestore,
-		CancellationToken                      ct)
+		CancellationToken                      ct,
+		SavedMatchRestore?                      savedMatch = null)
 	{
 		ct.ThrowIfCancellationRequested();
 		var movesList = playedMoves?.Select(static move => move.Trim().ToLowerInvariant()).ToList() ?? new List<string>();
+		if (!savedMatch.HasValue)
+			PlayableMatchHistoryValidator.ValidateAndResolve(new(fen, movesList), _claimableDrawPolicy, ct);
 		var previousTurn = State.CurrentFen.ActiveColor;
 		var history = BuildLoadedMoveHistory(fen, movesList, ct);
 		var effectiveFen = history.IsEmpty ? fen : history[^1].ResultingFen;
@@ -898,10 +963,32 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		ResetGameplaySession();
 		_appliedMoveHistory = history.Select(move => move with { GameId = _gameId }).ToImmutableList();
 		_nextMoveId = history.Length;
-		if (clockRestore.HasValue)
+		if (savedMatch.HasValue)
+		{
+			_clockHistory.Clear();
+			_clockHistory.AddRange(savedMatch.Value.Validated.ClockHistory);
+			_clockHistoryOriginMoveCount = savedMatch.Value.Save.ClockHistoryOriginMoveCount;
+			_forcedResult = savedMatch.Value.Save.Result;
+			_declaredDrawMove = savedMatch.Value.Save.DeclaredDrawMove;
+			_drawOfferedBy = savedMatch.Value.Save.DrawOfferedBy;
+		}
+		else if (clockRestore.HasValue)
 			RestoreClock(snapshot.CurrentFen.ActiveColor, clockRestore.Value);
 		else
 			InitializeClocks(snapshot.CurrentFen.ActiveColor);
+		if (!savedMatch.HasValue)
+			_clockHistoryOriginMoveCount = _clockHistory.Count > 0 ? movesList.Count : 0;
+
+		PromotionRequiredEvent? restoredPromotion = null;
+		if (savedMatch?.Save.PendingPromotionMove is { } prefix &&
+			CoordinatorMoveFactory.TryCreatePromotionRequest(_gameId, ++_nextPendingPromotionId, snapshot, prefix,
+				GameMoveActor.Human, out var promotionRequest))
+		{
+			_pendingPromotion = new(promotionRequest.PendingPromotionId, promotionRequest.Actor,
+				promotionRequest.From, promotionRequest.To, promotionRequest.MovingPiece,
+				promotionRequest.AllowedPromotionPieces, snapshot);
+			restoredPromotion = promotionRequest;
+		}
 
 		var metadata = ApplyMatchMetadata(snapshot);
 		snapshot = metadata.Snapshot;
@@ -930,6 +1017,9 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 			RaiseTypedEvent(TurnChanged, turnChanged, UciGameEngineSessionEvent.ForTurnChanged(turnChanged));
 		}
 		PublishGameOver(snapshot);
+		if (restoredPromotion.HasValue && _pendingPromotion.HasValue)
+			RaiseTypedEvent(PromotionRequired, restoredPromotion.Value,
+				UciGameEngineSessionEvent.ForPromotionRequired(restoredPromotion.Value));
 
 		await StartBackgroundWorkAsync(fen, movesList, snapshot.CurrentFen, snapshot.LegalMoves, ct).ConfigureAwait(false);
 		return snapshot;
@@ -1018,8 +1108,11 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	/// <param name="parameters">Search parameters (depth, time, nodes, etc.).</param>
 	/// <param name="ct">Cancellation token.</param>
 	/// <returns>The search result containing the best move and evaluation.</returns>
-	public Task<SearchResult> SearchAsync(SearchParameters parameters, CancellationToken ct = default) =>
-		Engines.Snapshot.SearchAsync(CurrentFen, null, parameters, ct);
+	public Task<SearchResult> SearchAsync(SearchParameters parameters, CancellationToken ct = default)
+	{
+		var state = State;
+		return Engines.Snapshot.SearchAsync(state.BaseFen, state.PlayedMoves, parameters, ct);
+	}
 
 	/// <summary>
 	///     Applies a legal move using local rules without waiting for an external engine.
@@ -1174,6 +1267,26 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	public Task<UciState> ChoosePromotionAsync(long pendingPromotionId, PieceType pieceType, CancellationToken ct = default) =>
 		RunCommandAsync(() => ChoosePromotionCoreAsync(pendingPromotionId, pieceType, ct), ct);
 
+	/// <summary>Cancels a matching promotion prompt without moving a piece or rewinding the clock.</summary>
+	/// <param name="pendingPromotionId">Identifier from the promotion request. Stale requests cannot cancel a newer prompt.</param>
+	/// <param name="ct">Cancellation token.</param>
+	/// <returns>True when a matching prompt was canceled; false when it is no longer pending.</returns>
+	public Task<bool> CancelPendingPromotionAsync(long pendingPromotionId, CancellationToken ct = default) =>
+		RunCommandAsync(() =>
+		{
+			ct.ThrowIfCancellationRequested();
+			var state = UpdateMatchMetadata();
+			lock (_sync)
+			{
+				if (!_pendingPromotion.HasValue || _pendingPromotion.Value.Id != pendingPromotionId)
+					return Task.FromResult(false);
+				_pendingPromotion = null;
+			}
+			var canceled = new PromotionCanceledEvent(_gameId, pendingPromotionId, state.CurrentFen, _utcNowProvider());
+			RaiseTypedEvent(PromotionCanceled, canceled, UciGameEngineSessionEvent.ForPromotionCanceled(canceled));
+			return Task.FromResult(true);
+		}, ct);
+
 	private async Task<UciState> ChoosePromotionCoreAsync(
 		long             pendingPromotionId,
 		PieceType        pieceType,
@@ -1216,7 +1329,8 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	}
 
 	/// <summary>
-	///     Reverts one or more moves and updates the engines.
+	///     Reverts one or more moves locally. Retained clock values, stages, and move counts are restored;
+	///     the retained turn restarts unpaused at the undo time.
 	/// </summary>
 	/// <param name="count">Number of moves to undo. Defaults to 1.</param>
 	/// <param name="ct">Cancellation token.</param>
@@ -1226,6 +1340,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 
 	private async Task<UciState> UndoCoreAsync(int count = 1, CancellationToken ct = default)
 	{
+		ct.ThrowIfCancellationRequested();
 		if (count < 1)
 			throw new ArgumentOutOfRangeException(nameof(count), "Count must be at least 1.");
 
@@ -1235,7 +1350,6 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		{
 			currentState = _state;
 			appliedMoves = _appliedMoveHistory;
-			_pendingPromotion = null;
 		}
 
 		if (currentState.PlayedMoves.Count == 0)
@@ -1243,6 +1357,8 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 
 		int movesToRemove = Math.Min(count, currentState.PlayedMoves.Count);
 		int retainedCount = currentState.PlayedMoves.Count - movesToRemove;
+		if (_clockHistory.Count > 0 && retainedCount < _clockHistoryOriginMoveCount)
+			throw new InvalidOperationException("Cannot undo beyond the available clock history.");
 		var newMoves = currentState.PlayedMoves.RemoveRange(retainedCount, movesToRemove);
 		var previousTurn = currentState.CurrentFen.ActiveColor;
 		var retainedFen = retainedCount > 0 ? appliedMoves[retainedCount - 1].ResultingFen : currentState.BaseFen;
@@ -1253,9 +1369,16 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		{
 			_appliedMoveHistory = appliedMoves.RemoveRange(retainedCount, removedMoves.Length);
 			_forcedResult = default;
+			_declaredDrawMove = null;
 			_drawOfferedBy = null;
+			_pendingPromotion = null;
 		}
-		InitializeClocks(snapshot.CurrentFen.ActiveColor);
+		if (_clockHistory.Count > 0)
+		{
+			int checkpointIndex = retainedCount - _clockHistoryOriginMoveCount;
+			_clockHistory.RemoveRange(checkpointIndex + 1, _clockHistory.Count - checkpointIndex - 1);
+			_clockHistory[^1] = PlayableMatchClockKernel.RestartTurn(_clockHistory[^1], _utcNowProvider());
+		}
 		var metadata = ApplyMatchMetadata(snapshot);
 		snapshot = metadata.Snapshot;
 
@@ -1294,10 +1417,20 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	public Task<UciState> OfferDrawAsync(CancellationToken ct = default) =>
 		RunCommandAsync(() => OfferDrawCoreAsync(ct), ct);
 
-	private Task<UciState> OfferDrawCoreAsync(CancellationToken ct = default)
+	/// <summary>Offers a draw on behalf of either side, including while the opponent is thinking.</summary>
+	public Task<UciState> OfferDrawAsync(char offeringSide, CancellationToken ct = default) =>
+		RunCommandAsync(() => OfferDrawCoreAsync(ct, offeringSide), ct);
+
+	private Task<UciState> OfferDrawCoreAsync(CancellationToken ct = default, char? offeringSide = null)
 	{
 		ct.ThrowIfCancellationRequested();
-		var snapshot = UpdateMatchMetadata(drawOfferedBy: State.CurrentFen.ActiveColor, updateDrawOffer: true);
+		char side = NormalizeColor(offeringSide ?? State.CurrentFen.ActiveColor, nameof(offeringSide));
+		var current = UpdateMatchMetadata();
+		if (current.Result.IsTerminal)
+			return Task.FromResult(current);
+		if (_drawOfferedBy.HasValue && _drawOfferedBy != side)
+			throw new InvalidOperationException("Respond to the opposing draw offer before making another offer.");
+		var snapshot = UpdateMatchMetadata(drawOfferedBy: side, updateDrawOffer: true);
 		RaiseStateEvent(DrawOffered, UciGameEngineSessionEventKind.DrawOffered, snapshot);
 		return Task.FromResult(snapshot);
 	}
@@ -1308,15 +1441,21 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	public Task<UciState> AcceptDrawAsync(CancellationToken ct = default) =>
 		RunCommandAsync(() => AcceptDrawCoreAsync(ct), ct);
 
-	private Task<UciState> AcceptDrawCoreAsync(CancellationToken ct = default)
+	/// <summary>Accepts a draw only when the supplied side is the recipient of the pending offer.</summary>
+	public Task<UciState> AcceptDrawAsync(char acceptingSide, CancellationToken ct = default) =>
+		RunCommandAsync(() => AcceptDrawCoreAsync(ct, acceptingSide), ct);
+
+	private Task<UciState> AcceptDrawCoreAsync(CancellationToken ct = default, char? acceptingSide = null)
 	{
 		ct.ThrowIfCancellationRequested();
-		UpdateMatchMetadata();
+		var current = UpdateMatchMetadata();
 		if (State.Result.IsTerminal)
 			throw new InvalidOperationException("The match has already ended.");
 		if (!_drawOfferedBy.HasValue)
 			throw new InvalidOperationException("There is no pending draw offer.");
-		var snapshot = SetForcedResult(new(PlayableMatchResultReason.DrawAgreement, null));
+		if (acceptingSide.HasValue && NormalizeColor(acceptingSide.Value, nameof(acceptingSide)) == _drawOfferedBy)
+			throw new InvalidOperationException("Only the recipient can accept a draw offer.");
+		var snapshot = SetForcedResult(new(PlayableMatchResultReason.DrawAgreement, null), completedAtUtc: current.Clock?.SnapshotUtc);
 		return Task.FromResult(snapshot);
 	}
 
@@ -1326,9 +1465,20 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	public Task<UciState> DeclineDrawAsync(CancellationToken ct = default) =>
 		RunCommandAsync(() => DeclineDrawCoreAsync(ct), ct);
 
-	private Task<UciState> DeclineDrawCoreAsync(CancellationToken ct = default)
+	/// <summary>Declines a draw only when the supplied side is the recipient of the pending offer.</summary>
+	public Task<UciState> DeclineDrawAsync(char decliningSide, CancellationToken ct = default) =>
+		RunCommandAsync(() => DeclineDrawCoreAsync(ct, decliningSide), ct);
+
+	private Task<UciState> DeclineDrawCoreAsync(CancellationToken ct = default, char? decliningSide = null)
 	{
 		ct.ThrowIfCancellationRequested();
+		UpdateMatchMetadata();
+		if (State.Result.IsTerminal)
+			throw new InvalidOperationException("The match has already ended.");
+		if (!_drawOfferedBy.HasValue)
+			throw new InvalidOperationException("There is no pending draw offer.");
+		if (decliningSide.HasValue && NormalizeColor(decliningSide.Value, nameof(decliningSide)) == _drawOfferedBy)
+			throw new InvalidOperationException("Only the recipient can decline a draw offer.");
 		var snapshot = UpdateMatchMetadata(drawOfferedBy: null, updateDrawOffer: true);
 		RaiseStateEvent(DrawDeclined, UciGameEngineSessionEventKind.DrawDeclined, snapshot);
 		return Task.FromResult(snapshot);
@@ -1340,14 +1490,35 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	public Task<UciState> ClaimDrawAsync(CancellationToken ct = default) =>
 		RunCommandAsync(() => ClaimDrawCoreAsync(ct), ct);
 
+	/// <summary>Claims a threefold or fifty-move draw by declaring a legal intended move without playing it.</summary>
+	/// <param name="intendedMove">Legal move in UCI notation that would make the draw claim available.</param>
+	/// <param name="ct">Cancellation token.</param>
+	public Task<UciState> ClaimDrawAsync(string intendedMove, CancellationToken ct = default) =>
+		RunCommandAsync(() =>
+		{
+			ct.ThrowIfCancellationRequested();
+			var state = UpdateMatchMetadata();
+			if (state.Result.IsTerminal)
+				throw new InvalidOperationException("The match has already ended.");
+			if (_pendingPromotion.HasValue)
+				throw new InvalidOperationException("Resolve the pending promotion before declaring another move.");
+			var next = state.CurrentFen.ApplyMove(intendedMove);
+			var reason = next.HalfmoveClock >= 100 ? PlayableMatchResultReason.FiftyMoveRule
+				: CountRepetitions(state.BaseFen, next) >= 2 ? PlayableMatchResultReason.ThreefoldRepetition
+				: PlayableMatchResultReason.None;
+			if (reason == PlayableMatchResultReason.None)
+				throw new InvalidOperationException("The intended move does not establish a claimable draw.");
+			return Task.FromResult(SetForcedResult(new(reason, null), LocalPositionRules.NormalizeMove(intendedMove), state.Clock?.SnapshotUtc));
+		}, ct);
+
 	private Task<UciState> ClaimDrawCoreAsync(CancellationToken ct = default)
 	{
 		ct.ThrowIfCancellationRequested();
-		UpdateMatchMetadata();
+		var current = UpdateMatchMetadata();
 		if (!State.ClaimableResult.HasValue)
 			throw new InvalidOperationException("There is no claimable draw available.");
 
-		var snapshot = SetForcedResult(State.ClaimableResult.Value);
+		var snapshot = SetForcedResult(State.ClaimableResult.Value, completedAtUtc: current.Clock?.SnapshotUtc);
 		return Task.FromResult(snapshot);
 	}
 
@@ -1357,11 +1528,18 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	public Task<UciState> ResignAsync(CancellationToken ct = default) =>
 		RunCommandAsync(() => ResignCoreAsync(ct), ct);
 
-	private Task<UciState> ResignCoreAsync(CancellationToken ct = default)
+	/// <summary>Resigns on behalf of either side, including while the opponent is thinking.</summary>
+	public Task<UciState> ResignAsync(char resigningSide, CancellationToken ct = default) =>
+		RunCommandAsync(() => ResignCoreAsync(ct, resigningSide), ct);
+
+	private Task<UciState> ResignCoreAsync(CancellationToken ct = default, char? resigningSide = null)
 	{
 		ct.ThrowIfCancellationRequested();
-		UpdateMatchMetadata();
-		var snapshot = SetForcedResult(new(PlayableMatchResultReason.Resignation, Opposite(CurrentFen.ActiveColor)));
+		char side = NormalizeColor(resigningSide ?? CurrentFen.ActiveColor, nameof(resigningSide));
+		var current = UpdateMatchMetadata();
+		char opponent = Opposite(side);
+		var snapshot = SetForcedResult(new(PlayableMatchResultReason.Resignation,
+			LocalPositionRules.CanPossiblyMate(CurrentFen, opponent) ? opponent : null), completedAtUtc: current.Clock?.SnapshotUtc);
 		return Task.FromResult(snapshot);
 	}
 
@@ -1483,10 +1661,10 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		{
 			_gameId                 = Guid.NewGuid();
 			_nextMoveId             = 0;
-			_nextPendingPromotionId = 0;
 			_appliedMoveHistory     = [];
 			_pendingPromotion       = null;
 			_forcedResult           = default;
+			_declaredDrawMove       = null;
 			_claimableResult        = null;
 			_drawOfferedBy          = null;
 			_clockHistory.Clear();
@@ -1620,8 +1798,8 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 				{
 					if (generation != _classificationRuntime.Generation || token.IsCancellationRequested) return;
 					AcceptPonderGeneration(Engines.Ponder.CurrentSearchGeneration);
-					SetSearchingState(true);
 				}
+				SetBackgroundSearchingState(generation);
 				ponderStarted.TrySetResult(true);
 				foreach (var notation in legalMoves)
 				{
@@ -1657,7 +1835,9 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		var snapshot = await LoadPositionSnapshotAsync(previousState.BaseFen, newMoves, ct, previousState.CurrentFen.ApplyMove(moveNotation)).ConfigureAwait(false);
 		AdvanceClockForCompletedMove(previousState.CurrentFen.ActiveColor, completedAtUtc);
 		_forcedResult = default;
-		if (_drawOfferPolicy == PlayableMatchDrawOfferPolicy.ExpireOnMove)
+		_declaredDrawMove = null;
+		if (_drawOfferPolicy == PlayableMatchDrawOfferPolicy.ExpireOnMove &&
+			_drawOfferedBy.HasValue && _drawOfferedBy != previousState.CurrentFen.ActiveColor)
 			_drawOfferedBy = null;
 		long moveId = Interlocked.Increment(ref _nextMoveId);
 
@@ -1747,13 +1927,13 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		throw new ArgumentException(reason, nameof(move));
 	}
 
-	private UciState UpdateMatchMetadata(char? drawOfferedBy = null, bool updateDrawOffer = false)
+	private UciState UpdateMatchMetadata(char? drawOfferedBy = null, bool updateDrawOffer = false, DateTimeOffset? snapshotUtc = null)
 	{
 		if (updateDrawOffer)
 			_drawOfferedBy = drawOfferedBy;
 
 		MetadataUpdate update;
-		lock (_sync) update = ApplyMatchMetadata(_state);
+		lock (_sync) update = ApplyMatchMetadata(_state, snapshotUtc);
 		RaiseStateEvent(StateChanged, UciGameEngineSessionEventKind.StateChanged, update.Snapshot);
 		if (update.ResultChanged)
 		{
@@ -1764,22 +1944,31 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		return update.Snapshot;
 	}
 
-	private UciState SetForcedResult(PlayableMatchResult result)
+	private UciState SetForcedResult(PlayableMatchResult result, string? declaredDrawMove = null, DateTimeOffset? completedAtUtc = null)
 	{
 		if (State.Result.IsTerminal)
 			throw new InvalidOperationException("The match has already ended.");
 		_forcedResult = result;
+		_declaredDrawMove = declaredDrawMove;
 		_claimableResult = null;
 		_drawOfferedBy = null;
-		return UpdateMatchMetadata();
+		return UpdateMatchMetadata(snapshotUtc: completedAtUtc);
 	}
 
-	private MetadataUpdate ApplyMatchMetadata(UciState state)
+	private MetadataUpdate ApplyMatchMetadata(UciState state, DateTimeOffset? snapshotUtc = null)
 	{
-		var clock = GetClockSnapshot();
+		var clock = GetClockSnapshot(snapshotUtc);
 		var outcome = EvaluateOutcome(state.BaseFen, state.CurrentFen, state.LegalMoves, clock);
 		if (outcome.Result.IsTerminal)
 		{
+			if (!_lastResult.IsTerminal)
+			{
+				Interlocked.Exchange(ref _acceptedPonderGeneration, 0);
+				CoordinatorRuntimeUtilities.CancelAndDispose(ref _bestCts);
+				ClearState();
+				QueuePonderStop();
+				state = state with { IsSearching = false, BestMove = null, PonderMove = null, Evaluation = null };
+			}
 			_forcedResult = outcome.Result;
 			_pendingPromotion = null;
 			_drawOfferedBy = null;
@@ -1855,6 +2044,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	private void InitializeClocks(char activeColor)
 	{
 		_clockHistory.Clear();
+		_clockHistoryOriginMoveCount = 0;
 		if (!_timeControl.HasValue)
 			return;
 
@@ -1908,49 +2098,13 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	}
 
 	private MatchOutcome EvaluateOutcome(
-		Fen                    baseFen,
-		Fen                    fen,
-		IReadOnlyList<string>  legalMoves,
-		PlayableMatchClockState? clock)
+		Fen baseFen, Fen fen, IReadOnlyList<string> legalMoves, PlayableMatchClockState? clock)
 	{
 		if (_forcedResult.IsTerminal)
 			return new(_forcedResult, null);
-
-		if (legalMoves.Count == 0)
-		{
-			return LocalPositionRules.IsCurrentPlayerInCheck(fen)
-				? new(new(PlayableMatchResultReason.Checkmate, Opposite(fen.ActiveColor)), null)
-				: new(new(PlayableMatchResultReason.Stalemate, null), null);
-		}
-
-		if (clock.HasValue)
-		{
-			var activeRemaining = fen.ActiveColor == 'w'
-				? clock.Value.WhiteRemaining
-				: clock.Value.BlackRemaining;
-			if (_timeControl.HasValue &&
-				_timeControl.Value.TimeoutPolicy == PlayableMatchTimeoutPolicy.AutomaticLoss &&
-				activeRemaining <= TimeSpan.Zero)
-				return new(new(PlayableMatchResultReason.Timeout, LocalPositionRules.CanPossiblyMate(fen, Opposite(fen.ActiveColor)) ? Opposite(fen.ActiveColor) : null), null);
-		}
-
-		if (fen.HalfmoveClock >= 150)
-			return new(new(PlayableMatchResultReason.SeventyFiveMoveRule, null), null);
-
-		if (LocalPositionRules.HasInsufficientMaterial(fen))
-			return new(new(PlayableMatchResultReason.InsufficientMaterial, null), null);
-
-		int repetitions = CountRepetitions(baseFen, fen);
-		if (repetitions >= 5)
-			return new(new(PlayableMatchResultReason.FivefoldRepetition, null), null);
-
-		if (fen.HalfmoveClock >= 100)
-			return CreateClaimableOrAutomaticResult(PlayableMatchResultReason.FiftyMoveRule);
-
-		if (repetitions >= 3)
-			return CreateClaimableOrAutomaticResult(PlayableMatchResultReason.ThreefoldRepetition);
-
-		return new(default, null);
+		var outcome = PlayableMatchAdjudication.Evaluate(fen, legalMoves.Count, clock, _timeControl,
+			CountRepetitions(baseFen, fen), _claimableDrawPolicy);
+		return new(outcome.Result, outcome.ClaimableResult);
 	}
 
 	private int CountRepetitions(Fen baseFen, Fen currentFen)
@@ -1966,13 +2120,6 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		return count;
 	}
 
-	private MatchOutcome CreateClaimableOrAutomaticResult(PlayableMatchResultReason reason)
-	{
-		var drawResult = new PlayableMatchResult(reason, null);
-		return _claimableDrawPolicy == PlayableMatchClaimableDrawPolicy.Automatic
-			? new(drawResult, null)
-			: new(default, drawResult);
-	}
 
 	private static char Opposite(char color) => color == 'w' ? 'b' : 'w';
 
@@ -2034,6 +2181,21 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 			RaiseStateEvent(EngineThinkingStopped, UciGameEngineSessionEventKind.EngineThinkingStopped, snapshot);
 	}
 
+	private void SetBackgroundSearchingState(int generation)
+	{
+		var guard = new AnalysisGenerationGuard(this, generation, isPonder: false);
+		UciState snapshot;
+		lock (_sync)
+		{
+			if (!guard.IsCurrent || _state.IsSearching) return;
+			_state = _state with { IsSearching = true };
+			snapshot = _state;
+		}
+		RaiseStateEventForAnalysis(StateChanged, UciGameEngineSessionEventKind.StateChanged, snapshot, guard);
+		RaiseStateEventForAnalysis(SearchStateChanged, UciGameEngineSessionEventKind.SearchStateChanged, snapshot, guard);
+		RaiseStateEventForAnalysis(EngineThinkingStarted, UciGameEngineSessionEventKind.EngineThinkingStarted, snapshot, guard);
+	}
+
 	private void AcceptPonderGeneration(int generation) =>
 		Interlocked.Exchange(ref _acceptedPonderGeneration, generation);
 
@@ -2090,14 +2252,16 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 
 	private void ApplyClassifiedMove(Move move, int generation)
 	{
+		if (Volatile.Read(ref _disposed) != 0) return;
 		_classificationRuntime.ApplyClassifiedMove(ref _state, move, generation, out var snapshot);
 		if (!snapshot.HasValue)
 			return;
 
-		RaiseStateEvent(StateChanged, UciGameEngineSessionEventKind.StateChanged, snapshot.Value);
-		RaiseTypedEvent(MoveClassified, move, UciGameEngineSessionEvent.ForClassifiedMove(move));
+		var guard = new AnalysisGenerationGuard(this, generation, isPonder: false);
+		RaiseStateEventForAnalysis(StateChanged, UciGameEngineSessionEventKind.StateChanged, snapshot.Value, guard);
+		RaiseTypedEventForAnalysis(MoveClassified, move, UciGameEngineSessionEvent.ForClassifiedMove(move), guard);
 #pragma warning disable CS0618
-		_events.Raise(MoveClassificationUpdated, move);
+		_events.RaiseIfCurrent(MoveClassificationUpdated, move, guard);
 #pragma warning restore CS0618
 	}
 
@@ -2105,10 +2269,11 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	{
 		_classificationRuntime.CompleteRun(State, generation, out var snapshot);
 		if (snapshot.HasValue)
-			RaiseStateEvent(
+			RaiseStateEventForAnalysis(
 				ClassificationCompleted,
 				UciGameEngineSessionEventKind.ClassificationCompleted,
-				snapshot.Value
+				snapshot.Value,
+				new AnalysisGenerationGuard(this, generation, isPonder: false)
 			);
 	}
 
@@ -2139,10 +2304,11 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 			snapshot = _state;
 		}
 
-		RaiseStateEvent(StateChanged, UciGameEngineSessionEventKind.StateChanged, snapshot);
-		RaiseTypedEvent(EvaluationChanged, pv, UciGameEngineSessionEvent.ForEvaluation(pv));
+		var guard = new AnalysisGenerationGuard(this, generation, isPonder: true);
+		RaiseStateEventForAnalysis(StateChanged, UciGameEngineSessionEventKind.StateChanged, snapshot, guard);
+		RaiseTypedEventForAnalysis(EvaluationChanged, pv, UciGameEngineSessionEvent.ForEvaluation(pv), guard);
 #pragma warning disable CS0618
-		_events.Raise(EvaluationUpdated, pv);
+		_events.RaiseIfCurrent(EvaluationUpdated, pv, guard);
 #pragma warning restore CS0618
 	}
 
@@ -2168,8 +2334,38 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 			snapshot = _state;
 		}
 
-		RaiseStateEvent(StateChanged, UciGameEngineSessionEventKind.StateChanged, snapshot);
-		RaiseStateEvent(BestMoveChanged, UciGameEngineSessionEventKind.BestMoveChanged, snapshot);
+		var guard = new AnalysisGenerationGuard(this, generation, isPonder: true);
+		RaiseStateEventForAnalysis(StateChanged, UciGameEngineSessionEventKind.StateChanged, snapshot, guard);
+		RaiseStateEventForAnalysis(BestMoveChanged, UciGameEngineSessionEventKind.BestMoveChanged, snapshot, guard);
+	}
+
+	private readonly struct AnalysisGenerationGuard(UciGameEngineSession owner, int generation, bool isPonder)
+		: IEventDeliveryGuard
+	{
+		public bool IsCurrent => Volatile.Read(ref owner._disposed) == 0 &&
+			(isPonder ? generation != 0 && generation == Volatile.Read(ref owner._acceptedPonderGeneration)
+				: generation == owner._classificationRuntime.Generation);
+	}
+
+	private void RaiseStateEventForAnalysis(Action<UciState>? handler, UciGameEngineSessionEventKind kind,
+		UciState state, AnalysisGenerationGuard guard)
+	{
+		// Internal stream subscribers only write to channels. Keep validation and that write atomic with
+		// generation invalidation; application callbacks are dispatched afterwards, outside this lock.
+		lock (_sync)
+		{
+			if (!guard.IsCurrent) return;
+			if (kind == UciGameEngineSessionEventKind.StateChanged) StateObserved?.Invoke(state);
+		}
+		_events.RaiseIfCurrent(handler, state, guard);
+		_events.RaiseIfCurrent(EventPublished, UciGameEngineSessionEvent.ForState(kind, state), guard);
+	}
+
+	private void RaiseTypedEventForAnalysis<T>(Action<T>? handler, T payload,
+		UciGameEngineSessionEvent sessionEvent, AnalysisGenerationGuard guard)
+	{
+		_events.RaiseIfCurrent(handler, payload, guard);
+		_events.RaiseIfCurrent(EventPublished, sessionEvent, guard);
 	}
 
 	private void RaiseSessionEvent(Action? legacyHandler, UciGameEngineSessionEventKind kind)
@@ -2276,6 +2472,8 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		PlayableMatchResult  Result,
 		PlayableMatchResult? ClaimableResult
 	);
+
+	private readonly record struct SavedMatchRestore(PlayableMatchSave Save, ValidatedPlayableMatchSave Validated);
 
 	private readonly record struct MetadataUpdate(
 		UciState Snapshot,

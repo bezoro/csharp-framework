@@ -294,16 +294,7 @@ public sealed class UciGameReviewAnalyzer
 	private static PositionScore InvertScore(PositionScore score) =>
 		new(score.Cp is int cp ? checked(-cp) : null, score.Mate is int mate ? checked(-mate) : null);
 
-	private static PlayableMatchResult GetTerminalResult(Fen fen, ImmutableArray<string> legalMoves, int repetitions)
-	{
-		if (legalMoves.IsEmpty)
-			return LocalPositionRules.IsCurrentPlayerInCheck(fen)
-				? new(PlayableMatchResultReason.Checkmate, LocalPositionRules.Opposite(fen.ActiveColor))
-				: new(PlayableMatchResultReason.Stalemate, null);
-		if (LocalPositionRules.HasInsufficientMaterial(fen))
-			return new(PlayableMatchResultReason.InsufficientMaterial, null);
-		if (fen.HalfmoveClock >= 150)
-			return new(PlayableMatchResultReason.SeventyFiveMoveRule, null);
-		return repetitions >= 5 ? new(PlayableMatchResultReason.FivefoldRepetition, null) : default;
-	}
+	private static PlayableMatchResult GetTerminalResult(Fen fen, ImmutableArray<string> legalMoves, int repetitions) =>
+		PlayableMatchAdjudication.Evaluate(fen, legalMoves.Length, null, null, repetitions,
+			PlayableMatchClaimableDrawPolicy.ClaimRequired).Result;
 }
