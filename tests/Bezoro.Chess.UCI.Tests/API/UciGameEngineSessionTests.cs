@@ -563,7 +563,8 @@ public class UciGameEngineSessionTests
 		var ponder = new UciPonderRuntime(new UciEngineClient(TestResourcePaths.STOCKFISH_PATH));
 		var classifier = CreateClientThatFailsStart("startup failure");
 
-		await using var coordinator = new UciGameEngineSession(snapshotClient, ponder, classifier);
+		await using var coordinator = new UciGameEngineSession(snapshotClient, ponder, classifier,
+			options: UciCoordinatorOptions.Default with { EnableBackgroundAnalysis = true });
 
 		await FluentActions.Awaiting(() => coordinator.StartAsync())
 						   .Should()
@@ -853,7 +854,8 @@ public class UciGameEngineSessionTests
 		);
 		var classifier = CreateClientThatFailsStop("classifier stop failed");
 
-		await using var coordinator = new UciGameEngineSession(snapshotClient, ponder, classifier);
+		await using var coordinator = new UciGameEngineSession(snapshotClient, ponder, classifier,
+			options: UciCoordinatorOptions.Default with { EnableBackgroundAnalysis = true });
 		await coordinator.StartAsync();
 		await coordinator.StartSearchAsync(Fen.Default);
 
@@ -871,7 +873,8 @@ public class UciGameEngineSessionTests
 		var ponder = new UciPonderRuntime(new UciEngineClient(TestResourcePaths.STOCKFISH_PATH));
 		var classifier = CreateClientThatFailsStop("classifier stop failed");
 
-		await using var coordinator = new UciGameEngineSession(snapshotClient, ponder, classifier);
+		await using var coordinator = new UciGameEngineSession(snapshotClient, ponder, classifier,
+			options: UciCoordinatorOptions.Default with { EnableBackgroundAnalysis = true });
 		await coordinator.StartAsync();
 		await coordinator.StartSearchAsync(Fen.Default);
 
@@ -1085,6 +1088,13 @@ public class UciGameEngineSessionTests
 	{
 		var (transport, channel) = UciEngineClientTestHelpers.CreateMockTransport();
 		ConfigureMinimalHandshake(transport, channel);
+		bool started = false;
+		transport.IsStarted.Returns(_ => started);
+		transport.StartAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+		{
+			started = true;
+			return Task.CompletedTask;
+		});
 		transport.StopAsync(Arg.Any<CancellationToken>())
 				 .Returns<Task>(_ => throw new InvalidOperationException(message));
 		return new UciEngineClient(transport);

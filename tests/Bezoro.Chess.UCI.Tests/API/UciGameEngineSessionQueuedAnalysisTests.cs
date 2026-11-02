@@ -97,6 +97,113 @@ public sealed class UciGameEngineSessionQueuedAnalysisTests
         Assert.Equal(1, callbacks);
     }
 
+    [Theory]
+    [InlineData("classification", "pause")]
+    [InlineData("completion", "pause")]
+    [InlineData("evaluation", "pause")]
+    [InlineData("bestmove", "pause")]
+    [InlineData("searching", "pause")]
+    [InlineData("classification", "resume")]
+    [InlineData("completion", "resume")]
+    [InlineData("evaluation", "resume")]
+    [InlineData("bestmove", "resume")]
+    [InlineData("searching", "resume")]
+    [InlineData("classification", "offer")]
+    [InlineData("completion", "offer")]
+    [InlineData("evaluation", "offer")]
+    [InlineData("bestmove", "offer")]
+    [InlineData("searching", "offer")]
+    public async Task QueuedWorkerState_DoesNotOverwriteNewerMetadataInTheSameGeneration(string notification, string change)
+    {
+        var context = new BlockingQueuedContext();
+        var now = DateTimeOffset.UnixEpoch;
+        var options = new UciCoordinatorOptions
+        {
+            TimeControl = new PlayableMatchTimeControl(TimeSpan.FromMinutes(5), TimeSpan.Zero)
+        };
+        await using var session = new UciGameEngineSession(syncContext: context, options: options, utcNowProvider: () => now);
+        await session.LoadMatchAsync(PlayableMatchSetup.Standard);
+        if (change == "resume") await session.PauseClockAsync();
+        var snapshots = new List<UciState>();
+        var canonicalSnapshots = new List<UciState>();
+        session.StateChanged += snapshots.Add;
+        session.EventPublished += value =>
+        {
+            if (value.State.HasValue) canonicalSnapshots.Add(value.State.Value);
+        };
+        context.Drain();
+        snapshots.Clear();
+        canonicalSnapshots.Clear();
+        await using var stream = session.StreamStateAsync().GetAsyncEnumerator();
+        Assert.True(await stream.MoveNextAsync());
+        int generation = session.AcceptedClassificationGenerationForTests;
+        context.Arm();
+        Task worker = Task.Run(() => Publish(session, notification));
+        try
+        {
+            Assert.True(context.Entered.Wait(TimeSpan.FromSeconds(5)), "The worker must reach its queued state notification.");
+            now += TimeSpan.FromSeconds(1);
+            if (change == "pause") await session.PauseClockAsync();
+            else if (change == "resume") await session.ResumeClockAsync();
+            else await session.OfferDrawAsync();
+        }
+        finally { context.Release.Set(); }
+        await worker;
+        context.Drain();
+
+        Assert.Equal(generation, session.AcceptedClassificationGenerationForTests);
+        Assert.NotEmpty(snapshots);
+        Assert.NotEmpty(canonicalSnapshots);
+        Assert.Equal(session.State.Clock, snapshots[^1].Clock);
+        Assert.Equal(session.State.DrawOfferedBy, snapshots[^1].DrawOfferedBy);
+        Assert.Equal(session.State.Clock, canonicalSnapshots[^1].Clock);
+        Assert.Equal(session.State.DrawOfferedBy, canonicalSnapshots[^1].DrawOfferedBy);
+        Assert.True(await stream.MoveNextAsync());
+        Assert.Equal(session.State.Clock, stream.Current.Clock);
+        Assert.Equal(session.State.DrawOfferedBy, stream.Current.DrawOfferedBy);
+    }
+
+    [Fact]
+    public async Task QueuedMetadataState_DoesNotOverwriteANewerEvaluationInTheSameGeneration()
+    {
+        var context = new BlockingQueuedContext();
+        var options = new UciCoordinatorOptions
+        {
+            TimeControl = new PlayableMatchTimeControl(TimeSpan.FromMinutes(5), TimeSpan.Zero)
+        };
+        await using var session = new UciGameEngineSession(syncContext: context, options: options,
+            utcNowProvider: () => DateTimeOffset.UnixEpoch);
+        await session.LoadMatchAsync(PlayableMatchSetup.Standard);
+        var snapshots = new List<UciState>();
+        var canonicalSnapshots = new List<UciState>();
+        session.StateChanged += snapshots.Add;
+        session.EventPublished += value =>
+        {
+            if (value.Kind == UciGameEngineSessionEventKind.StateChanged && value.State.HasValue)
+                canonicalSnapshots.Add(value.State.Value);
+        };
+        context.Drain();
+        snapshots.Clear();
+        canonicalSnapshots.Clear();
+        context.Arm();
+        Task pause = Task.Run(() => session.PauseClockAsync());
+        try
+        {
+            Assert.True(context.Entered.Wait(TimeSpan.FromSeconds(5)), "The clock command must reach its queued state notification.");
+            Publish(session, "evaluation");
+        }
+        finally { context.Release.Set(); }
+        await pause;
+        context.Drain();
+
+        Assert.NotNull(session.State.Evaluation);
+        Assert.NotEmpty(snapshots);
+        Assert.NotEmpty(canonicalSnapshots);
+        Assert.Equal(session.State.Evaluation, snapshots[^1].Evaluation);
+        Assert.Equal(session.State.Evaluation, canonicalSnapshots[^1].Evaluation);
+        Assert.True(snapshots[^1].Clock!.Value.IsPaused);
+    }
+
     private static void Publish(UciGameEngineSession session, string notification)
     {
         int classification = session.AcceptedClassificationGenerationForTests;

@@ -48,6 +48,8 @@ public sealed class UciGameEngineSessionClockTests
 		[
 			startedAt,
 			startedAt,
+			startedAt,
+			startedAt,
 			startedAt + TimeSpan.FromSeconds(5),
 			startedAt + TimeSpan.FromSeconds(5),
 			startedAt + TimeSpan.FromSeconds(8)

@@ -57,13 +57,17 @@ Loaded positions now use the same basic validation as game review: both kings, l
 
 ## Optional engine analysis
 
-`StartAsync` and `CreateAsync(enginePath, ...)` explicitly start engines. Call `SearchAsync`, `StartSearchAsync`, or `ClassifyMoveAsync` when analysis is needed. Automatic pondering and scored classification after each position change require `EnableBackgroundAnalysis = true`; the default is `false`.
+`StartAsync` and `CreateAsync(enginePath, ...)` start the primary engine. With automatic analysis disabled, the ponder and classifier processes remain stopped. `StartSearchAsync` starts and configures the ponder worker on demand; an uncached `ClassifyMoveAsync` request starts the classifier worker on demand. `SearchAsync` uses the primary engine. Automatic pondering and scored classification after each position change require `EnableBackgroundAnalysis = true`; this explicitly starts both optional workers and defaults to `false`.
+
+`IsStarted` describes the primary engine. `IsHealthy` includes the primary engine and each running optional worker. Configuration commands target only currently started engines; a worker started later uses its own defaults and the configured coordinator search settings. Stopping does not contact workers that were never started. A failed on-demand worker startup leaves the primary engine available; failed automatic-analysis startup rolls back the engines started by that startup sequence.
 
 `new UciCoordinatorOptions()` uses the documented defaults. Sessions validate resource budgets and enum policies at construction; `default(UciCoordinatorOptions)` is an uninitialized, invalid configuration.
 
 Current-position searches send the base FEN and complete played history so the engine retains repetition context. Terminal results cancel automatic classification and pondering, and discard obsolete search hints.
 
 Queued analysis notifications recheck their generation when the UI context delivers them. Results from a previous position cannot overwrite the Unity view after moving, undoing, loading, ending the match, or disposing the session. Gameplay event history is retained.
+
+Ephemeral `StateChanged` snapshots also check a shared state version, preventing an older worker update from overwriting a newer paused clock or draw offer while the board position stays the same. Typed gameplay events and typed evaluation/classification results keep their own history and generation semantics.
 
 Migration: undo no longer resets both clocks to their initial values. Draw-offer expiry follows the recipient's move. Loaded positions that violate playable-position constraints now throw before replacing the current game. Uninitialized or invalid coordinator options fail at construction.
 
@@ -272,7 +276,7 @@ Use `PlayableMatchSetup` for save/load or authored setup assets. `PlayableMatchC
 | Member                                                            | Description                                                         |
 |-------------------------------------------------------------------|---------------------------------------------------------------------|
 | `CreateAsync(enginePath, options, syncContext, perspectiveColor, whiteController, blackController, ct)` | Constructs and starts a ready-to-use game-engine session. |
-| `StartAsync(ct)` / `StopAsync(ct)`                                | Starts or stops all internal engine instances.                      |
+| `StartAsync(ct)` / `StopAsync(ct)`                                | Starts the primary engine (and opted-in analysis workers), or stops started engines. |
 | `ResetAsync(ct)` / `NewGameAsync(ct)`                             | Loads the standard position or clears the local gameplay context.  |
 | `LoadMatchAsync(setup, ct)`                                        | Loads a complete `PlayableMatchSetup`, including base FEN, played moves, and optional clock setup. |
 | `UpdatePositionAsync(fen, playedMoves, ct)` / `UpdatePositionAsync(fen, playedMoves, clockRestore, ct)` | Obsolete migration shims for older callers; prefer `LoadMatchAsync`. |
@@ -291,9 +295,9 @@ Use `PlayableMatchSetup` for save/load or authored setup assets. `PlayableMatchC
 | `ResignAsync(ct)`                                                 | Ends the current game immediately by resignation for the side to move. |
 | `OfferDrawAsync(ct)` / `AcceptDrawAsync(ct)` / `DeclineDrawAsync(ct)` / `ClaimDrawAsync(ct)` | Drives draw-offer and claimable-draw flows backed by protocol rules. |
 | `PauseClockAsync(ct)` / `ResumeClockAsync(ct)`                    | Pauses or resumes the configured match clock.                       |
-| `SetOptionAsync(name, value, ct)`                                 | Applies a UCI option to all internal engine instances.              |
-| `SetDebugAsync(enabled, ct)`                                      | Broadcasts `debug on/off` to all internal engines.                  |
-| `RegisterAsync(registration, ct)`                                 | Broadcasts the standard `register` command to all internal engines. |
+| `SetOptionAsync(name, value, ct)`                                 | Applies a UCI option to currently started engines.                 |
+| `SetDebugAsync(enabled, ct)`                                      | Broadcasts `debug on/off` to currently started engines.             |
+| `RegisterAsync(registration, ct)`                                 | Broadcasts `register` to currently started engines.                |
 | `GetCurrentFenAsync(ct)`                                          | Returns the current local FEN without engine I/O.                   |
 | `PerspectiveColor` / `WhiteController` / `BlackController`        | Controller-neutral playable-side configuration mirrored from protocol. |
 | `GetController(side)`                                             | Returns the configured controller for `w` or `b`.                   |
