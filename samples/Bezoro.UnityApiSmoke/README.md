@@ -33,6 +33,8 @@ The SDK's LangVersion selects syntax, not an older compiler's metadata handling 
 
 The helper compiles all five files with the staged runtime dependency closure. Warnings are errors except CS1701/CS1702, matching the SDK's default suppression for reference-assembly version unification. .NET Standard 2.0 dependencies legitimately bind to the supplied 2.1 profile. Other compiler warnings and errors remain fatal.
 
+It separately compiles the two actual MonoBehaviour adapter files against the small test-only Unity API surface. This catches older compiler/source compatibility problems; it does not execute Unity lifecycle, rendering, serialization or a player build.
+
 Real Roslyn 3.8.0-5.20562.2 checks found two important contracts. Stack-backed out-span views must first be initialized from their buffer, so the span consumers use empty views without allocating. Constructors with C# 11 required members cannot be called by that compiler, even with a complete object initializer; LogPayload now has a validated ordinary constructor instead.
 
 The .NET 10 builds also forward the .NET Standard IsExternalInit shim to the runtime type. This keeps init-setter signatures callable when a .NET host selects the .NET framework DLLs for a consumer compiled against .NET Standard. Build tests execute that mixed-target combination, including pool options, WorldConfig, typing options, logging metadata and chess options.

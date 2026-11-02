@@ -41,12 +41,27 @@ foreach ($file in @('FoundationConsumer.cs', 'ToolkitConsumer.cs', 'BehaviorCons
 }
 [IO.File]::WriteAllLines($response, $arguments, [Text.UTF8Encoding]::new($false))
 
+# Compile the actual MonoBehaviour sample as well. The small Unity surface is test-only;
+# this checks compiler compatibility without claiming an Editor/player execution.
+$unityOutput = Join-Path $outputRoot 'Bezoro.Chess.Unity.CompilerCheck.dll'
+$unityResponse = Join-Path $outputRoot 'unity-sample.rsp'
+$unityArguments = @('/nostdlib+', '/target:library', '/langversion:9.0', '/nullable:disable', '/warnaserror+', '/nowarn:1701,1702')
+$unityArguments += '/out:"' + $unityOutput + '"'
+$unityArguments += @($references | ForEach-Object { '/reference:"' + $_ + '"' })
+$unitySources = @(Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'samples/Bezoro.Chess.Unity') -File -Filter '*.cs' | Sort-Object Name | ForEach-Object FullName)
+$unitySources += Join-Path $repositoryRoot 'tests/Bezoro.Chess.Unity.CompilerCheck/UnityApiStub.cs'
+$unityArguments += @($unitySources | ForEach-Object { '"' + $_ + '"' })
+[IO.File]::WriteAllLines($unityResponse, $unityArguments, [Text.UTF8Encoding]::new($false))
+
 # An older compiler can run on the installed SDK runtime without changing project compiler settings.
 $previousRollForward = $env:DOTNET_ROLL_FORWARD
 try {
     $env:DOTNET_ROLL_FORWARD = 'LatestMajor'
     & dotnet $compiler -noconfig "@$response"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & dotnet $compiler -noconfig "@$unityResponse"
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 finally { $env:DOTNET_ROLL_FORWARD = $previousRollForward }
 Write-Host "C# 9 consumer compiled with the supplied compiler: $outputAssembly"
+Write-Host "C# 9 Unity adapter compiled against the test-only Unity surface: $unityOutput"
