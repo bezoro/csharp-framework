@@ -38,11 +38,15 @@ public sealed class ChessStudy
     public string Result => _tags.TryGetValue("Result", out string? result) ? result : "*";
 
     /// <summary>Plays a legal move or selects its existing continuation. Failure leaves the tree and cursor unchanged.</summary>
-    public StudyNode Play(string move)
+    public StudyNode Play(string move) => PlayCore(move, reuseContinuation: true);
+
+    internal StudyNode ImportSan(string san) => PlayCore(ChessNotation.ParseSan(Current.Position, san), reuseContinuation: false);
+
+    private StudyNode PlayCore(string move, bool reuseContinuation)
     {
         if (move is null) throw new ArgumentNullException(nameof(move));
         string normalized = move.Trim().ToLowerInvariant();
-        for (int i = 0; i < Current.VariationCount; i++)
+        for (int i = 0; reuseContinuation && i < Current.VariationCount; i++)
         {
             StudyNode child = Current.GetVariation(i);
             if (child.Move == normalized) return Current = child;
@@ -78,13 +82,22 @@ public sealed class ChessStudy
         ValidateOwner(node);
         Current = node;
     }
-    /// <summary>Attaches a comment. Braces are rejected because PGN brace comments cannot escape them.</summary>
+    /// <summary>Attaches a comment. Export uses semicolon comments when its text contains braces.</summary>
     public void SetComment(StudyNode node, string comment)
     {
         ValidateOwner(node);
         if (comment is null) throw new ArgumentNullException(nameof(comment));
-        if (comment.AsSpan().IndexOfAny('{', '}', '\0') >= 0) throw new ArgumentException("Comments cannot contain braces or NUL.", nameof(comment));
+        if (comment.IndexOf('\0') >= 0) throw new ArgumentException("Comments cannot contain NUL.", nameof(comment));
         node.Comment = comment;
+    }
+    /// <summary>Attaches a comment before a move, preserving variation introductions during PGN interchange.</summary>
+    public void SetLeadingComment(StudyNode node, string comment)
+    {
+        ValidateOwner(node);
+        if (node.Parent is null) throw new ArgumentException("Use the root's position comment before the main line.", nameof(node));
+        if (comment is null) throw new ArgumentNullException(nameof(comment));
+        if (comment.IndexOf('\0') >= 0) throw new ArgumentException("Comments cannot contain NUL.", nameof(comment));
+        node.LeadingComment = comment;
     }
     /// <summary>Adds one distinct numeric annotation glyph to a move (root annotations are not allowed).</summary>
     public void AddAnnotation(StudyNode node, byte glyph)
@@ -108,10 +121,11 @@ public sealed class ChessStudy
     /// <summary>Copies the selected root-to-cursor move history for an explicit engine review request.</summary>
     public ImmutableArray<string> GetCurrentMoves()
     {
-        var moves = new string[Current.Depth];
+        var moves = ImmutableArray.CreateBuilder<string>(Current.Depth);
+        moves.Count = Current.Depth;
         StudyNode node = Current;
-        for (int i = moves.Length - 1; i >= 0; i--, node = node.Parent!) moves[i] = node.Move!;
-        return ImmutableArray.CreateRange(moves);
+        for (int i = moves.Count - 1; i >= 0; i--, node = node.Parent!) moves[i] = node.Move!;
+        return moves.MoveToImmutable();
     }
     private void ValidateOwner(StudyNode node)
     {

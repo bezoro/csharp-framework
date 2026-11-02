@@ -37,7 +37,9 @@ public static class Pgn
         if (hasFen) start = Fen.Parse(rawFen!) ?? throw new FormatException("Invalid starting FEN.");
         if (tags.TryGetValue("Variant", out string? variant) && variant != "Standard")
             throw new FormatException("Only standard chess PGN is supported.");
-        var study = new ChessStudy(start, limits.MaxNodes);
+        ChessStudy study;
+        try { study = new ChessStudy(start, limits.MaxNodes); }
+        catch (ArgumentException exception) { throw new FormatException("Invalid playable starting position.", exception); }
         foreach (var tag in tags)
         {
             if (tag.Key is "SetUp" or "FEN") continue;
@@ -46,15 +48,16 @@ public static class Pgn
         }
         var variations = new Stack<(StudyNode Resume, StudyNode Start)>();
         bool canVary = false, finished = false;
+        string leadingComment = string.Empty;
         while (token.Kind != '\0')
         {
             if (finished) throw new FormatException("Unexpected data after PGN result; import one game at a time.");
             switch (token.Kind)
             {
                 case 'c':
-                    if ((long)study.Current.Comment.Length + token.Text.Length + (study.Current.Comment.Length == 0 ? 0 : 1) > limits.MaxTokenCharacters)
-                        throw new FormatException("PGN combined comment limit exceeded.");
-                    study.SetComment(study.Current, study.Current.Comment.Length == 0 ? token.Text : study.Current.Comment + "\n" + token.Text);
+                    if (!canVary && variations.Count != 0)
+                        leadingComment = AppendComment(leadingComment, token.Text, limits.MaxTokenCharacters);
+                    else study.SetComment(study.Current, AppendComment(study.Current.Comment, token.Text, limits.MaxTokenCharacters));
                     break;
                 case '(':
                     if (!canVary || study.Current.Parent is null) throw new FormatException("A variation must replace a preceding move.");
@@ -87,10 +90,15 @@ public static class Pgn
                         break;
                     }
                     byte? suffixGlyph = StripGlyph(ref symbol);
-                    try { study.PlaySan(symbol); }
+                    try { study.ImportSan(symbol); }
                     catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or FormatException)
                     { throw new FormatException("Invalid PGN move: " + token.Text, exception); }
                     if (suffixGlyph.HasValue) study.AddAnnotation(study.Current, suffixGlyph.Value);
+                    if (leadingComment.Length != 0)
+                    {
+                        study.SetLeadingComment(study.Current, leadingComment);
+                        leadingComment = string.Empty;
+                    }
                     canVary = true;
                     break;
                 default: throw new FormatException("Unexpected PGN token.");
@@ -118,7 +126,7 @@ public static class Pgn
             WriteTag(output, "FEN", study.Root.Position.Raw);
         }
         output.Append('\n');
-        if (study.Root.Comment.Length != 0) output.Append('{').Append(study.Root.Comment).Append("} ");
+        WriteComment(output, study.Root.Comment);
         var work = new Stack<(StudyNode? Node, char Punctuation, bool Siblings)>();
         if (study.Root.VariationCount != 0) work.Push((study.Root.GetVariation(0), '\0', true));
         while (work.Count != 0)
@@ -126,10 +134,11 @@ public static class Pgn
             var item = work.Pop();
             if (item.Node is not { } node) { output.Append(item.Punctuation).Append(' '); continue; }
             Fen parent = node.Parent!.Position;
+            WriteComment(output, node.LeadingComment);
             output.Append(parent.FullmoveNumber.ToString(CultureInfo.InvariantCulture))
                 .Append(parent.ActiveColor == 'w' ? ". " : "... ").Append(node.San).Append(' ');
             for (int i = 0; i < node.AnnotationCount; i++) output.Append('$').Append(node.GetAnnotation(i).ToString(CultureInfo.InvariantCulture)).Append(' ');
-            if (node.Comment.Length != 0) output.Append('{').Append(node.Comment).Append("} ");
+            WriteComment(output, node.Comment);
             if (node.VariationCount != 0) work.Push((node.GetVariation(0), '\0', true));
             if (!item.Siblings) continue;
             for (int i = node.Parent.VariationCount - 1; i >= 1; i--)
@@ -145,6 +154,19 @@ public static class Pgn
 
     private static void WriteTag(StringBuilder output, string name, string value) =>
         output.Append('[').Append(name).Append(" \"").Append(value.Replace("\\", "\\\\").Replace("\"", "\\\"")).Append("\"]\n");
+
+    private static void WriteComment(StringBuilder output, string comment)
+    {
+        if (comment.Length == 0) return;
+        if (comment.AsSpan().IndexOfAny('{', '}') < 0) output.Append('{').Append(comment).Append("} ");
+        else output.Append(';').Append(comment.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\n;")).Append('\n');
+    }
+    private static string AppendComment(string previous, string next, int maxCharacters)
+    {
+        if ((long)previous.Length + next.Length + (previous.Length == 0 ? 0 : 1) > maxCharacters)
+            throw new FormatException("PGN combined comment limit exceeded.");
+        return previous.Length == 0 ? next : previous + "\n" + next;
+    }
 
     private static string StripMoveNumber(string symbol)
     {
@@ -199,7 +221,7 @@ public static class Pgn
                 if (c == '{' && _offset == text.Length) throw new FormatException("Unclosed PGN comment.");
                 string comment = Slice(start);
                 if (c == '{') _offset++;
-                if (comment.AsSpan().IndexOfAny('{', '}', '\0') >= 0) throw new FormatException("Invalid PGN comment.");
+                if (comment.IndexOf('\0') >= 0 || c == '{' && comment.IndexOf('{') >= 0) throw new FormatException("Invalid PGN comment.");
                 return new Token('c', comment);
             }
             if (c == '"')

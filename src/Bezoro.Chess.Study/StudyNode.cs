@@ -29,6 +29,8 @@ public sealed class StudyNode
     public int Depth { get; }
     /// <summary>Gets the comment attached to this position.</summary>
     public string Comment { get; internal set; } = string.Empty;
+    /// <summary>Gets a comment before this move, including a variation's introductory comment.</summary>
+    public string LeadingComment { get; internal set; } = string.Empty;
     /// <summary>Gets the number of alternative continuations, including the main line at index zero.</summary>
     public int VariationCount => _variations?.Count ?? 0;
     /// <summary>Gets a continuation. No collection or enumerator is allocated.</summary>

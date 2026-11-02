@@ -125,7 +125,41 @@ public sealed class StudyTests
         Assert.Throws<FormatException>(() => Pgn.Parse("1.e4 (1.d4) *", new PgnReadLimits(maxVariationDepth: 0)));
         Assert.Throws<FormatException>(() => Pgn.Parse("{abcd} *", new PgnReadLimits(maxTokenCharacters: 3)));
         Assert.Throws<FormatException>(() => Pgn.Parse("[White \"abcd\"] *", new PgnReadLimits(maxTokenCharacters: 3)));
+        Assert.Throws<FormatException>(() => Pgn.Parse("{ab} {cd} *", new PgnReadLimits(maxTokenCharacters: 3)));
     }
+
+    [Fact]
+    public void RepeatedVariationPathsKeepTheirOwnCommentsAndNeverReplaceTheMainLine()
+    {
+        var study = Pgn.Parse("1.e4 {main} (1.e4 {alternative} e5) c5 *");
+        Assert.Equal(2, study.Root.VariationCount);
+        var main = study.Root.GetVariation(0);
+        var alternative = study.Root.GetVariation(1);
+        Assert.Equal("main", main.Comment);
+        Assert.Equal("alternative", alternative.Comment);
+        Assert.Equal("c7c5", main.GetVariation(0).Move);
+        Assert.Equal("e7e5", alternative.GetVariation(0).Move);
+        string exported = Pgn.Write(study);
+        Assert.Equal(exported, Pgn.Write(Pgn.Parse(exported)));
+    }
+
+    [Fact]
+    public void SemicolonBracesAndVariationIntroductionsRetainTheirScope()
+    {
+        var study = Pgn.Parse("1.e4 ; note {idea}\n ({Alternative} 1.d4 {postmove}) *");
+        Assert.Equal(string.Empty, study.Root.Comment);
+        Assert.Equal(" note {idea}", study.Root.GetVariation(0).Comment);
+        Assert.Equal("Alternative", study.Root.GetVariation(1).LeadingComment);
+        Assert.Equal("postmove", study.Root.GetVariation(1).Comment);
+        string exported = Pgn.Write(study);
+        Assert.Equal(exported, Pgn.Write(Pgn.Parse(exported)));
+    }
+
+    [Theory]
+    [InlineData("[SetUp \"1\"] [FEN \"8/8/8/8/8/8/8/8 w - - 0 1\"] *")]
+    [InlineData("[Variant \"Chess960\"] *")]
+    public void InvalidPlayableSetupsAndUnsupportedVariantsHaveTheImportExceptionContract(string input) =>
+        Assert.Throws<FormatException>(() => Pgn.Parse(input));
 
     [Fact]
     public void DeterministicGamesRoundTripAllLegalMovesWithoutAnEngine()
