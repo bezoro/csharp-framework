@@ -1,0 +1,298 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Events</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Events.Abstractions.IEventBus">
+            <summary>
+                Type-safe event bus supporting synchronous dispatch, queued dispatch, and priority-ordered handlers.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Events.Abstractions.IEventBus.QueuedCount">
+            <summary>
+                The number of events currently in the queue.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Events.Abstractions.IEventBus.SubscriptionCount">
+            <summary>
+                The total number of active subscriptions across all event types.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IEventBus.Unsubscribe(Bezoro.Events.Types.SubscriptionHandle)">
+            <summary>
+                Removes a subscription by its handle.
+            </summary>
+            <returns><c>true</c> if the subscription was found and removed; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IEventBus.Publish``1(``0)">
+            <summary>
+                Publishes an event synchronously, invoking all matching handlers inline.
+            </summary>
+            <returns>The context after all handlers have run (check <see cref="P:Bezoro.Events.Types.EventContext`1.Handled" />).</returns>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IEventBus.FlushQueued">
+            <summary>
+                Dispatches all queued events in order.
+            </summary>
+            <returns>The number of events dispatched.</returns>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IEventBus.FlushQueued(System.Int32)">
+            <summary>
+                Dequeues at most <paramref name="maxEvents" /> events, including events without handlers
+                or with failed dispatch. Callback-enqueued events can consume the remaining budget.
+                Nested flushes have independent budgets and counts. This does not limit elapsed time or handler work.
+            </summary>
+            <returns>The number of events directly dequeued by this call.</returns>
+            <exception cref="T:System.ObjectDisposedException">The bus is disposed, regardless of the budget.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="maxEvents" /> is negative.</exception>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IEventBus.Subscribe``1(System.Action{Bezoro.Events.Types.EventContext{``0}},System.Int32)">
+            <summary>
+                Subscribes a handler to events of type <typeparamref name="TEvent" />.
+                Higher priority handlers run first. Same-priority handlers run in subscription order.
+            </summary>
+            <returns>A handle that can be used to unsubscribe.</returns>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IEventBus.Enqueue``1(``0)">
+            <summary>
+                Enqueues an event for deferred dispatch via <see cref="M:Bezoro.Events.Abstractions.IEventBus.FlushQueued" />.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Events.Abstractions.IUnityEventBuses">
+            <summary>
+                Aggregates update-phase event buses commonly used in Unity-style game loops.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Events.Abstractions.IUnityEventBuses.FixedUpdate">
+            <summary>
+                Event bus flushed during FixedUpdate.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Events.Abstractions.IUnityEventBuses.LateUpdate">
+            <summary>
+                Event bus flushed during LateUpdate.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Events.Abstractions.IUnityEventBuses.Update">
+            <summary>
+                Event bus flushed during Update.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushFixedUpdate">
+            <summary>
+                Flushes queued events from the FixedUpdate bus.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushFixedUpdate(System.Int32)">
+            <summary>Flushes at most the given number of queued FixedUpdate events.</summary>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushLateUpdate">
+            <summary>
+                Flushes queued events from the LateUpdate bus.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushLateUpdate(System.Int32)">
+            <summary>Flushes at most the given number of queued LateUpdate events.</summary>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushUpdate">
+            <summary>
+                Flushes queued events from the Update bus.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IUnityEventBuses.FlushUpdate(System.Int32)">
+            <summary>Flushes at most the given number of queued Update events.</summary>
+        </member>
+        <member name="T:Bezoro.Events.Services.EventBus">
+            <summary>
+                Thread-safe event bus with priority-ordered handlers, cancellable propagation,
+                synchronous inline dispatch, and queued deferred dispatch.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.#ctor">
+            <summary>Creates a bus without handler-error reporting.</summary>
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.#ctor(System.Action{System.Exception})">
+            <summary>Creates a bus with reporting for exceptions caught from handlers.</summary>
+            <param name="reportHandlerError">Runs inline after a handler fails. Reporter failures are ignored.</param>
+        </member>
+        <member name="P:Bezoro.Events.Services.EventBus.QueuedCount">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.Events.Services.EventBus.SubscriptionCount">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.Unsubscribe(Bezoro.Events.Types.SubscriptionHandle)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.Publish``1(``0)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.FlushQueued">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.FlushQueued(System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.Subscribe``1(System.Action{Bezoro.Events.Types.EventContext{``0}},System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.Dispose">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.Enqueue``1(``0)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.Events.Services.UnityEventBuses">
+            <summary>
+                Default implementation of <see cref="T:Bezoro.Events.Abstractions.IUnityEventBuses" /> backed by <see cref="T:Bezoro.Events.Services.EventBus" /> instances.
+            </summary>
+            <remarks>
+                Creates Unity event buses backed by the provided <see cref="T:Bezoro.Events.Abstractions.IEventBus" /> instances.
+            </remarks>
+            <param name="update">The Update bus.</param>
+            <param name="fixedUpdate">The FixedUpdate bus.</param>
+            <param name="lateUpdate">The LateUpdate bus.</param>
+            <param name="ownsBuses">Whether this instance should dispose the provided buses.</param>
+        </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.#ctor(Bezoro.Events.Abstractions.IEventBus,Bezoro.Events.Abstractions.IEventBus,Bezoro.Events.Abstractions.IEventBus,System.Boolean)">
+            <summary>
+                Default implementation of <see cref="T:Bezoro.Events.Abstractions.IUnityEventBuses" /> backed by <see cref="T:Bezoro.Events.Services.EventBus" /> instances.
+            </summary>
+            <remarks>
+                Creates Unity event buses backed by the provided <see cref="T:Bezoro.Events.Abstractions.IEventBus" /> instances.
+            </remarks>
+            <param name="update">The Update bus.</param>
+            <param name="fixedUpdate">The FixedUpdate bus.</param>
+            <param name="lateUpdate">The LateUpdate bus.</param>
+            <param name="ownsBuses">Whether this instance should dispose the provided buses.</param>
+        </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.#ctor">
+            <summary>
+                Creates Unity event buses backed by new <see cref="T:Bezoro.Events.Services.EventBus" /> instances.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Events.Services.UnityEventBuses.FixedUpdate">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.Events.Services.UnityEventBuses.LateUpdate">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.Events.Services.UnityEventBuses.Update">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushFixedUpdate">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushFixedUpdate(System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushLateUpdate">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushLateUpdate(System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushUpdate">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.FlushUpdate(System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.UnityEventBuses.Dispose">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.Events.Types.EventContext`1">
+            <summary>
+                Context wrapper passed to event handlers, carrying the event data and a cancellation flag.
+            </summary>
+            <typeparam name="TEvent">The event struct type.</typeparam>
+            <remarks>
+                Creates a new event context wrapping the specified event data.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Events.Types.EventContext`1.#ctor(`0)">
+            <summary>
+                Context wrapper passed to event handlers, carrying the event data and a cancellation flag.
+            </summary>
+            <typeparam name="TEvent">The event struct type.</typeparam>
+            <remarks>
+                Creates a new event context wrapping the specified event data.
+            </remarks>
+        </member>
+        <member name="P:Bezoro.Events.Types.EventContext`1.Data">
+            <summary>
+                The event data.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Events.Types.EventContext`1.Handled">
+            <summary>
+                Set to <c>true</c> to stop further handlers from processing this event.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Events.Types.EventSubscription">
+            <summary>
+                Internal record of a single event subscription.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Events.Types.EventSubscription.#ctor(Bezoro.Events.Types.SubscriptionHandle,System.Int32,System.Delegate)">
+            <summary>
+                Internal record of a single event subscription.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Events.Types.QueuedEvent">
+            <summary>
+                Type-erased queued dispatch. The typed implementation owns its value without a closure or delegate.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Events.Types.SubscriptionHandle">
+            <summary>
+                Lightweight handle identifying an event subscription.
+            </summary>
+            <remarks>
+                Creates a new subscription handle with the specified id.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Events.Types.SubscriptionHandle.#ctor(System.Int32)">
+            <summary>
+                Lightweight handle identifying an event subscription.
+            </summary>
+            <remarks>
+                Creates a new subscription handle with the specified id.
+            </remarks>
+        </member>
+        <member name="F:Bezoro.Events.Types.SubscriptionHandle.None">
+            <summary>
+                Represents an invalid/uninitialized handle.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Events.Types.SubscriptionHandle.Id">
+            <summary>
+                The unique identifier for this subscription.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Events.Types.SubscriptionHandle.IsValid">
+            <summary>
+                Whether this handle represents a valid subscription.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Events.Types.SubscriptionHandle.op_Equality(Bezoro.Events.Types.SubscriptionHandle,Bezoro.Events.Types.SubscriptionHandle)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Types.SubscriptionHandle.op_Inequality(Bezoro.Events.Types.SubscriptionHandle,Bezoro.Events.Types.SubscriptionHandle)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Types.SubscriptionHandle.Equals(Bezoro.Events.Types.SubscriptionHandle)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Types.SubscriptionHandle.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Types.SubscriptionHandle.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Types.SubscriptionHandle.ToString">
+            <inheritdoc />
+        </member>
+    </members>
+</doc>

@@ -1,0 +1,292 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.BehaviorTrees</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorActionHandle">
+            <summary>Identifies one action occurrence resolved by a construction-time compilation.</summary>
+            <remarks>The default handle is invalid. Resolve it through its originating compilation before passing compact IDs to a runtime.</remarks>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorActivation">
+            <summary>Identifies one action activation in one runner. Tokens are not durable IDs.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorActivation.Owner">
+            <summary>Gets the owning runner's process-local identity; zero identifies a default token.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorActivation.Serial">
+            <summary>Gets the activation serial, which is never reused by this runner.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorActivation.Equals(Bezoro.BehaviorTrees.BehaviorActivation)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorActivation.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorActivation.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorActivation.op_Equality(Bezoro.BehaviorTrees.BehaviorActivation,Bezoro.BehaviorTrees.BehaviorActivation)">
+            <summary>Compares activation identities.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorActivation.op_Inequality(Bezoro.BehaviorTrees.BehaviorActivation,Bezoro.BehaviorTrees.BehaviorActivation)">
+            <summary>Compares activation identities.</summary>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorBudget">
+            <summary>A mutable visit allowance shared by nested behavior executions.</summary>
+            <remarks>Visits bound evaluator work, not elapsed time or arbitrary handler cost.</remarks>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorBudget.#ctor(System.Int32)">
+            <summary>Creates an allowance. Zero is a valid exhausted budget.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorBudget.Remaining">
+            <summary>Gets the remaining visit allowance.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorBudget.Consumed">
+            <summary>Gets the allowance already consumed, including nested executions.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorBudget.TryConsume">
+            <summary>Consumes one visit, or returns false without changing an exhausted budget.</summary>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorNode">
+            <summary>An immutable construction expression. Compile it once and share the resulting definition.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorNode.Action(System.Int32)">
+            <summary>Creates an action using a nonnegative application identifier.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorNode.Condition(System.Int32)">
+            <summary>Creates a predicate leaf using a nonnegative application identifier.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorNode.Condition(Bezoro.Conditions.ConditionProgram)">
+            <summary>Creates a leaf that evaluates a complete bounded logical program atomically.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorNode.Sequence(Bezoro.BehaviorTrees.BehaviorNode[])">
+            <summary>Creates a sequence that resumes its running child.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorNode.Selector(Bezoro.BehaviorTrees.BehaviorNode[])">
+            <summary>Creates a selector that resumes its running child.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorNode.ReactiveSequence(Bezoro.BehaviorTrees.BehaviorNode[])">
+            <summary>Creates a sequence that explicitly rechecks prior children each evaluation cycle.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorNode.ReactiveSelector(Bezoro.BehaviorTrees.BehaviorNode[])">
+            <summary>Creates a selector that explicitly rechecks prior children each evaluation cycle.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorNode.Invert(Bezoro.BehaviorTrees.BehaviorNode)">
+            <summary>Creates an inverter.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorNode.Repeat(Bezoro.BehaviorTrees.BehaviorNode,System.Int32)">
+            <summary>Repeats a successful child exactly repeatCount times, ending early on failure.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorNode.Subtree(Bezoro.BehaviorTrees.BehaviorTreeDefinition)">
+            <summary>Creates an independently executed copy of another compiled tree.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorNode.Succeed">
+            <summary>Gets an immutable successful leaf.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorNode.Fail">
+            <summary>Gets an immutable unsuccessful leaf.</summary>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorNodeInfo">
+            <summary>Describes one occurrence in a compiled immutable tree.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorNodeInfo.Kind">
+            <summary>Gets the operation kind.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorNodeInfo.Parameter">
+            <summary>Gets the action/predicate ID or repeat count, depending on Kind; -1 identifies a compiled condition program.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorNodeInfo.ActionId">
+            <summary>Gets the action ID, or -1 for other kinds.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorNodeInfo.ChildCount">
+            <summary>Gets the number of direct children.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorNodeInfo.SubtreeEndIndex">
+            <summary>Gets the inclusive final node index in this occurrence's subtree.</summary>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorNodeKind">
+            <summary>Identifies a compiled control-flow or leaf operation.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.Action">
+            <summary>Runs one application action.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.Condition">
+            <summary>Evaluates a predicate or compiled logical program.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.Sequence">
+            <summary>Continues after successful children, retaining its current child.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.Selector">
+            <summary>Continues after failed children, retaining its current child.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.ReactiveSequence">
+            <summary>Rechecks prior children before continuing its running child.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.ReactiveSelector">
+            <summary>Rechecks higher-priority children before continuing its running child.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.Invert">
+            <summary>Swaps success and failure.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.Repeat">
+            <summary>Repeats a successful child a finite number of times; failure ends the repeat.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.Subtree">
+            <summary>Executes one copied occurrence of another immutable definition.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.Succeed">
+            <summary>Completes successfully.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorNodeKind.Fail">
+            <summary>Completes unsuccessfully.</summary>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorStatus">
+            <summary>Describes an execution's lifecycle or a leaf action's result.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorStatus.Inactive">
+            <summary>The runner has not started or has been stopped.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorStatus.Running">
+            <summary>Execution requires another update.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorStatus.Success">
+            <summary>Execution completed successfully.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorStatus.Failure">
+            <summary>Execution completed unsuccessfully.</summary>
+        </member>
+        <member name="F:Bezoro.BehaviorTrees.BehaviorStatus.Faulted">
+            <summary>A handler failed. Stop before starting again.</summary>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorTickResult">
+            <summary>Reports the resulting status and allowance consumed by one update.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTickResult.Status">
+            <summary>Gets the runner's status after this update.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTickResult.ConsumedVisits">
+            <summary>Gets visits consumed, including nested work charged to the same allowance.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTickResult.BudgetExhausted">
+            <summary>Gets whether evaluation yielded because the visit allowance was exhausted.</summary>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorTreeCompilation">
+            <summary>Compiles a tree while retaining construction-time action references for occurrence-safe binding.</summary>
+            <remarks>
+            Retain an Action expression in a named variable and call GetAction after compilation.
+            This resolver owns the expression-to-occurrence map; its immutable Definition and runners retain no such map.
+            Reusing the same expression twice is ambiguous. Use distinct Action expressions when binding separate occurrences.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeCompilation.#ctor(Bezoro.BehaviorTrees.BehaviorNode,System.Int32,System.Int32)">
+            <summary>Compiles with the same expanded-node and depth limits as a standalone definition.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeCompilation.Definition">
+            <summary>Gets the immutable definition, which can outlive this construction-time resolver.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeCompilation.GetAction(Bezoro.BehaviorTrees.BehaviorNode)">
+            <summary>Resolves a named Action expression that occurs exactly once in this construction graph.</summary>
+            <remarks>Actions copied from a compiled Subtree have no construction-expression identity in this compilation.</remarks>
+            <exception cref="T:System.ArgumentNullException">The expression is null.</exception>
+            <exception cref="T:System.ArgumentException">The expression is not an action in this tree, or appears more than once.</exception>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeCompilation.Resolve(Bezoro.BehaviorTrees.BehaviorActionHandle)">
+            <summary>Resolves one of this compilation's handles to its compact runtime node ID.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another compilation.</exception>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorTreeDefinition">
+            <summary>Compiles a construction expression into an immutable preorder control-flow table.</summary>
+            <remarks>Reused construction nodes and subtrees become separate occurrences. Runners share this definition.</remarks>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeDefinition.#ctor(Bezoro.BehaviorTrees.BehaviorNode,System.Int32,System.Int32)">
+            <summary>Copies and validates a tree without recursive compilation.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeDefinition.NodeCount">
+            <summary>Gets the expanded occurrence count.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeDefinition.MaximumDepth">
+            <summary>Gets the actual maximum path depth, which bounds each runner's frame storage.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeDefinition.HasReactiveNodes">
+            <summary>Gets whether the definition contains reactive control nodes.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeDefinition.MaximumReactiveDepth">
+            <summary>Gets the deepest action path containing a reactive ancestor; zero needs no reactive snapshot.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeDefinition.RequiredConditionStackSize">
+            <summary>Gets the largest logical-program scratch requirement; zero needs no scratch array.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeDefinition.GetNode(System.Int32)">
+            <summary>Gets one compiled occurrence by its zero-based node ID.</summary>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.BehaviorTreeRunner`1">
+            <summary>Executes one agent's tree with storage proportional to its maximum active path depth.</summary>
+            <remarks>
+            The owner serializes updates. Definitions are shareable; runners, contexts and handler state are not implicitly synchronized.
+            Actions are synchronous callbacks and own any external jobs. No per-node tasks, locks or progress arrays are created.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.#ctor(Bezoro.BehaviorTrees.BehaviorTreeDefinition)">
+            <summary>Allocates this runner's bounded path and optional condition/reactive scratch storage.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.Definition">
+            <summary>Gets the shared immutable definition.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.Status">
+            <summary>Gets the current lifecycle status. Terminal results remain sticky until Stop or Restart.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.FrameCapacity">
+            <summary>Gets the allocated frame capacity, which depends on depth rather than total node count.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.ReactiveFrameCapacity">
+            <summary>Gets the optional snapshot capacity, bounded only by paths containing reactivity.</summary>
+        </member>
+        <member name="P:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.ActiveNodeId">
+            <summary>Gets the active action occurrence, or -1 when no action is active.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.IsActive(Bezoro.BehaviorTrees.BehaviorActivation)">
+            <summary>Gets whether the supplied token still identifies the runner's live action.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.Start">
+            <summary>Starts an inactive runner. Action callbacks begin during Tick, after consuming their visit.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.Tick(`0@,Bezoro.BehaviorTrees.IBehaviorTreeHandler{`0},Bezoro.BehaviorTrees.BehaviorBudget@)">
+            <summary>Updates with a reference handler, which may be shared when its own mutable state permits it.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.Tick``1(`0@,``0@,Bezoro.BehaviorTrees.BehaviorBudget@)">
+            <summary>Updates using a handler by reference, avoiding boxing for struct handlers.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.Stop(`0@,Bezoro.BehaviorTrees.IBehaviorTreeHandler{`0})">
+            <summary>Interrupts the current action once, discards progress, and returns to Inactive.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.Stop``1(`0@,``0@)">
+            <summary>Stops with a handler by reference, avoiding boxing for struct handlers.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.Restart(`0@,Bezoro.BehaviorTrees.IBehaviorTreeHandler{`0})">
+            <summary>Stops the current execution and starts a fresh one.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.Restart``1(`0@,``0@)">
+            <summary>Restarts with a handler by reference.</summary>
+        </member>
+        <member name="T:Bezoro.BehaviorTrees.IBehaviorTreeHandler`1">
+            <summary>Connects typed application data and actions to an engine-independent tree.</summary>
+            <remarks>
+            Guard evaluation must not mutate the runner. Callbacks are synchronous; handlers own any asynchronous jobs.
+            A handler can use activation tokens to reject late results after completion, preemption or restart.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.IBehaviorTreeHandler`1.Enter(System.Int32,System.Int32,Bezoro.BehaviorTrees.BehaviorActivation,`0@)">
+            <summary>Begins one action activation.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.IBehaviorTreeHandler`1.Tick(System.Int32,System.Int32,Bezoro.BehaviorTrees.BehaviorActivation,`0@,Bezoro.BehaviorTrees.BehaviorBudget@)">
+            <summary>Updates an active action. Return Running, Success or Failure only.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.IBehaviorTreeHandler`1.Exit(System.Int32,System.Int32,Bezoro.BehaviorTrees.BehaviorActivation,Bezoro.BehaviorTrees.BehaviorStatus,`0@)">
+            <summary>Ends an action after Success or Failure. Its activation is already invalid.</summary>
+        </member>
+        <member name="M:Bezoro.BehaviorTrees.IBehaviorTreeHandler`1.Abort(System.Int32,System.Int32,Bezoro.BehaviorTrees.BehaviorActivation,`0@)">
+            <summary>Interrupts an action. Its activation is already invalid.</summary>
+        </member>
+    </members>
+</doc>

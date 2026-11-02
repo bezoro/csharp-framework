@@ -1,0 +1,314 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Statecharts</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Statecharts.ChartRegion">
+            <summary>Declares a region's initial state and optional containing state.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.ChartRegion.#ctor(Bezoro.StateMachines.StateId,System.Nullable{Bezoro.StateMachines.StateId})">
+            <summary>Creates a root region when parentState is null, otherwise a child region of that state.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.ChartRegion.InitialState">
+            <summary>Gets the initial state, which must belong to this region.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.ChartRegion.ParentState">
+            <summary>Gets the containing state, or null for an always-enabled root region.</summary>
+        </member>
+        <member name="T:Bezoro.Statecharts.ChartState">
+            <summary>Declares a state in one region. Its position in the definition supplies its StateId.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.ChartState.#ctor(Bezoro.Statecharts.RegionId)">
+            <summary>Creates a state belonging to the supplied region.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.ChartState.Region">
+            <summary>Gets the region containing this state.</summary>
+        </member>
+        <member name="T:Bezoro.Statecharts.ChartTransition">
+            <summary>Declares an signal transition with explicit external, local, or internal lifecycle semantics.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.ChartTransition.#ctor(Bezoro.StateMachines.StateId,Bezoro.StateMachines.SignalId,Bezoro.StateMachines.StateId,Bezoro.Conditions.ConditionProgram,System.Int32,Bezoro.Statecharts.ChartTransitionKind)">
+            <summary>Creates a signal transition with an optional immutable guard and explicit priority.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.ChartTransition.Source">
+            <summary>Gets the active source state.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.ChartTransition.Signal">
+            <summary>Gets the matching signal.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.ChartTransition.Target">
+            <summary>Gets the target state.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.ChartTransition.Guard">
+            <summary>Gets the guard, or null for an unconditional transition.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.ChartTransition.Priority">
+            <summary>Gets the priority. Higher priorities win before source depth and declaration order.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.ChartTransition.Kind">
+            <summary>Gets the lifecycle semantics of this transition.</summary>
+        </member>
+        <member name="T:Bezoro.Statecharts.ChartTransitionKind">
+            <summary>Controls which state boundaries a transition replaces.</summary>
+        </member>
+        <member name="F:Bezoro.Statecharts.ChartTransitionKind.External">
+            <summary>Exits and reenters the common region, including the source when targeting its descendant.</summary>
+        </member>
+        <member name="F:Bezoro.Statecharts.ChartTransitionKind.Local">
+            <summary>Targets a strict descendant, preserving the source and its other child regions.</summary>
+        </member>
+        <member name="F:Bezoro.Statecharts.ChartTransitionKind.Internal">
+            <summary>Requires identical source and target and executes only the transition effect.</summary>
+        </member>
+        <member name="T:Bezoro.Statecharts.IStatechartHandler`1">
+            <summary>Supplies pure guards and synchronous lifecycle effects for one owned runner.</summary>
+            <remarks>Callbacks must not reenter the runner. Guards must not mutate context or the chart.</remarks>
+        </member>
+        <member name="M:Bezoro.Statecharts.IStatechartHandler`1.EvaluateGuard(System.Int32,Bezoro.Statecharts.StatechartView,`0@)">
+            <summary>Evaluates a predicate against the unchanged pre-dispatch configuration.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.IStatechartHandler`1.OnEnter(Bezoro.StateMachines.StateId,Bezoro.Statecharts.StateActivation,`0@)">
+            <summary>Runs after the state and its new token become active, before its descendants enter.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.IStatechartHandler`1.OnExit(Bezoro.StateMachines.StateId,Bezoro.Statecharts.StateActivation,`0@)">
+            <summary>Runs after the state and token become inactive. Every exit is attempted at most once.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.IStatechartHandler`1.OnTransition(System.Int32,Bezoro.Statecharts.ChartTransition@,`0@)">
+            <summary>Runs after all selected exits and before any selected entries.</summary>
+        </member>
+        <member name="T:Bezoro.Statecharts.StatechartHandler`1">
+            <summary>Convenience handler with no lifecycle effects and an explicit error for an unhandled guard.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartHandler`1.EvaluateGuard(System.Int32,Bezoro.Statecharts.StatechartView,`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartHandler`1.OnEnter(Bezoro.StateMachines.StateId,Bezoro.Statecharts.StateActivation,`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartHandler`1.OnExit(Bezoro.StateMachines.StateId,Bezoro.Statecharts.StateActivation,`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartHandler`1.OnTransition(System.Int32,Bezoro.Statecharts.ChartTransition@,`0@)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.Statecharts.RegionId">
+            <summary>Identifies a zero-based region in a chart definition. The default identifies region zero.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.RegionId.#ctor(System.Int32)">
+            <summary>Creates an identifier from a nonnegative integer.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.RegionId.Value">
+            <summary>Gets the zero-based identifier.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.RegionId.Equals(Bezoro.Statecharts.RegionId)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Statecharts.RegionId.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Statecharts.RegionId.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Statecharts.RegionId.op_Equality(Bezoro.Statecharts.RegionId,Bezoro.Statecharts.RegionId)">
+            <summary>Compares two identifiers.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.RegionId.op_Inequality(Bezoro.Statecharts.RegionId,Bezoro.Statecharts.RegionId)">
+            <summary>Compares two identifiers.</summary>
+        </member>
+        <member name="T:Bezoro.Statecharts.StateActivation">
+            <summary>Identifies one entry into one state of one runner. Default is invalid.</summary>
+            <remarks>Opaque process-local identity. Do not serialize it or use it with another runner.</remarks>
+        </member>
+        <member name="P:Bezoro.Statecharts.StateActivation.IsValid">
+            <summary>Gets whether this token was issued by a runner, without establishing that it remains active.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StateActivation.Equals(Bezoro.Statecharts.StateActivation)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Statecharts.StateActivation.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Statecharts.StateActivation.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Statecharts.StateActivation.op_Equality(Bezoro.Statecharts.StateActivation,Bezoro.Statecharts.StateActivation)">
+            <summary>Compares activation identities.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StateActivation.op_Inequality(Bezoro.Statecharts.StateActivation,Bezoro.Statecharts.StateActivation)">
+            <summary>Compares activation identities.</summary>
+        </member>
+        <member name="T:Bezoro.Statecharts.StatechartBuilder">
+            <summary>Declares hierarchy and parallel regions through ownership relations, without coordinating table indices.</summary>
+            <remarks>
+            Each region requires an explicit initial state. Multiple root regions, or regions of the same state, run in parallel.
+            Build returns an immutable snapshot. The mutable builder and its handles are construction-only and are not retained by definitions.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Region">
+            <summary>Registers an always-enabled root region.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Region(Bezoro.StateMachines.StateHandle)">
+            <summary>Registers a child region enabled while the supplied parent state is active.</summary>
+            <exception cref="T:System.ArgumentException">The parent is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Signal">
+            <summary>Registers an input signal accepted by the chart.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Transition(Bezoro.StateMachines.StateHandle,Bezoro.StateMachines.SignalHandle,Bezoro.StateMachines.StateHandle,Bezoro.Conditions.ConditionProgram,System.Int32,Bezoro.Statecharts.ChartTransitionKind)">
+            <summary>Declares a guarded or unconditional transition with explicit lifecycle semantics and priority.</summary>
+            <exception cref="T:System.ArgumentException">A handle is default or belongs to another builder, or the kind is unknown.</exception>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Resolve(Bezoro.StateMachines.StateHandle)">
+            <summary>Resolves a state handle from this chart to its stable compact runtime identifier.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Resolve(Bezoro.StateMachines.SignalHandle)">
+            <summary>Resolves a signal handle from this chart to its stable compact runtime identifier.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartBuilder.Build">
+            <summary>Compiles a snapshot after every region has selected its initial state.</summary>
+            <exception cref="T:System.InvalidOperationException">A region has no initial state, or there are no regions.</exception>
+            <exception cref="T:System.ArgumentException">A transition has an invalid lifecycle domain.</exception>
+        </member>
+        <member name="T:Bezoro.Statecharts.StatechartDefinition">
+            <summary>Compiles an immutable hierarchy, orthogonal regions, and sparse signal transitions.</summary>
+            <remarks>
+            States and regions are identified by their zero-based positions in the input spans.
+            Construction copies input. Runtime storage is bounded by maximum simultaneous activity, not total declarations.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartDefinition.#ctor(System.ReadOnlySpan{Bezoro.Statecharts.ChartState},System.ReadOnlySpan{Bezoro.Statecharts.ChartRegion},System.ReadOnlySpan{Bezoro.Statecharts.ChartTransition},System.Int32)">
+            <summary>Copies and validates all declarations before exposing the compiled definition.</summary>
+            <exception cref="T:System.ArgumentException">Hierarchy, initial states, transition domains, or identifiers are invalid.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException">The signal count is negative.</exception>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.States">
+            <summary>Gets immutable state declarations, indexed by StateId.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.Regions">
+            <summary>Gets immutable region declarations, indexed by RegionId.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.Transitions">
+            <summary>Gets transitions in declaration order.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.StateCount">
+            <summary>Gets the state count.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.RegionCount">
+            <summary>Gets the region count.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.SignalCount">
+            <summary>Gets the accepted signal count. Zero supports charts without input.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.MaximumActiveStates">
+            <summary>Gets the maximum number of simultaneously active states over all configurations.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.MaximumDepth">
+            <summary>Gets maximum ancestry length, including a root state.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.GuardStackSize">
+            <summary>Gets the maximum Boolean scratch required by any guard.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.TransitionSourceCount">
+            <summary>Gets the number of distinct states declaring outgoing transitions.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDefinition.HasConfigurationTransitions">
+            <summary>Gets whether any transition can change active state configuration.</summary>
+        </member>
+        <member name="T:Bezoro.Statecharts.StatechartDispatchResult">
+            <summary>Reports the number of transitions and state lifecycle changes caused by one signal.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDispatchResult.TransitionCount">
+            <summary>Gets the number of selected, nonconflicting transitions.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDispatchResult.ExitedCount">
+            <summary>Gets the number of exited states.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDispatchResult.EnteredCount">
+            <summary>Gets the number of entered states, including initial descendants.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartDispatchResult.HasTransition">
+            <summary>Gets whether any transition matched, including a self transition.</summary>
+        </member>
+        <member name="T:Bezoro.Statecharts.StatechartRegion">
+            <summary>Declares states and an initial state within one construction-time region.</summary>
+            <remarks>Regions obtained from the same parent state run in parallel. The default region is invalid.</remarks>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRegion.State">
+            <summary>Registers a state belonging to this region.</summary>
+            <exception cref="T:System.InvalidOperationException">This is the default region.</exception>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRegion.StartIn(Bezoro.StateMachines.StateHandle)">
+            <summary>Selects the initial state for this region. Later calls replace the selection for future builds.</summary>
+            <exception cref="T:System.InvalidOperationException">This is the default region.</exception>
+            <exception cref="T:System.ArgumentException">The state is default, foreign, or belongs to another region.</exception>
+        </member>
+        <member name="T:Bezoro.Statecharts.StatechartRunner`1">
+            <summary>Owns one active configuration and bounded event workspace for a shared chart definition.</summary>
+            <remarks>
+            Only active sources are examined on Dispatch. There is no polling, timer, worker, or event queue.
+            Call from one owner or externally serialize access. Lifecycle callbacks are synchronous and cannot reenter operations.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRunner`1.#ctor(Bezoro.Statecharts.StatechartDefinition,Bezoro.Statecharts.IStatechartHandler{`0})">
+            <summary>Allocates execution storage from peak simultaneous activity, with no storage growth afterward.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartRunner`1.Definition">
+            <summary>Gets the shared immutable definition.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartRunner`1.ActiveStates">
+            <summary>Gets a borrowed parent-before-descendant view, invalidated by the next lifecycle operation.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartRunner`1.IsRunning">
+            <summary>Gets whether initial entry completed and signals can be dispatched.</summary>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartRunner`1.IsFaulted">
+            <summary>Gets whether a lifecycle failure requires an explicit Reset before Start.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRunner`1.Start(`0@)">
+            <summary>Starts the initial configuration. Starting an already-running or faulted runner throws.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRunner`1.Stop(`0@)">
+            <summary>Stops and invalidates all activations, attempting every exit even if an exit callback fails.</summary>
+            <remarks>Stopping an inactive runner is idempotent. A callback failure leaves it stopped and faulted.</remarks>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRunner`1.Reset(`0@)">
+            <summary>Stops any active configuration and clears a prior fault when cleanup succeeds.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRunner`1.Dispatch(Bezoro.StateMachines.SignalId,`0@)">
+            <summary>Evaluates one explicit signal against active sources and applies nonconflicting transitions.</summary>
+            <remarks>
+            Guards observe the unchanged prior configuration. A guard exception preserves configuration and running status.
+            Once lifecycle effects begin, an exception faults and stops the runner; effects are not rolled back.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRunner`1.IsActive(Bezoro.StateMachines.StateId)">
+            <summary>Tests whether the supplied numeric state is currently active.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRunner`1.GetActivation(Bezoro.StateMachines.StateId)">
+            <summary>Gets an active state's current entry identity, throwing when the state is inactive or outside this definition.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRunner`1.TryGetActivation(Bezoro.StateMachines.StateId,Bezoro.Statecharts.StateActivation@)">
+            <summary>Gets a state's current activation, or returns false and a default token when inactive.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartRunner`1.IsActive(Bezoro.Statecharts.StateActivation)">
+            <summary>Tests whether a token issued by this runner remains live in the running chart.</summary>
+            <remarks>
+            Stop and lifecycle failure revoke all tokens before exit callbacks. Dispatch also revokes tokens
+            for its complete exit plan before callbacks, preserving unaffected and newly entered activations.
+            </remarks>
+        </member>
+        <member name="T:Bezoro.Statecharts.StatechartView">
+            <summary>A borrowed view of the active configuration supplied to a guard.</summary>
+            <remarks>Valid only during that guard call. The runner keeps it unchanged during guard selection.</remarks>
+        </member>
+        <member name="P:Bezoro.Statecharts.StatechartView.ActiveStates">
+            <summary>Gets active states in compiled parent-before-descendant order.</summary>
+        </member>
+        <member name="M:Bezoro.Statecharts.StatechartView.IsActive(Bezoro.StateMachines.StateId)">
+            <summary>Tests whether a state is active; identifiers outside the definition return false.</summary>
+        </member>
+    </members>
+</doc>

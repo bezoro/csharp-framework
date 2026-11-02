@@ -1,0 +1,1794 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Chess.UCI</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Chess.UCI.API.Common.Enums.GameMoveActor">
+            <summary>
+                Identifies who initiated a move application in the coordinator.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveActor.Human">
+            <summary>A human player initiated the move.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveActor.Engine">
+            <summary>The engine initiated the move.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveActor.Remote">
+            <summary>A remote or networked player initiated the move.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Common.Enums.GameMoveKindFlags">
+            <summary>
+                Describes structural move characteristics for UI and gameplay event handling.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveKindFlags.None">
+            <summary>No structural flags are set.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveKindFlags.Normal">
+            <summary>A normal move with no special structural behavior.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveKindFlags.DoublePawnPush">
+            <summary>A pawn advanced two squares.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveKindFlags.Capture">
+            <summary>The move captured an opposing piece.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveKindFlags.EnPassant">
+            <summary>The move captured en passant.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveKindFlags.KingsideCastling">
+            <summary>The move castled on the kingside.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveKindFlags.QueensideCastling">
+            <summary>The move castled on the queenside.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.GameMoveKindFlags.Promotion">
+            <summary>The move promoted a pawn.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Common.Enums.PieceColor">
+            <summary>
+                Identifies the side that owns a chess piece.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.PieceColor.White">
+            <summary>
+                The white side.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.PieceColor.Black">
+            <summary>
+                The black side.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Common.Enums.PieceType">
+            <summary>
+                Chess piece type.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.PieceType.Empty">
+            <summary>No piece (empty square).</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.PieceType.Pawn">
+            <summary>A pawn.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.PieceType.Knight">
+            <summary>A knight.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.PieceType.Bishop">
+            <summary>A bishop.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.PieceType.Rook">
+            <summary>A rook.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.PieceType.Queen">
+            <summary>A queen.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Common.Enums.PieceType.King">
+            <summary>A king.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions">
+            <summary>
+                Utilities for mapping piece characters to domain types.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.IsBishop(System.Char)">
+            <summary>
+                Determines whether a piece character represents a bishop.
+            </summary>
+            <param name="pieceChar">The piece character to inspect.</param>
+            <returns><see langword="true" /> when the character represents a bishop; otherwise, <see langword="false" />.</returns>
+            <exception cref="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException"><paramref name="pieceChar" /> is not a valid piece character.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.IsBlack(System.Char)">
+            <summary>
+                Determines whether a piece character belongs to the black side.
+            </summary>
+            <param name="pieceChar">The piece character to inspect.</param>
+            <returns><see langword="true" /> for a lowercase black piece; otherwise, <see langword="false" />.</returns>
+            <exception cref="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException"><paramref name="pieceChar" /> is not a valid piece character.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.IsKing(System.Char)">
+            <summary>
+                Determines whether a piece character represents a king.
+            </summary>
+            <param name="pieceChar">The piece character to inspect.</param>
+            <returns><see langword="true" /> when the character represents a king; otherwise, <see langword="false" />.</returns>
+            <exception cref="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException"><paramref name="pieceChar" /> is not a valid piece character.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.IsKnight(System.Char)">
+            <summary>
+                Determines whether a piece character represents a knight.
+            </summary>
+            <param name="pieceChar">The piece character to inspect.</param>
+            <returns><see langword="true" /> when the character represents a knight; otherwise, <see langword="false" />.</returns>
+            <exception cref="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException"><paramref name="pieceChar" /> is not a valid piece character.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.IsPawn(System.Char)">
+            <summary>
+                Determines whether a piece character represents a pawn.
+            </summary>
+            <param name="pieceChar">The piece character to inspect.</param>
+            <returns><see langword="true" /> when the character represents a pawn; otherwise, <see langword="false" />.</returns>
+            <exception cref="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException"><paramref name="pieceChar" /> is not a valid piece character.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.IsQueen(System.Char)">
+            <summary>
+                Determines whether a piece character represents a queen.
+            </summary>
+            <param name="pieceChar">The piece character to inspect.</param>
+            <returns><see langword="true" /> when the character represents a queen; otherwise, <see langword="false" />.</returns>
+            <exception cref="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException"><paramref name="pieceChar" /> is not a valid piece character.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.IsRook(System.Char)">
+            <summary>
+                Determines whether a piece character represents a rook.
+            </summary>
+            <param name="pieceChar">The piece character to inspect.</param>
+            <returns><see langword="true" /> when the character represents a rook; otherwise, <see langword="false" />.</returns>
+            <exception cref="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException"><paramref name="pieceChar" /> is not a valid piece character.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.IsValidPieceChar(System.Char)">
+            <summary>
+                Checks if the given character is a valid chess piece letter (P/N/B/R/Q/K, any case).
+            </summary>
+            <param name="pieceChar">The character to inspect.</param>
+            <returns><see langword="true" /> when the character is a recognized piece letter; otherwise, <see langword="false" />.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.IsValidPromotionChar(System.Char)">
+            <summary>
+                Determines whether a character is a valid promotion designator.
+            </summary>
+            <param name="pieceChar">The character to inspect.</param>
+            <returns><see langword="true" /> for a knight, bishop, rook, or queen designator; otherwise, <see langword="false" />.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.IsWhite(System.Char)">
+            <summary>
+                Determines whether a piece character belongs to the white side.
+            </summary>
+            <param name="pieceChar">The piece character to inspect.</param>
+            <returns><see langword="true" /> for an uppercase white piece; otherwise, <see langword="false" />.</returns>
+            <exception cref="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException"><paramref name="pieceChar" /> is not a valid piece character.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.ThrowIfNotPieceChar(System.Char)">
+            <summary>
+                Throws an exception if the character is not a valid chess piece character.
+            </summary>
+            <param name="pieceChar">The character to validate.</param>
+            <returns>The input character to enable method chaining.</returns>
+            <exception cref="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException">Thrown when the character is not a valid chess piece character.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions.ToPieceType(System.Char)">
+            <summary>
+                Converts a piece character (e.g. 'P', 'n') to a <see cref="T:Bezoro.Chess.UCI.API.Common.Enums.PieceType" />.
+            </summary>
+            <param name="pieceChar">The piece character.</param>
+            <returns>The corresponding <see cref="T:Bezoro.Chess.UCI.API.Common.Enums.PieceType" />.</returns>
+            <exception cref="T:System.ArgumentException">Thrown when <paramref name="pieceChar" /> is not a letter.</exception>
+            <exception cref="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException">
+                Thrown when <paramref name="pieceChar" /> is not one of P, N, B, R, Q, K
+                (case-insensitive).
+            </exception>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Common.Extensions.PieceTypeExtensions">
+            <summary>
+                Provides character conversion helpers for <see cref="T:Bezoro.Chess.UCI.API.Common.Enums.PieceType" /> values.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Common.Extensions.PieceTypeExtensions.ToChar(Bezoro.Chess.UCI.API.Common.Enums.PieceType,Bezoro.Chess.UCI.API.Common.Enums.PieceColor)">
+            <summary>
+                Maps a <see cref="T:Bezoro.Chess.UCI.API.Common.Enums.PieceType" /> and <see cref="T:Bezoro.Chess.UCI.API.Common.Enums.PieceColor" /> to its character representation.
+                Uppercase denotes white; lowercase denotes black.
+            </summary>
+            <param name="type">Piece type (must not be <see cref="F:Bezoro.Chess.UCI.API.Common.Enums.PieceType.Empty" />).</param>
+            <param name="color">Piece color.</param>
+            <returns>Piece character (P/N/B/R/Q/K in the appropriate case).</returns>
+            <exception cref="T:System.ArgumentOutOfRangeException">If <paramref name="type" /> is <see cref="F:Bezoro.Chess.UCI.API.Common.Enums.PieceType.Empty" /> or unknown.</exception>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.BoardState">
+            <summary>
+                Represents an immutable board position decoded from a FEN value.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.BoardState.#ctor">
+            <summary>
+                Represents an immutable board position decoded from a FEN value.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.BoardState.Fen">
+            <summary>
+                Gets the FEN value that produced this board state.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.BoardState.Positions">
+            <summary>
+                Gets all 64 board-square positions.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.BoardState.ActiveColor">
+            <summary>
+                Gets the side whose turn is active in <see cref="P:Bezoro.Chess.UCI.API.Types.BoardState.Fen" />.
+            </summary>
+            <exception cref="T:System.InvalidOperationException">The FEN active-color token is unsupported.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.BoardState.FromFen(Bezoro.Chess.UCI.Protocol.API.Types.Fen)">
+            <summary>
+                Creates a board state from a valid FEN value.
+            </summary>
+            <param name="fen">The FEN value to decode.</param>
+            <returns>The decoded board state, or <see langword="null" /> when <paramref name="fen" /> is invalid.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.BoardState.TryGetPieceAt(System.String,System.Nullable{Bezoro.Chess.UCI.API.Types.Piece}@)">
+            <summary>
+                Attempts to retrieve the piece occupying a board square.
+            </summary>
+            <param name="squareNotation">Algebraic square notation such as <c>e4</c>.</param>
+            <param name="piece">When successful, receives the piece on the square; otherwise, <see langword="null" />.</param>
+            <returns><see langword="true" /> when the square exists in this state; otherwise, <see langword="false" />.</returns>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.GameMoveEvent">
+            <summary>
+                Rich immutable move event payload intended for game-engine UI layers.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="MoveId">Stable monotonic move identifier within the game.</param>
+            <param name="Ply">One-based ply number after the move is applied.</param>
+            <param name="Actor">Who initiated the move.</param>
+            <param name="Notation">Raw UCI move notation.</param>
+            <param name="From">Origin square in algebraic notation.</param>
+            <param name="To">Destination square in algebraic notation.</param>
+            <param name="KindFlags">Structural move kind flags.</param>
+            <param name="MovingPiece">The piece that moved.</param>
+            <param name="CapturedPiece">The captured piece, when applicable.</param>
+            <param name="PromotionPiece">The chosen promotion piece, when applicable.</param>
+            <param name="SecondaryPieceMove">A secondary piece move, such as the rook movement during castling.</param>
+            <param name="PreviousFen">The exact board position before the move.</param>
+            <param name="ResultingFen">The exact board position after the move.</param>
+            <param name="IsCheck">Whether the move leaves the opposing king in check.</param>
+            <param name="IsCheckmate">Whether the move checkmates the opposing side.</param>
+            <param name="IsStalemate">Whether the move stalemates the opposing side.</param>
+            <param name="Evaluation">Optional engine evaluation associated with the resulting position.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the move payload was emitted.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.GameMoveEvent.#ctor(System.Guid,System.Int64,System.Int32,Bezoro.Chess.UCI.API.Common.Enums.GameMoveActor,System.String,System.String,System.String,Bezoro.Chess.UCI.API.Common.Enums.GameMoveKindFlags,Bezoro.Chess.UCI.API.Types.Piece,System.Nullable{Bezoro.Chess.UCI.API.Types.Piece},System.Nullable{Bezoro.Chess.UCI.API.Types.Piece},System.Nullable{Bezoro.Chess.UCI.API.Types.PieceMove},Bezoro.Chess.UCI.Protocol.API.Types.Fen,Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.Boolean,System.Boolean,System.Boolean,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation},System.DateTimeOffset)">
+            <summary>
+                Rich immutable move event payload intended for game-engine UI layers.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="MoveId">Stable monotonic move identifier within the game.</param>
+            <param name="Ply">One-based ply number after the move is applied.</param>
+            <param name="Actor">Who initiated the move.</param>
+            <param name="Notation">Raw UCI move notation.</param>
+            <param name="From">Origin square in algebraic notation.</param>
+            <param name="To">Destination square in algebraic notation.</param>
+            <param name="KindFlags">Structural move kind flags.</param>
+            <param name="MovingPiece">The piece that moved.</param>
+            <param name="CapturedPiece">The captured piece, when applicable.</param>
+            <param name="PromotionPiece">The chosen promotion piece, when applicable.</param>
+            <param name="SecondaryPieceMove">A secondary piece move, such as the rook movement during castling.</param>
+            <param name="PreviousFen">The exact board position before the move.</param>
+            <param name="ResultingFen">The exact board position after the move.</param>
+            <param name="IsCheck">Whether the move leaves the opposing king in check.</param>
+            <param name="IsCheckmate">Whether the move checkmates the opposing side.</param>
+            <param name="IsStalemate">Whether the move stalemates the opposing side.</param>
+            <param name="Evaluation">Optional engine evaluation associated with the resulting position.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the move payload was emitted.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.GameId">
+            <summary>Stable game identifier for the current gameplay session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.MoveId">
+            <summary>Stable monotonic move identifier within the game.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.Ply">
+            <summary>One-based ply number after the move is applied.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.Actor">
+            <summary>Who initiated the move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.Notation">
+            <summary>Raw UCI move notation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.From">
+            <summary>Origin square in algebraic notation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.To">
+            <summary>Destination square in algebraic notation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.KindFlags">
+            <summary>Structural move kind flags.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.MovingPiece">
+            <summary>The piece that moved.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.CapturedPiece">
+            <summary>The captured piece, when applicable.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.PromotionPiece">
+            <summary>The chosen promotion piece, when applicable.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.SecondaryPieceMove">
+            <summary>A secondary piece move, such as the rook movement during castling.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.PreviousFen">
+            <summary>The exact board position before the move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.ResultingFen">
+            <summary>The exact board position after the move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.IsCheck">
+            <summary>Whether the move leaves the opposing king in check.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.IsCheckmate">
+            <summary>Whether the move checkmates the opposing side.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.IsStalemate">
+            <summary>Whether the move stalemates the opposing side.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.Evaluation">
+            <summary>Optional engine evaluation associated with the resulting position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameMoveEvent.TimestampUtc">
+            <summary>Wall-clock timestamp when the move payload was emitted.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.GameStartedEvent">
+            <summary>
+                Represents the start of a new gameplay session.
+            </summary>
+            <param name="GameId">Stable game identifier for the new gameplay session.</param>
+            <param name="StartingFen">The starting board position for the new game.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the event was emitted.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.GameStartedEvent.#ctor(System.Guid,Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.DateTimeOffset)">
+            <summary>
+                Represents the start of a new gameplay session.
+            </summary>
+            <param name="GameId">Stable game identifier for the new gameplay session.</param>
+            <param name="StartingFen">The starting board position for the new game.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the event was emitted.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameStartedEvent.GameId">
+            <summary>Stable game identifier for the new gameplay session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameStartedEvent.StartingFen">
+            <summary>The starting board position for the new game.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameStartedEvent.TimestampUtc">
+            <summary>Wall-clock timestamp when the event was emitted.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent">
+            <summary>
+                Describes a rejected move attempt with enough data for UI error handling.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="AttemptedMove">The raw move string supplied by the caller.</param>
+            <param name="Reason">Human-readable rejection reason.</param>
+            <param name="LegalMoves">The current legal move list.</param>
+            <param name="IsPromotionChoicePending">Whether a pending promotion request is blocking new moves.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the rejection was emitted.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent.#ctor(System.Guid,System.String,System.String,System.Collections.Immutable.ImmutableArray{System.String},System.Boolean,System.DateTimeOffset)">
+            <summary>
+                Describes a rejected move attempt with enough data for UI error handling.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="AttemptedMove">The raw move string supplied by the caller.</param>
+            <param name="Reason">Human-readable rejection reason.</param>
+            <param name="LegalMoves">The current legal move list.</param>
+            <param name="IsPromotionChoicePending">Whether a pending promotion request is blocking new moves.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the rejection was emitted.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent.GameId">
+            <summary>Stable game identifier for the current gameplay session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent.AttemptedMove">
+            <summary>The raw move string supplied by the caller.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent.Reason">
+            <summary>Human-readable rejection reason.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent.LegalMoves">
+            <summary>The current legal move list.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent.IsPromotionChoicePending">
+            <summary>Whether a pending promotion request is blocking new moves.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent.TimestampUtc">
+            <summary>Wall-clock timestamp when the rejection was emitted.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.Move">
+            <summary>
+                Represents a parsed chess move together with its analyzed board semantics.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.Move.#ctor">
+            <summary>
+                Represents a parsed chess move together with its analyzed board semantics.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.Move.#ctor(System.String,Bezoro.Chess.UCI.API.Types.MoveAnalysis)">
+            <summary>
+                Initializes a move from notation and a corresponding analysis result.
+            </summary>
+            <param name="notation">Coordinate move notation, optionally including a piece or promotion designator.</param>
+            <param name="analysis">The analyzed move semantics.</param>
+            <exception cref="T:System.InvalidOperationException">The moving piece cannot be resolved.</exception>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Move.Analysis">
+            <summary>Gets the analyzed move semantics.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Move.Piece">
+            <summary>Gets the piece that moves.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Move.MovingSide">
+            <summary>Gets the side that owns <see cref="P:Bezoro.Chess.UCI.API.Types.Move.Piece" />.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Move.From">
+            <summary>Gets the source square.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Move.Notation">
+            <summary>Gets normalized coordinate notation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Move.To">
+            <summary>Gets the destination square.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.MoveAnalysis">
+            <summary>
+                Represents a legal chess move and its specific characteristics,
+                such as whether it's a capture, castling, or promotion, etc...
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveAnalysis.IsCapture">
+            <summary>Gets whether the move captures an opposing piece.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveAnalysis.IsCastling">
+            <summary>Gets whether the move castles.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveAnalysis.IsCheck">
+            <summary>Gets whether the move gives check.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveAnalysis.IsEnPassant">
+            <summary>Gets whether the move is an en-passant capture.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveAnalysis.IsMate">
+            <summary>Gets whether the move checkmates the opposing king.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveAnalysis.IsNormal">
+            <summary>Gets whether the move has no special tactical classification.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveAnalysis.IsPromotion">
+            <summary>Gets whether the move promotes a pawn.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveAnalysis.IsStalemate">
+            <summary>Gets whether the resulting position is stalemate.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveAnalysis.Score">
+            <summary>Gets the engine score associated with the move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveAnalysis.MovingPiece">
+            <summary>Gets the piece moved from the source square, when resolved.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.MoveAnalysis.Analyze(System.String,Bezoro.Chess.UCI.API.Types.BoardState,Bezoro.Chess.UCI.API.Types.MoveScore,System.Boolean)">
+            <summary>
+                Synchronous analyzer used when an engine-derived score is available.
+                Delegates structural and tactical move semantics to the protocol-layer FEN classifier,
+                then overlays the supplied engine score onto the result.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.MoveScore">
+            <summary>
+                Represents either a centipawn evaluation or a distance-to-mate score.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.MoveScore.#ctor">
+            <summary>
+                Represents either a centipawn evaluation or a distance-to-mate score.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveScore.ScoreCp">
+            <summary>Gets the centipawn score, when available.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveScore.ScoreMate">
+            <summary>Gets the signed number of moves to mate, when available.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.MoveScore.TryParse(System.String,System.Nullable{Bezoro.Chess.UCI.API.Types.MoveScore}@)">
+            <summary>
+                Attempts to parse a score from a UCI engine information line.
+            </summary>
+            <param name="line">The UCI information line.</param>
+            <param name="score">When successful, receives the parsed score.</param>
+            <returns><see langword="true" /> when a centipawn or mate score is present and valid; otherwise, <see langword="false" />.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.MoveScore.FromCp(System.Int32)">
+            <summary>Creates a centipawn score.</summary>
+            <param name="cp">The signed centipawn evaluation.</param>
+            <returns>A centipawn-based score.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.MoveScore.FromMate(System.Int32)">
+            <summary>Creates a distance-to-mate score.</summary>
+            <param name="mate">The signed number of moves to mate.</param>
+            <returns>A mate-based score.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.MoveScore.FromSearchResult(Bezoro.Chess.UCI.Protocol.API.Types.SearchResult)">
+            <summary>
+                Builds a MoveScore from a SearchResult returned by the engine.
+                Prefers mate scores when present, otherwise falls back to centipawns.
+            </summary>
+            <param name="result">The engine search result to convert.</param>
+            <returns>A mate or centipawn score, or the default value when no score is available.</returns>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.MovesSnapshot">
+            <summary>
+                Captures the legal moves for a position and the subset with completed analysis.
+            </summary>
+            <param name="Legal">The legal parsed moves.</param>
+            <param name="Classified">Analyzed moves keyed by their parsed notation.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.MovesSnapshot.#ctor(System.Collections.Generic.IReadOnlyCollection{Bezoro.Chess.UCI.API.Types.ParsedMove},System.Collections.Generic.IReadOnlyDictionary{Bezoro.Chess.UCI.API.Types.ParsedMove,Bezoro.Chess.UCI.API.Types.Move})">
+            <summary>
+                Captures the legal moves for a position and the subset with completed analysis.
+            </summary>
+            <param name="Legal">The legal parsed moves.</param>
+            <param name="Classified">Analyzed moves keyed by their parsed notation.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MovesSnapshot.Legal">
+            <summary>The legal parsed moves.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MovesSnapshot.Classified">
+            <summary>Analyzed moves keyed by their parsed notation.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.MoveToPieceMap">
+            <summary>
+                Associates coordinate move notation with the piece occupying its source square.
+            </summary>
+            <param name="Move">The original move notation.</param>
+            <param name="Piece">The resolved piece character, or the null character when unresolved.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.MoveToPieceMap.#ctor(System.String,System.Char)">
+            <summary>
+                Associates coordinate move notation with the piece occupying its source square.
+            </summary>
+            <param name="Move">The original move notation.</param>
+            <param name="Piece">The resolved piece character, or the null character when unresolved.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveToPieceMap.Move">
+            <summary>The original move notation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveToPieceMap.Piece">
+            <summary>The resolved piece character, or the null character when unresolved.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.MoveToPieceMap.Map(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.String)">
+            <summary>
+                Resolves the moving piece for coordinate notation against a FEN position.
+            </summary>
+            <param name="fen">The board position.</param>
+            <param name="move">The coordinate move notation.</param>
+            <returns>A mapping containing the resolved piece character, or the null character when resolution fails.</returns>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.MoveUndoneEvent">
+            <summary>
+                Represents one or more moves that were undone.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="Moves">Chronological move payloads that were removed.</param>
+            <param name="ResultingFen">The exact board position after the undo is applied.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the undo payload was emitted.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.MoveUndoneEvent.#ctor(System.Guid,System.Collections.Immutable.ImmutableArray{Bezoro.Chess.UCI.API.Types.GameMoveEvent},Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.DateTimeOffset)">
+            <summary>
+                Represents one or more moves that were undone.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="Moves">Chronological move payloads that were removed.</param>
+            <param name="ResultingFen">The exact board position after the undo is applied.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the undo payload was emitted.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveUndoneEvent.GameId">
+            <summary>Stable game identifier for the current gameplay session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveUndoneEvent.Moves">
+            <summary>Chronological move payloads that were removed.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveUndoneEvent.ResultingFen">
+            <summary>The exact board position after the undo is applied.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.MoveUndoneEvent.TimestampUtc">
+            <summary>Wall-clock timestamp when the undo payload was emitted.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.ParsedMove">
+            <summary>
+                Represents normalized coordinate move notation and its optional piece designators.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.ParsedMove.IsPromotion">
+            <summary>Gets whether the notation contains a promotion piece.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.ParsedMove.MovingPiece">
+            <summary>Gets the explicit moving piece, or the default piece when notation omits it.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.ParsedMove.PromotionPiece">
+            <summary>Gets the promoted piece, when present.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.ParsedMove.From">
+            <summary>Gets the source square.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.ParsedMove.Notation">
+            <summary>Gets normalized coordinate notation without an explicit piece designator.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.ParsedMove.Raw">
+            <summary>Gets the original notation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.ParsedMove.To">
+            <summary>Gets the destination square.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.ParsedMove.FromNotation(System.String)">
+            <summary>
+                Parses strict coordinate notation containing four or five characters, optionally preceded by a piece designator.
+            </summary>
+            <param name="moveNotation">The notation to parse.</param>
+            <returns>The parsed move.</returns>
+            <exception cref="T:System.ArgumentNullException"><paramref name="moveNotation" /> is <see langword="null" />.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="moveNotation" /> has an unsupported length.</exception>
+            <exception cref="T:System.ArgumentException">Squares or promotion travel are malformed.</exception>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.Piece">
+            <summary>
+                Immutable value type representing a chess piece with its symbol, type and color.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Piece.IsBlack">
+            <summary>True if the piece is black.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Piece.IsWhite">
+            <summary>True if the piece is white.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Piece.Char">
+            <summary>The original character representation of the piece (e.g. 'P' for white pawn, 'n' for black knight).</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Piece.Color">
+            <summary>The piece color inferred from character casing (uppercase = white, lowercase = black).</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Piece.Type">
+            <summary>The type of piece (pawn, knight, bishop, etc.).</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.Piece.FromChar(System.Char)">
+            <summary>
+                Creates a new Piece instance from a character representation.
+            </summary>
+            <param name="pieceChar">Character representing the piece (e.g. 'P' for white pawn, 'n' for black knight)</param>
+            <returns>A new Piece instance</returns>
+            <exception cref="T:System.ArgumentException">Thrown when pieceChar is not a valid piece character</exception>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.PieceMove">
+            <summary>
+                Represents a concrete piece movement between two squares.
+            </summary>
+            <param name="Piece">The piece that moved.</param>
+            <param name="From">Origin square in algebraic notation.</param>
+            <param name="To">Destination square in algebraic notation.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.PieceMove.#ctor(Bezoro.Chess.UCI.API.Types.Piece,System.String,System.String)">
+            <summary>
+                Represents a concrete piece movement between two squares.
+            </summary>
+            <param name="Piece">The piece that moved.</param>
+            <param name="From">Origin square in algebraic notation.</param>
+            <param name="To">Destination square in algebraic notation.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PieceMove.Piece">
+            <summary>The piece that moved.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PieceMove.From">
+            <summary>Origin square in algebraic notation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PieceMove.To">
+            <summary>Destination square in algebraic notation.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.Position">
+            <summary>
+                Represents a board square and its optional occupying piece.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.Position.#ctor">
+            <summary>
+                Represents a board square and its optional occupying piece.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.Position.Create(System.String,System.Nullable{Bezoro.Chess.UCI.API.Types.Piece})">
+            <summary>
+                Creates a board position value.
+            </summary>
+            <param name="notation">Algebraic square notation such as <c>e4</c>.</param>
+            <param name="piece">The occupying piece, or <see langword="null" /> for an empty square.</param>
+            <returns>The position value.</returns>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Position.Piece">
+            <summary>Gets the occupying piece, when present.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Position.Notation">
+            <summary>Gets the algebraic square notation.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.PositionLoadedEvent">
+            <summary>
+                Represents a full position load, such as a new game, save-state restore, or editor jump.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="BaseFen">The base FEN supplied for the load operation.</param>
+            <param name="CurrentFen">The effective FEN after played moves are applied.</param>
+            <param name="PlayedMoves">Played moves appended to the base FEN.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the position load was emitted.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.PositionLoadedEvent.#ctor(System.Guid,Bezoro.Chess.UCI.Protocol.API.Types.Fen,Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.Collections.Immutable.ImmutableArray{System.String},System.DateTimeOffset)">
+            <summary>
+                Represents a full position load, such as a new game, save-state restore, or editor jump.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="BaseFen">The base FEN supplied for the load operation.</param>
+            <param name="CurrentFen">The effective FEN after played moves are applied.</param>
+            <param name="PlayedMoves">Played moves appended to the base FEN.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the position load was emitted.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PositionLoadedEvent.GameId">
+            <summary>Stable game identifier for the current gameplay session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PositionLoadedEvent.BaseFen">
+            <summary>The base FEN supplied for the load operation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PositionLoadedEvent.CurrentFen">
+            <summary>The effective FEN after played moves are applied.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PositionLoadedEvent.PlayedMoves">
+            <summary>Played moves appended to the base FEN.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PositionLoadedEvent.TimestampUtc">
+            <summary>Wall-clock timestamp when the position load was emitted.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.Promotion">
+            <summary>
+                Represents a pawn promotion choice and destination.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Promotion.PieceType">
+            <summary>Gets the piece type selected for promotion.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.Promotion.Position">
+            <summary>Gets the destination occupied by the promoting pawn.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.Promotion.FromNotation(System.String)">
+            <summary>Parses a promotion from coordinate move notation.</summary>
+            <param name="moveNotation">Promotion notation ending in the chosen piece character.</param>
+            <returns>The parsed promotion.</returns>
+            <exception cref="T:System.ArgumentNullException"><paramref name="moveNotation" /> is <see langword="null" />.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="moveNotation" /> has an unsupported length.</exception>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent">
+            <summary>Identifies a canceled promotion prompt. The position and running clock remain in place.</summary>
+            <param name="GameId">Identifier of the current gameplay session.</param>
+            <param name="PendingPromotionId">Canceled request identifier.</param>
+            <param name="Fen">Unchanged position before the move.</param>
+            <param name="TimestampUtc">Time when cancellation was accepted.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent.#ctor(System.Guid,System.Int64,Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.DateTimeOffset)">
+            <summary>Identifies a canceled promotion prompt. The position and running clock remain in place.</summary>
+            <param name="GameId">Identifier of the current gameplay session.</param>
+            <param name="PendingPromotionId">Canceled request identifier.</param>
+            <param name="Fen">Unchanged position before the move.</param>
+            <param name="TimestampUtc">Time when cancellation was accepted.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent.GameId">
+            <summary>Identifier of the current gameplay session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent.PendingPromotionId">
+            <summary>Canceled request identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent.Fen">
+            <summary>Unchanged position before the move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent.TimestampUtc">
+            <summary>Time when cancellation was accepted.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.PromotionChosenEvent">
+            <summary>
+                Represents the resolution of a pending promotion choice.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="PendingPromotionId">Stable identifier for the pending promotion request.</param>
+            <param name="Notation">Final UCI move notation including the promotion suffix.</param>
+            <param name="PieceType">Chosen promotion piece type.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the choice was emitted.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.PromotionChosenEvent.#ctor(System.Guid,System.Int64,System.String,Bezoro.Chess.UCI.API.Common.Enums.PieceType,System.DateTimeOffset)">
+            <summary>
+                Represents the resolution of a pending promotion choice.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="PendingPromotionId">Stable identifier for the pending promotion request.</param>
+            <param name="Notation">Final UCI move notation including the promotion suffix.</param>
+            <param name="PieceType">Chosen promotion piece type.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the choice was emitted.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionChosenEvent.GameId">
+            <summary>Stable game identifier for the current gameplay session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionChosenEvent.PendingPromotionId">
+            <summary>Stable identifier for the pending promotion request.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionChosenEvent.Notation">
+            <summary>Final UCI move notation including the promotion suffix.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionChosenEvent.PieceType">
+            <summary>Chosen promotion piece type.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionChosenEvent.TimestampUtc">
+            <summary>Wall-clock timestamp when the choice was emitted.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent">
+            <summary>
+                Represents a pending promotion choice that must be resolved before a move can be applied.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="PendingPromotionId">Stable identifier for the pending promotion request.</param>
+            <param name="Actor">Who initiated the pending move.</param>
+            <param name="From">Origin square in algebraic notation.</param>
+            <param name="To">Destination square in algebraic notation.</param>
+            <param name="MovingPiece">The pawn awaiting promotion.</param>
+            <param name="AllowedPromotionPieces">Allowed promotion piece types in deterministic display order.</param>
+            <param name="PreviousFen">The exact board position before the pending move.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the request was emitted.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent.#ctor(System.Guid,System.Int64,Bezoro.Chess.UCI.API.Common.Enums.GameMoveActor,System.String,System.String,Bezoro.Chess.UCI.API.Types.Piece,System.Collections.Immutable.ImmutableArray{Bezoro.Chess.UCI.API.Common.Enums.PieceType},Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.DateTimeOffset)">
+            <summary>
+                Represents a pending promotion choice that must be resolved before a move can be applied.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="PendingPromotionId">Stable identifier for the pending promotion request.</param>
+            <param name="Actor">Who initiated the pending move.</param>
+            <param name="From">Origin square in algebraic notation.</param>
+            <param name="To">Destination square in algebraic notation.</param>
+            <param name="MovingPiece">The pawn awaiting promotion.</param>
+            <param name="AllowedPromotionPieces">Allowed promotion piece types in deterministic display order.</param>
+            <param name="PreviousFen">The exact board position before the pending move.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the request was emitted.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent.GameId">
+            <summary>Stable game identifier for the current gameplay session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent.PendingPromotionId">
+            <summary>Stable identifier for the pending promotion request.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent.Actor">
+            <summary>Who initiated the pending move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent.From">
+            <summary>Origin square in algebraic notation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent.To">
+            <summary>Destination square in algebraic notation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent.MovingPiece">
+            <summary>The pawn awaiting promotion.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent.AllowedPromotionPieces">
+            <summary>Allowed promotion piece types in deterministic display order.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent.PreviousFen">
+            <summary>The exact board position before the pending move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent.TimestampUtc">
+            <summary>Wall-clock timestamp when the request was emitted.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.TurnChangedEvent">
+            <summary>
+                Represents a turn transition after a move, undo, or position load.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="PreviousTurn">Side to move before the transition.</param>
+            <param name="CurrentTurn">Side to move after the transition.</param>
+            <param name="Position">The resulting position after the transition.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the transition was emitted.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.TurnChangedEvent.#ctor(System.Guid,System.Char,System.Char,Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.DateTimeOffset)">
+            <summary>
+                Represents a turn transition after a move, undo, or position load.
+            </summary>
+            <param name="GameId">Stable game identifier for the current gameplay session.</param>
+            <param name="PreviousTurn">Side to move before the transition.</param>
+            <param name="CurrentTurn">Side to move after the transition.</param>
+            <param name="Position">The resulting position after the transition.</param>
+            <param name="TimestampUtc">Wall-clock timestamp when the transition was emitted.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.TurnChangedEvent.GameId">
+            <summary>Stable game identifier for the current gameplay session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.TurnChangedEvent.PreviousTurn">
+            <summary>Side to move before the transition.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.TurnChangedEvent.CurrentTurn">
+            <summary>Side to move after the transition.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.TurnChangedEvent.Position">
+            <summary>The resulting position after the transition.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.TurnChangedEvent.TimestampUtc">
+            <summary>Wall-clock timestamp when the transition was emitted.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions">
+            <summary>
+                Configuration options for the UCI Coordinator.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions.#ctor(System.Int32,System.Int32,System.UInt32,System.Int32,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl},Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchControlledMoveFallbackPolicy,System.Boolean)">
+            <summary>
+                Configuration options for the UCI Coordinator.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions.#ctor">
+            <summary>Creates the documented defaults, including finite search budgets and disabled automatic analysis.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions.Default">
+            <summary>
+                Gets the default configuration options.
+                The parameterless constructor produces the same value. An uninitialized default value is invalid.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions.Validate">
+            <summary>Rejects invalid resource budgets, draw policies, and clock settings before a session uses them.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent">
+            <summary>
+                Compact typed event payload emitted by <see cref="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EventPublished" />.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.#ctor(Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind,System.DateTimeOffset,System.Nullable{Bezoro.Chess.UCI.API.Types.UciState},System.Nullable{Bezoro.Chess.UCI.API.Types.GameStartedEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.PositionLoadedEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.GameMoveEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.MoveUndoneEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.PromotionChosenEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.TurnChangedEvent},System.Nullable{Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent},System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation},System.Nullable{Bezoro.Chess.UCI.API.Types.Move},System.Exception,System.Nullable{Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent})">
+            <summary>
+                Compact typed event payload emitted by <see cref="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EventPublished" />.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForPromotionCanceled(Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent)">
+            <summary>Creates a pending-promotion cancellation event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.Create(Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind)">
+            <summary>Creates an event without a specialized payload.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForState(Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind,Bezoro.Chess.UCI.API.Types.UciState)">
+            <summary>Creates a state-carrying event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForGameStarted(Bezoro.Chess.UCI.API.Types.GameStartedEvent)">
+            <summary>Creates a game-started event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForPositionLoaded(Bezoro.Chess.UCI.API.Types.PositionLoadedEvent)">
+            <summary>Creates a position-loaded event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForMove(Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind,Bezoro.Chess.UCI.API.Types.GameMoveEvent)">
+            <summary>Creates a move event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForMoveUndone(Bezoro.Chess.UCI.API.Types.MoveUndoneEvent)">
+            <summary>Creates a move-undone event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForPromotionRequired(Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent)">
+            <summary>Creates a promotion-required event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForPromotionChosen(Bezoro.Chess.UCI.API.Types.PromotionChosenEvent)">
+            <summary>Creates a promotion-chosen event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForTurnChanged(Bezoro.Chess.UCI.API.Types.TurnChangedEvent)">
+            <summary>Creates a turn-changed event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForIllegalMove(Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent)">
+            <summary>Creates an illegal-move event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForEvaluation(Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation)">
+            <summary>Creates an evaluation event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForClassifiedMove(Bezoro.Chess.UCI.API.Types.Move)">
+            <summary>Creates a move-classification event.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForError(System.Exception)">
+            <summary>Creates an error event.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind">
+            <summary>
+                Identifies a typed event emitted by <see cref="T:Bezoro.Chess.UCI.API.UciGameEngineSession" />.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.Error">
+            <summary>An engine-facing operation failed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.Ready">
+            <summary>The session is ready for use.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.GameStarted">
+            <summary>A new game session started.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.StateChanged">
+            <summary>The aggregate session state changed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.PositionChanged">
+            <summary>The visible board position changed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.PositionLoaded">
+            <summary>A full position was loaded.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.LegalMovesUpdated">
+            <summary>The legal move set changed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.SearchStateChanged">
+            <summary>The engine search lifecycle changed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.EvaluationChanged">
+            <summary>The principal variation evaluation changed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.BestMoveChanged">
+            <summary>The current best move changed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.MoveClassified">
+            <summary>A legal move classification was produced.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.ClassificationCompleted">
+            <summary>The current position classification run completed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.GameOver">
+            <summary>The game reached a terminal state.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.ResultChanged">
+            <summary>The match result changed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.MoveMade">
+            <summary>A move was applied.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.CaptureMade">
+            <summary>An applied move captured a piece.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.CastlingMade">
+            <summary>An applied move castled.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.EnPassantMade">
+            <summary>An applied move captured en passant.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.PromotionRequired">
+            <summary>A move requires a promotion choice.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.PromotionChosen">
+            <summary>A promotion choice was applied.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.Check">
+            <summary>An applied move gave check.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.Checkmate">
+            <summary>An applied move gave checkmate.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.Stalemated">
+            <summary>An applied move caused stalemate.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.TurnChanged">
+            <summary>The side to move changed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.IllegalMoveRejected">
+            <summary>A move was rejected.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.DrawOffered">
+            <summary>A draw offer was published.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.DrawDeclined">
+            <summary>A draw offer was declined or cleared.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.ClockPaused">
+            <summary>The clock was paused.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.ClockResumed">
+            <summary>The clock was resumed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.MoveUndone">
+            <summary>One or more moves were undone.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.EngineThinkingStarted">
+            <summary>An engine started thinking.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.EngineThinkingStopped">
+            <summary>An engine stopped thinking.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.Stopped">
+            <summary>The session stopped.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.PromotionCanceled">
+            <summary>A pending promotion prompt was canceled before a move was applied.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.UciState">
+            <summary>
+                Represents an immutable snapshot of the UCI Coordinator's state.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciState.#ctor(Bezoro.Chess.UCI.Protocol.API.Types.Fen,Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.Collections.Immutable.ImmutableList{System.String},System.Collections.Immutable.ImmutableList{System.String},System.Collections.Immutable.ImmutableDictionary{System.String,Bezoro.Chess.UCI.API.Types.Move},System.Nullable{Bezoro.Chess.UCI.API.Types.ParsedMove},System.Nullable{Bezoro.Chess.UCI.API.Types.ParsedMove},System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation},System.Boolean,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult},System.Nullable{System.Char},System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockState})">
+            <summary>
+                Represents an immutable snapshot of the UCI Coordinator's state.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciState.Default">
+            <summary>
+                Gets the default initial state.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciState.IsCheck">
+            <summary>
+                Gets a value indicating whether the side to move is in check.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciState.IsCheckmate">
+            <summary>
+                Gets a value indicating whether the current position is checkmate.
+                True when there are no legal moves and the king is in check.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciState.IsClassificationComplete">
+            <summary>
+                Gets a value indicating whether all legal moves have been classified.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciState.IsGameOver">
+            <summary>
+                Gets a value indicating whether the game is over (no legal moves available).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciState.IsStalemate">
+            <summary>
+                Gets a value indicating whether the current position is stalemate.
+                True when there are no legal moves but the king is not in check.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciState.ClassificationProgress">
+            <summary>
+                Gets the classification progress as a value between 0.0 and 1.0.
+                Returns 1.0 if there are no legal moves.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciState.ClassifiedMovesCount">
+            <summary>
+                Gets the number of moves that have been classified.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciState.TotalLegalMoves">
+            <summary>
+                Gets the total number of legal moves available for classification.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.UciGameEngineSession">
+            <summary>
+                Coordinates multiple UCI engines for fast information, pondering, and full move classification.
+                Orchestrates updating positions, synchronized pondering, background classification, and emits unified events
+                updating UI or consumers.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.Error">
+            <summary>
+                Raised when an error occurs in any of the underlying engines.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.Ready">
+            <summary>
+                Raised when the coordinator is fully initialized and ready.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.GameStarted">
+            <summary>
+                Raised when a new gameplay session starts.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.StateChanged">
+            <summary>
+                Raised when the coordinator state changes.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.PositionChanged">
+            <summary>
+                Raised when the visible game position snapshot changes, including legal moves and terminal-state transitions.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.PositionLoaded">
+            <summary>
+                Raised when a full position is loaded directly into the coordinator.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.LegalMovesUpdated">
+            <summary>
+                Raised when the legal move set for the visible position changes.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.SearchStateChanged">
+            <summary>
+                Raised when the search lifecycle toggles between searching and idle.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EvaluationChanged">
+            <summary>
+                Raised when the ponder engine publishes a new principal variation.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EvaluationUpdated">
+            <summary>
+                Obsolete alias for <see cref="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EvaluationChanged"/>.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.BestMoveChanged">
+            <summary>
+                Raised when the ponder engine produces a new best-move pair for the current search.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.MoveClassified">
+            <summary>
+                Raised for each move classification produced for the current position.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.MoveClassificationUpdated">
+            <summary>
+                Obsolete alias for <see cref="E:Bezoro.Chess.UCI.API.UciGameEngineSession.MoveClassified"/>.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.ClassificationCompleted">
+            <summary>
+                Raised when all legal moves for the current position have been classified.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.GameOver">
+            <summary>
+                Raised when the visible match reaches a terminal result.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.ResultChanged">
+            <summary>
+                Raised when the match result changes.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.MoveMade">
+            <summary>
+                Raised when a move is fully applied.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.CaptureMade">
+            <summary>
+                Raised when an applied move captures a piece.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.CastlingMade">
+            <summary>
+                Raised when an applied move castles.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EnPassantMade">
+            <summary>
+                Raised when an applied move captures en passant.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.PromotionRequired">
+            <summary>
+                Raised when a move requires a promotion choice before it can be applied.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.PromotionChosen">
+            <summary>
+                Raised when a pending promotion choice is resolved.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.PromotionCanceled">
+            <summary>Raised when a matching pending promotion is canceled before a move is applied.</summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.Check">
+            <summary>
+                Raised when an applied move gives check.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.Checkmate">
+            <summary>
+                Raised when an applied move checkmates the opposing side.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.Stalemated">
+            <summary>
+                Raised when an applied move stalemates the opposing side.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.TurnChanged">
+            <summary>
+                Raised when the side to move changes.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.IllegalMoveRejected">
+            <summary>
+                Raised when a move application is rejected.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.DrawOffered">
+            <summary>
+                Raised when a draw offer is published.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.DrawDeclined">
+            <summary>
+                Raised when a draw offer is declined or cleared explicitly.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.ClockPaused">
+            <summary>
+                Raised when the match clock is paused.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.ClockResumed">
+            <summary>
+                Raised when the match clock is resumed.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.MoveUndone">
+            <summary>
+                Raised when one or more moves are undone.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EngineThinkingStarted">
+            <summary>
+                Raised when the engine starts thinking for the current position.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EngineThinkingStopped">
+            <summary>
+                Raised when the engine stops thinking for the current position.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EngineError">
+            <summary>
+                Obsolete alias for <see cref="E:Bezoro.Chess.UCI.API.UciGameEngineSession.Error"/>.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.Stopped">
+            <summary>
+                Raised when the coordinator has fully stopped.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EventPublished">
+            <summary>
+                Raised for every canonical session event through a compact typed stream.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.#ctor(System.Threading.SynchronizationContext,System.Nullable{Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions},System.Char,System.Func{System.DateTimeOffset})">
+            <summary>
+                Creates a local playable session. Loading positions, moving, promotion, and undo need no engine process.
+                Use the constructor accepting an engine path when external analysis is needed.
+            </summary>
+            <param name="syncContext">Optional context for game-facing events.</param>
+            <param name="options">Clock, match policies, and opt-in background analysis settings.</param>
+            <param name="perspectiveColor">Board perspective, either w or b.</param>
+            <param name="utcNowProvider">Optional clock source. A fixed UTC origin plus monotonic elapsed time avoids wall-clock adjustments.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.#ctor(System.String,System.Collections.Generic.IEnumerable{System.String},System.String,System.Threading.SynchronizationContext,System.Nullable{Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions},System.Char,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,System.Func{System.DateTimeOffset})">
+            <summary>
+                Constructs a new UciGameEngineSession with engines initialized for the given enginePath, arguments, and working
+                directory.
+            </summary>
+            <param name="enginePath">Path to the UCI engine executable.</param>
+            <param name="args">Optional arguments for the engine.</param>
+            <param name="workingDirectory">Optional working directory.</param>
+            <param name="syncContext">Optional synchronization context to marshal events to (e.g. UI thread).</param>
+            <param name="options">Optional configuration options for the coordinator.</param>
+            <param name="perspectiveColor">The board perspective color, either <c>w</c> or <c>b</c>.</param>
+            <param name="whiteController">Controller kind for the white side.</param>
+            <param name="blackController">Controller kind for the black side.</param>
+            <param name="utcNowProvider">Optional clock source. A fixed UTC origin plus monotonic elapsed time avoids wall-clock adjustments.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.IsHealthy">
+            <summary>
+                Gets whether the primary engine and every started optional worker are healthy and responsive.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.IsStarted">
+            <summary>
+                Gets whether the primary engine has been started. Optional workers start only when requested.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.CurrentFen">
+            <summary>
+                Gets the current position FEN (after all played moves).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.LegalMoves">
+            <summary>
+                Gets the list of legal moves in the current position.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.PlayedMoves">
+            <summary>
+                Gets the list of moves played from the starting FEN.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.Evaluation">
+            <summary>
+                Gets the current evaluation from the ponder engine.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.Options">
+            <summary>
+                Gets the configuration options for this coordinator.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.EngineInfo">
+            <summary>
+                Gets the engine metadata reported by the snapshot client instance.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.AvailableOptions">
+            <summary>
+                Gets the options advertised by the snapshot client instance during handshake.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.Capabilities">
+            <summary>
+                Gets the capability state detected for the configured engine.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.PerspectiveColor">
+            <summary>
+                Gets the side used for board-orientation and player-relative evaluation helpers.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.WhiteController">
+            <summary>
+                Gets the configured controller for White.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.BlackController">
+            <summary>
+                Gets the configured controller for Black.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.State">
+            <summary>
+                Gets the current state of the coordinator.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.CreateAsync(System.String,System.Nullable{Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions},System.Threading.SynchronizationContext,System.Char,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind,System.Threading.CancellationToken)">
+            <summary>
+                Creates and starts a new UciGameEngineSession with engines initialized and ready.
+            </summary>
+            <param name="enginePath">Path to the UCI engine executable.</param>
+            <param name="options">Configuration options for the coordinator.</param>
+            <param name="syncContext">Optional synchronization context to marshal events to (e.g. UI thread).</param>
+            <param name="perspectiveColor">The board perspective color, either <c>w</c> or <c>b</c>.</param>
+            <param name="whiteController">Controller kind for the white side.</param>
+            <param name="blackController">Controller kind for the black side.</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>A fully initialized and started coordinator.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.StreamClassifiedMovesAsync(System.Threading.CancellationToken)">
+            <summary>
+                Streams classified moves for the current position.
+                Yields already classified moves first, then waits for new ones.
+                Completes when all moves for the current position are classified.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.StreamStateAsync(System.Threading.CancellationToken)">
+            <summary>
+                Streams the latest state for rendering and status updates.
+                Yields the current state immediately and buffers at most one subsequent snapshot.
+                A slow consumer skips intermediate snapshots. Use EventPublished for gameplay event delivery.
+            </summary>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.NewGameAsync(System.Threading.CancellationToken)">
+            <summary>
+                Starts a locally playable game with the standard position and freshly initialized clocks.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ResetAsync(System.Threading.CancellationToken)">
+            <summary>
+                Resets to the starting chess position.
+            </summary>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.SetOptionAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+                Sets a UCI option on the currently started engines. Workers started later retain their own defaults.
+            </summary>
+            <param name="name">The option name.</param>
+            <param name="value">The option value, or null to use the engine's default.</param>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.SetDebugAsync(System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+                Sends the standard UCI <c>debug on/off</c> command to the currently started engines.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.RegisterAsync(Bezoro.Chess.UCI.Protocol.API.Types.UciRegistration,System.Threading.CancellationToken)">
+            <summary>
+                Sends the standard UCI <c>register</c> command to the currently started engines.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.SetPositionAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+                Sets the position from a FEN string.
+            </summary>
+            <param name="fen">The FEN string representing the position.</param>
+            <param name="ct">Cancellation token.</param>
+            <exception cref="T:System.ArgumentException">Thrown when the FEN string is invalid.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.StartAsync(System.Threading.CancellationToken)">
+            <summary>
+                Starts the primary engine. Automatic background analysis explicitly opts into starting both optional workers.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.StartSearchAsync(System.Threading.CancellationToken)">
+            <summary>
+                Begins an infinite search from the current position. Cancels any previous search.
+            </summary>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.StartSearchAsync(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <summary>
+                Begins an infinite search from the specified position. Cancels any previous search.
+            </summary>
+            <param name="fen">Position to search from.</param>
+            <param name="playedMoves">Optional played moves to append to the FEN.</param>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.StopAsync(System.Threading.CancellationToken)">
+            <summary>
+                Stops any ongoing search and all engine operations. Resets cached state and cancels in-flight move classification.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.StopSearchAsync(System.Threading.CancellationToken)">
+            <summary>
+                Stops any ongoing infinite ponder search.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.LoadMatchAsync(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup,System.Threading.CancellationToken)">
+            <summary>
+                Loads a complete authored or saved match setup into the session and returns the refreshed state.
+            </summary>
+            <param name="setup">Complete match setup to load.</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>The refreshed state after the setup is loaded.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.CaptureSaveAsync(System.Threading.CancellationToken)">
+            <summary>Captures the local game and every available clock checkpoint for undo after reloading.</summary>
+            <param name="ct">Cancellation while waiting for the serialized command gate.</param>
+            <returns>An immutable save compatible with both playable session APIs. Snapshot arrays are allocated only on this request.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.LoadSaveAsync(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave,System.Boolean,System.Threading.CancellationToken)">
+            <summary>Validates and restores a local save, retaining historical clocks for later takebacks.</summary>
+            <param name="save">Save captured by either playable session API, using equal time-control and draw policies.</param>
+            <param name="countTimeSinceSave">Whether a running clock includes time elapsed since saving. Defaults to resuming at load time.</param>
+            <param name="ct">Cancellation before replacement leaves the current match in place.</param>
+            <returns>The restored game snapshot. Engine processes and analysis caches are excluded from saves.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.UpdatePositionAsync(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <summary>
+                Updates the locally validated board position and legal moves, then optionally schedules background analysis.
+                Completes without waiting for an external engine.
+            </summary>
+            <param name="fen">Position FEN</param>
+            <param name="playedMoves">Optional moves played after the FEN</param>
+            <param name="ct">Cancellation token</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.UpdatePositionAsync(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.Collections.Generic.IEnumerable{System.String},System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockRestore},System.Threading.CancellationToken)">
+            <summary>
+                Fully updates the engines to reflect a new board position and optionally restores the match clock snapshot.
+            </summary>
+            <param name="fen">Position FEN</param>
+            <param name="playedMoves">Optional moves played after the FEN</param>
+            <param name="clockRestore">Optional clock snapshot to restore after the position is loaded.</param>
+            <param name="ct">Cancellation token</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.GetCurrentFenAsync(System.Threading.CancellationToken)">
+            <summary>
+                Gets the locally validated current FEN after all played moves, without contacting an engine.
+            </summary>
+            <param name="ct">Cancellation token.</param>
+            <returns>The current position FEN, or null if not available.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.WaitForClassificationAsync(System.Threading.CancellationToken)">
+            <summary>
+                Waits until all legal moves in the current position have been classified.
+            </summary>
+            <param name="ct">Cancellation token.</param>
+            <returns>Dictionary of all classified moves.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ClassifyMoveAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+                Classifies a single move in the current position.
+            </summary>
+            <param name="move">The move to classify (in UCI notation).</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>The classified move with analysis.</returns>
+            <exception cref="T:System.ArgumentException">Thrown when the move is not legal.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.SearchAsync(Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters,System.Threading.CancellationToken)">
+            <summary>
+                Performs a blocking search with the specified parameters and returns the result.
+            </summary>
+            <param name="parameters">Search parameters (depth, time, nodes, etc.).</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>The search result containing the best move and evaluation.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.MakeMoveAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+                Applies a legal move using local rules without waiting for an external engine.
+                This is a convenience wrapper around the position update API.
+            </summary>
+            <param name="move">The move to play (in UCI notation, e.g. "e2e4").</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>The new state after the move is applied.</returns>
+            <exception cref="T:System.ArgumentException">Thrown when the move is not legal in the current position.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.PlayControlledMoveAsync(System.Threading.CancellationToken)">
+            <summary>
+                Plays the current side automatically when that side is configured as engine-controlled.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.PlayControlledMoveIfNeededAsync(System.Threading.CancellationToken)">
+            <summary>
+                Plays the current side automatically when it is engine-controlled and the match is still playable.
+            </summary>
+            <param name="ct">Cancellation token.</param>
+            <returns>
+                The engine move result when a controlled move was played; otherwise <see langword="null" /> when the current
+                side is manually controlled or the match is terminal.
+            </returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.MakeMoveAsync(System.String,Bezoro.Chess.UCI.API.Common.Enums.GameMoveActor,System.Threading.CancellationToken)">
+            <summary>
+                Applies a legal move locally with an explicit actor classification.
+            </summary>
+            <param name="move">The move to play (in UCI notation, e.g. "e2e4").</param>
+            <param name="actor">Who initiated the move.</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>The new state after the move is applied.</returns>
+            <exception cref="T:System.ArgumentException">Thrown when the move is not legal in the current position.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ChoosePromotionAsync(System.Int64,Bezoro.Chess.UCI.API.Common.Enums.PieceType,System.Threading.CancellationToken)">
+            <summary>
+                Resolves a pending promotion choice and applies the completed move.
+            </summary>
+            <param name="pendingPromotionId">The identifier previously published in <see cref="E:Bezoro.Chess.UCI.API.UciGameEngineSession.PromotionRequired" />.</param>
+            <param name="pieceType">The chosen promotion piece type.</param>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.CancelPendingPromotionAsync(System.Int64,System.Threading.CancellationToken)">
+            <summary>Cancels a matching promotion prompt without moving a piece or rewinding the clock.</summary>
+            <param name="pendingPromotionId">Identifier from the promotion request. Stale requests cannot cancel a newer prompt.</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>True when a matching prompt was canceled; false when it is no longer pending.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.UndoAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+                Reverts one or more moves locally. Retained clock values, stages, and move counts are restored;
+                the retained turn restarts unpaused at the undo time.
+            </summary>
+            <param name="count">Number of moves to undo. Defaults to 1.</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>The new state after undoing moves, or the current state if no moves were undone.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.OfferDrawAsync(System.Threading.CancellationToken)">
+            <summary>
+                Offers a draw from the current side.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.OfferDrawAsync(System.Char,System.Threading.CancellationToken)">
+            <summary>Offers a draw on behalf of either side, including while the opponent is thinking.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.AcceptDrawAsync(System.Threading.CancellationToken)">
+            <summary>
+                Accepts the current pending draw offer and ends the game as a draw.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.AcceptDrawAsync(System.Char,System.Threading.CancellationToken)">
+            <summary>Accepts a draw only when the supplied side is the recipient of the pending offer.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.DeclineDrawAsync(System.Threading.CancellationToken)">
+            <summary>
+                Declines the current pending draw offer.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.DeclineDrawAsync(System.Char,System.Threading.CancellationToken)">
+            <summary>Declines a draw only when the supplied side is the recipient of the pending offer.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ClaimDrawAsync(System.Threading.CancellationToken)">
+            <summary>
+                Claims the currently claimable draw result when available.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ClaimDrawAsync(System.String,System.Threading.CancellationToken)">
+            <summary>Claims a threefold or fifty-move draw by declaring a legal intended move without playing it.</summary>
+            <param name="intendedMove">Legal move in UCI notation that would make the draw claim available.</param>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ResignAsync(System.Threading.CancellationToken)">
+            <summary>
+                Resigns on behalf of the current side.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ResignAsync(System.Char,System.Threading.CancellationToken)">
+            <summary>Resigns on behalf of either side, including while the opponent is thinking.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.PauseClockAsync(System.Threading.CancellationToken)">
+            <summary>
+                Pauses the active match clock when time control is enabled.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ResumeClockAsync(System.Threading.CancellationToken)">
+            <summary>
+                Resumes the active match clock when paused.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.GetController(System.Char)">
+            <summary>
+                Returns the configured controller for the supplied side.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.DisposeAsync">
+            <summary>
+                Disposes all underlying engines and cancels outstanding classification.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.Dispose">
+            <summary>
+                Synchronously disposes all underlying engines and cancels outstanding classification.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ClearState">
+            <summary>
+                Cancels background move classification and clears its completion promise.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.OnPonderInfo(Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation,System.Int32)">
+            <summary>
+                Forwards ponder engine PV updates.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.PonderOnBestMove(System.String,System.String,System.Int32)">
+            <summary>
+                Forwards the best move (and optional ponder move) found by the ponder engine.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.RaiseError(System.Exception)">
+            <summary>
+                Raises the Error event with the specified exception.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException">
+            <summary>
+                Exception thrown when a character does not represent a valid chess piece.
+            </summary>
+            <param name="pieceChar">The invalid piece character.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Domain.Common.Exceptions.InvalidPieceCharException.#ctor(System.Char)">
+            <summary>
+                Exception thrown when a character does not represent a valid chess piece.
+            </summary>
+            <param name="pieceChar">The invalid piece character.</param>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.Internal.GameEngineClients">
+            <summary>Owns the three external-engine runtimes for an explicitly engine-backed session.</summary>
+        </member>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+                Enables C# 9 init-only setters on older frameworks.
+            </summary>
+        </member>
+    </members>
+</doc>

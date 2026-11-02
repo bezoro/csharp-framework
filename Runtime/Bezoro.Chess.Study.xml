@@ -1,0 +1,206 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Chess.Study</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Chess.Study.ChessLesson">
+            <summary>
+            A reusable, validated scripted exercise. Learner moves may branch; every opponent reply is unambiguous.
+            Completion means following an accepted solution, not an inferred engine objective.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLesson.#ctor(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.Collections.Generic.IEnumerable{System.Collections.Generic.IEnumerable{System.String}},System.Int32,System.Int32)">
+            <summary>
+            Validates all solution lines once. Lines begin/end with a learner move, cannot extend another accepted
+            solution, and contain only legal UCI moves. Caller data is copied. Budgets bound authoring/import work.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLesson.LearnerSide">
+            <summary>Gets the learner's side; the learner makes the first move in the exercise.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLesson.StartingPosition">
+            <summary>Gets the starting position.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLesson.StartAttempt">
+            <summary>Creates an independent mutable attempt sharing this immutable solution tree.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.ChessLessonAttempt">
+            <summary>A caller-owned, single-threaded attempt. No engine, clock or per-frame evaluation is needed.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonAttempt.Position">
+            <summary>Gets the current position, after any automatic scripted reply.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonAttempt.IsCompleted">
+            <summary>Gets whether an accepted solution was completed.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonAttempt.MistakeCount">
+            <summary>Gets rejected move attempts since reset. Undo does not erase mistakes.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonAttempt.HintCount">
+            <summary>Gets the available learner hints; completed attempts have none.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLessonAttempt.GetHint(System.Int32)">
+            <summary>Gets one accepted UCI move without allocating.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLessonAttempt.TryPlay(System.String)">
+            <summary>
+            Attempts one learner move. A rejected move leaves the board unchanged; a correct non-final move also
+            applies the scripted opponent reply. Completed attempts reject further input without adding mistakes.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLessonAttempt.Undo">
+            <summary>Rewinds the last learner decision and its scripted reply, retaining the mistake count.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLessonAttempt.Reset">
+            <summary>Returns to the starting position and clears mistakes.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.LessonMoveResult">
+            <summary>Immediate exercise feedback, including the optional automatic opponent reply.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.LessonMoveResult.Accepted">
+            <summary>Gets whether the learner move was accepted.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.LessonMoveResult.Completed">
+            <summary>Gets whether the exercise is complete after the request.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.LessonMoveResult.LearnerMove">
+            <summary>Gets the accepted learner move, or null on rejection.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.LessonMoveResult.OpponentReply">
+            <summary>Gets the scripted reply applied after the learner move, if any.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.ChessNotation">
+            <summary>Converts legal standard-chess moves between UCI coordinates and English SAN, without an engine.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessNotation.ToSan(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.String)">
+            <summary>Formats a legal move, including disambiguation, captures, promotion, check and mate.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessNotation.ParseSan(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.String)">
+            <summary>
+            Resolves SAN to a legal UCI move. Accepts zeroes in castling and an omitted check suffix;
+            a supplied check or mate suffix must be correct. Ambiguous, illegal and overspecified moves are rejected.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.ChessStudy">
+            <summary>
+            A caller-owned, single-threaded analysis tree. Undo retains continuations; playing another move creates a variation.
+            It starts no engine, clock, task or event loop. Study navigation never changes a live match.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.#ctor(System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.Fen},System.Int32)">
+            <summary>Creates a study with an explicit storage limit (including the root).</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessStudy.Root">
+            <summary>Gets the starting position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessStudy.Current">
+            <summary>Gets the selected position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessStudy.NodeCount">
+            <summary>Gets the stored node count, including the root.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessStudy.Tags">
+            <summary>Gets game metadata. Use SetTag to change it.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessStudy.Result">
+            <summary>Gets the recorded PGN result, independently of study variations. Defaults to unfinished.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.Play(System.String)">
+            <summary>Plays a legal move or selects its existing continuation. Failure leaves the tree and cursor unchanged.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.PlaySan(System.String)">
+            <summary>Resolves and plays a legal SAN move.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.Undo">
+            <summary>Returns to the parent while preserving every continuation. Returns false at the root.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.Redo(System.Int32)">
+            <summary>Follows a stored continuation. Returns false if the selected variation does not exist.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.GoTo(Bezoro.Chess.Study.StudyNode)">
+            <summary>Selects a position owned by this study in constant time.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.SetComment(Bezoro.Chess.Study.StudyNode,System.String)">
+            <summary>Attaches a comment. Export uses semicolon comments when its text contains braces.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.SetLeadingComment(Bezoro.Chess.Study.StudyNode,System.String)">
+            <summary>Attaches an introduction to an alternative's first move, preserving its scope during PGN interchange.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.AddAnnotation(Bezoro.Chess.Study.StudyNode,System.Byte)">
+            <summary>Adds one distinct numeric annotation glyph to a move (root annotations are not allowed).</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.SetTag(System.String,System.String)">
+            <summary>Sets a valid PGN tag. FEN and SetUp are generated from the actual root and cannot be overridden.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.GetCurrentMoves">
+            <summary>Copies the selected root-to-cursor move history for an explicit engine review request.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.Pgn">
+            <summary>Imports and exports one standard-chess PGN game with tags, SAN, comments, NAGs and nested variations.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.Pgn.Parse(System.String,Bezoro.Chess.Study.PgnReadLimits)">
+            <summary>
+            Imports and validates the entire game locally. Illegal moves, inconsistent results, malformed input and
+            budget overruns throw FormatException; no partially imported study is returned. The cursor ends at the root.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.Pgn.Write(Bezoro.Chess.Study.ChessStudy)">
+            <summary>Exports the entire tree without changing its cursor. Missing roster tags receive PGN unknown values.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.PgnReadLimits">
+            <summary>Explicit budgets for importing one untrusted PGN game.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.PgnReadLimits.#ctor(System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Creates validated input, storage, nesting and individual token budgets.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.PgnReadLimits.MaxInputCharacters">
+            <summary>Gets the input character budget.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.PgnReadLimits.MaxNodes">
+            <summary>Gets the node budget, including the starting position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.PgnReadLimits.MaxVariationDepth">
+            <summary>Gets the maximum nested recursive annotation variations (parsed iteratively).</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.PgnReadLimits.MaxTokenCharacters">
+            <summary>Gets the maximum characters in one symbol, tag string or comment.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.StudyNode">
+            <summary>A position in one study. Shared prefixes are stored once; the first continuation is the main line.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.Parent">
+            <summary>Gets the previous position, or null at the starting position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.Position">
+            <summary>Gets the complete position, ready for immediate navigation without replay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.Move">
+            <summary>Gets the UCI move leading here, or null at the root.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.San">
+            <summary>Gets the canonical SAN move leading here, or null at the root.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.Depth">
+            <summary>Gets the number of moves from the root.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.Comment">
+            <summary>Gets the comment attached to this position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.LeadingComment">
+            <summary>Gets a comment before this move, including a variation's introductory comment.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.VariationCount">
+            <summary>Gets the number of alternative continuations, including the main line at index zero.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.StudyNode.GetVariation(System.Int32)">
+            <summary>Gets a continuation. No collection or enumerator is allocated.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.AnnotationCount">
+            <summary>Gets the number of numeric annotation glyphs attached to the move.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.StudyNode.GetAnnotation(System.Int32)">
+            <summary>Gets a PGN numeric annotation glyph (0–255).</summary>
+        </member>
+    </members>
+</doc>

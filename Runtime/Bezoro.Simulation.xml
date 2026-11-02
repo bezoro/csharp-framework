@@ -1,0 +1,401 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Simulation</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Simulation.Attributes.StatCalculator">
+            <summary>Pure, allocation-free evaluation of ordered attribute modifiers.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatCalculator.Evaluate(Bezoro.Simulation.Attributes.StatDefinition,System.ReadOnlySpan{Bezoro.Simulation.Attributes.StatModifier})">
+            <summary>
+            Evaluates (base + sum of additions) * (1 + sum of fractional percentages) * product of factors.
+            The highest-priority override replaces that result; ties use the last input modifier. Bounds apply last.
+            Each overflowing arithmetic operation saturates to the corresponding finite double limit.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Attributes.StatDefinition">
+            <summary>Defines an attribute's base value and finite inclusive output bounds.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatDefinition.#ctor(Bezoro.Simulation.Attributes.StatId,System.Double,System.Double,System.Double)">
+            <summary>Creates an attribute definition. Bounds apply after modifiers and overrides.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatDefinition.Id">
+            <summary>Gets the attribute identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatDefinition.BaseValue">
+            <summary>Gets the unmodified value. It may lie outside the final output bounds.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatDefinition.Minimum">
+            <summary>Gets the inclusive lower bound of the evaluated value.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatDefinition.Maximum">
+            <summary>Gets the inclusive upper bound of the evaluated value.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatDefinition.WithBaseValue(System.Double)">
+            <summary>Creates a definition with the same identifier and bounds and a different base value.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Attributes.StatEvaluation">
+            <summary>The finite result of evaluating one attribute.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatEvaluation.Value">
+            <summary>Gets the value after the definition's bounds are applied.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatEvaluation.UnclampedValue">
+            <summary>Gets the finite formula or override value before the definition's bounds are applied.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatEvaluation.WasClamped">
+            <summary>Gets whether the definition's bounds changed the computed value.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatEvaluation.WasSaturated">
+            <summary>Gets whether arithmetic overflow was saturated while computing a non-overridden formula.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Attributes.StatId">
+            <summary>Identifies a game-defined attribute. Zero is reserved for an uninitialized identifier.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatId.#ctor(System.Int32)">
+            <summary>Creates an identifier from a positive game-defined integer.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatId.Value">
+            <summary>Gets the game-defined integer, or zero for an uninitialized identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatId.IsValid">
+            <summary>Gets whether this identifier was initialized.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatId.Equals(Bezoro.Simulation.Attributes.StatId)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatId.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatId.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatId.ToString">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatId.op_Equality(Bezoro.Simulation.Attributes.StatId,Bezoro.Simulation.Attributes.StatId)">
+            <summary>Compares identifiers.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatId.op_Inequality(Bezoro.Simulation.Attributes.StatId,Bezoro.Simulation.Attributes.StatId)">
+            <summary>Compares identifiers.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Attributes.StatModifierOperation">
+            <summary>Specifies a modifier's contribution to the stat formula.</summary>
+        </member>
+        <member name="F:Bezoro.Simulation.Attributes.StatModifierOperation.Add">
+            <summary>Adds a flat amount before percentage and multiplicative contributions.</summary>
+        </member>
+        <member name="F:Bezoro.Simulation.Attributes.StatModifierOperation.AddPercent">
+            <summary>Adds a fractional percentage. For example, 0.25 represents an increase of 25 percent.</summary>
+        </member>
+        <member name="F:Bezoro.Simulation.Attributes.StatModifierOperation.Multiply">
+            <summary>Multiplies by a nonnegative factor. For example, 1.25 represents an increase of 25 percent.</summary>
+        </member>
+        <member name="F:Bezoro.Simulation.Attributes.StatModifierOperation.Override">
+            <summary>Replaces the formula result before bounds are applied.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Attributes.StatModifier">
+            <summary>A finite immutable contribution to one attribute's evaluation.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatModifier.#ctor(Bezoro.Simulation.Attributes.StatModifierOperation,System.Double,System.Int32)">
+            <summary>Creates a modifier. Priority is used only to choose between overrides.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatModifier.Value">
+            <summary>Gets the amount, fractional percentage, factor, or override value.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatModifier.Operation">
+            <summary>Gets the operation. The default modifier is an additive zero.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatModifier.Priority">
+            <summary>Gets the override priority. Higher priorities win; equal priorities use the last modifier.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Attributes.StatModifierHandle">
+            <summary>An opaque owner-scoped handle to a modifier. Handles are not persistent save identifiers.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatModifierHandle.IsDefault">
+            <summary>Gets whether this handle is the uninitialized default value.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatModifierHandle.Equals(Bezoro.Simulation.Attributes.StatModifierHandle)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatModifierHandle.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatModifierHandle.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatModifierHandle.op_Equality(Bezoro.Simulation.Attributes.StatModifierHandle,Bezoro.Simulation.Attributes.StatModifierHandle)">
+            <summary>Compares handles.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatModifierHandle.op_Inequality(Bezoro.Simulation.Attributes.StatModifierHandle,Bezoro.Simulation.Attributes.StatModifierHandle)">
+            <summary>Compares handles.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Attributes.StatSet">
+            <summary>
+            Owns a fixed set of attributes and a bounded reusable modifier pool. Mutations and cached reads require
+            an owning thread or external serialization. Different instances may run independently on different threads.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.#ctor(System.ReadOnlySpan{Bezoro.Simulation.Attributes.StatDefinition},System.Int32)">
+            <summary>Copies definitions and allocates all modifier storage. Identifiers must be unique.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatSet.StatCount">
+            <summary>Gets the fixed number of attributes.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatSet.ModifierCapacity">
+            <summary>Gets the allocated maximum number of live modifiers.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatSet.ModifierCount">
+            <summary>Gets the number of live modifiers across all attributes.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Attributes.StatSet.AvailableModifierSlots">
+            <summary>Gets reusable slots. A slot is retired instead of wrapping its generation after uint.MaxValue uses.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.Contains(Bezoro.Simulation.Attributes.StatId)">
+            <summary>Gets whether an attribute is defined.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.GetDefinition(Bezoro.Simulation.Attributes.StatId)">
+            <summary>Gets the current definition of an attribute.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.SetDefinition(Bezoro.Simulation.Attributes.StatDefinition)">
+            <summary>Replaces an existing attribute's definition and invalidates only its cached evaluation.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.SetBaseValue(Bezoro.Simulation.Attributes.StatId,System.Double)">
+            <summary>Changes an attribute's base value, preserving its output bounds.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.GetValue(Bezoro.Simulation.Attributes.StatId)">
+            <summary>Gets the cached value, recomputing only when this attribute changed.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.Evaluate(Bezoro.Simulation.Attributes.StatId)">
+            <summary>Gets the cached result, recomputing only when this attribute changed.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.AddModifier(Bezoro.Simulation.Attributes.StatId,Bezoro.Simulation.Attributes.StatModifier)">
+            <summary>Adds a modifier in insertion order. Throws if no reusable slot remains.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.TryAddModifier(Bezoro.Simulation.Attributes.StatId,Bezoro.Simulation.Attributes.StatModifier,Bezoro.Simulation.Attributes.StatModifierHandle@)">
+            <summary>Adds a modifier, returning false only when the fixed pool has no reusable slot.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.TryUpdateModifier(Bezoro.Simulation.Attributes.StatModifierHandle,Bezoro.Simulation.Attributes.StatModifier)">
+            <summary>Changes a live modifier without changing its insertion-order position.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.TryGetModifier(Bezoro.Simulation.Attributes.StatModifierHandle,Bezoro.Simulation.Attributes.StatId@,Bezoro.Simulation.Attributes.StatModifier@)">
+            <summary>Reads a live modifier. Stale, foreign, and default handles return false.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.TryRemoveModifier(Bezoro.Simulation.Attributes.StatModifierHandle)">
+            <summary>Removes a live modifier. Stale, foreign, and default handles return false.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.GetModifierCount(Bezoro.Simulation.Attributes.StatId)">
+            <summary>Gets the number of live modifiers affecting an attribute.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.CopyModifiersTo(Bezoro.Simulation.Attributes.StatId,System.Span{Bezoro.Simulation.Attributes.StatModifier})">
+            <summary>Copies modifiers in insertion order. An undersized destination is rejected before any write.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.ClearModifiers(Bezoro.Simulation.Attributes.StatId)">
+            <summary>Removes all modifiers from one attribute and invalidates their handles.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Attributes.StatSet.ClearModifiers">
+            <summary>Removes all modifiers and invalidates their handles, preserving definitions and base values.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Timing.FixedStepAdvance">
+            <summary>The immutable result of advancing a fixed-step clock.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.FixedStepAdvance.State">
+            <summary>Gets the state to retain after executing the returned steps.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.FixedStepAdvance.StepCount">
+            <summary>Gets how many simulation steps the host should execute now.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.FixedStepAdvance.DroppedTime">
+            <summary>Gets the time discarded by this call under the drop-overflow policy.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.FixedStepAdvance.PendingStepCount">
+            <summary>Gets how many whole steps remain in the preserved backlog.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.FixedStepAdvance.InterpolationAlpha">
+            <summary>
+            Gets accumulated time divided by step duration, clamped to one.
+            A preserved backlog therefore produces one rather than extrapolation.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Timing.FixedStepBacklogPolicy">
+            <summary>Determines what happens to whole steps beyond the per-advance execution budget.</summary>
+        </member>
+        <member name="F:Bezoro.Simulation.Timing.FixedStepBacklogPolicy.Preserve">
+            <summary>Retains unexecuted time so later advances can catch up.</summary>
+        </member>
+        <member name="F:Bezoro.Simulation.Timing.FixedStepBacklogPolicy.DropOverflow">
+            <summary>Discards excess whole steps, while retaining the fractional remainder.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Timing.FixedStepClock">
+            <summary>Pure fixed-step advancement with no wall clock, callbacks, or engine dependency.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.FixedStepClock.Advance(Bezoro.Simulation.Timing.FixedStepConfiguration@,Bezoro.Simulation.Timing.FixedStepState@,System.TimeSpan)">
+            <summary>
+            Adds exact elapsed time and returns bounded simulation work.
+            Invalid configuration or negative time is rejected. Time or tick overflow throws
+            before any state changes, because the supplied state is immutable.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.FixedStepClock.AdvanceSeconds(Bezoro.Simulation.Timing.FixedStepConfiguration@,Bezoro.Simulation.Timing.FixedStepState@,System.Double)">
+            <summary>
+            Converts finite nonnegative seconds to the nearest 100 ns, using ties-to-even,
+            then advances. For partition-exact replay, supply recorded TimeSpan values to Advance.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Timing.FixedStepConfiguration">
+            <summary>Immutable fixed-step duration, work budget, and backlog policy.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.FixedStepConfiguration.#ctor(System.TimeSpan,System.Int32,Bezoro.Simulation.Timing.FixedStepBacklogPolicy)">
+            <summary>Creates a configuration with a positive duration and execution budget.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.FixedStepConfiguration.StepDuration">
+            <summary>Gets the duration of one simulation step, in exact 100 ns units.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.FixedStepConfiguration.MaxStepsPerAdvance">
+            <summary>Gets the maximum number of steps returned by one advance.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.FixedStepConfiguration.BacklogPolicy">
+            <summary>Gets how whole steps beyond the work budget are handled.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Timing.FixedStepState">
+            <summary>A snapshot of executed ticks and time not yet simulated.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.FixedStepState.#ctor(System.Int64,System.TimeSpan)">
+            <summary>Creates a state. The default value is the initial state.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.FixedStepState.Tick">
+            <summary>Gets the number of simulation steps already executed.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.FixedStepState.AccumulatedTime">
+            <summary>Gets retained time, including whole steps when preserving backlog.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Timing.ScheduledHandle">
+            <summary>An opaque, owner-scoped identity for one scheduled item. Handles are not persistent save identifiers.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.ScheduledHandle.IsDefault">
+            <summary>Gets whether this is the empty handle. Nonempty handles may still be stale.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.ScheduledHandle.Equals(Bezoro.Simulation.Timing.ScheduledHandle)">
+            <summary>Compares the owner, slot, and generation.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.ScheduledHandle.Equals(System.Object)">
+            <summary>Compares this handle with a boxed handle.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.ScheduledHandle.GetHashCode">
+            <summary>Returns an in-process hash for this identity.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.ScheduledHandle.op_Equality(Bezoro.Simulation.Timing.ScheduledHandle,Bezoro.Simulation.Timing.ScheduledHandle)">
+            <summary>Compares handles for equality.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.ScheduledHandle.op_Inequality(Bezoro.Simulation.Timing.ScheduledHandle,Bezoro.Simulation.Timing.ScheduledHandle)">
+            <summary>Compares handles for inequality.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Timing.ScheduledItem`1">
+            <summary>A scheduled payload and its original due tick. Payload references are not deep-copied.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.ScheduledItem`1.Handle">
+            <summary>Gets the item's identity. It becomes stale when drained or canceled.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.ScheduledItem`1.DueTick">
+            <summary>Gets the absolute simulation tick at which this item became due.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.ScheduledItem`1.Value">
+            <summary>Gets the caller-owned payload.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Timing.SchedulerDrainResult">
+            <summary>Describes the populated prefix of a drain buffer and whether due work remains.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.SchedulerDrainResult.Count">
+            <summary>Gets the number of items written to the supplied buffer.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.SchedulerDrainResult.HasMoreDue">
+            <summary>Gets whether the scheduler still contains items due at its current tick.</summary>
+        </member>
+        <member name="T:Bezoro.Simulation.Timing.TickScheduler`1">
+            <summary>
+            A fixed-capacity integer-tick scheduler with stable ordering and generational cancellation.
+            Operations require one owning thread or external serialization. Separate instances are independent.
+            </summary>
+            <remarks>
+            Scheduling, cancellation, rescheduling, and draining allocate no managed memory after construction.
+            The scheduler retains payload references until cancellation, draining, or Clear.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.#ctor(System.Int32,System.Int64)">
+            <summary>Preallocates a fixed number of slots. Zero capacity is valid and always full.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.TickScheduler`1.Capacity">
+            <summary>Gets the preallocated number of slots.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.TickScheduler`1.Count">
+            <summary>Gets the number of pending items.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.TickScheduler`1.RemainingCapacity">
+            <summary>Gets available slots, excluding slots retired after generation exhaustion.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.TickScheduler`1.RetiredSlotCount">
+            <summary>Gets slots permanently retired to prevent stale-handle resurrection.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.TickScheduler`1.CurrentTick">
+            <summary>Gets the latest tick supplied to AdvanceTo. Clear retains this value.</summary>
+        </member>
+        <member name="P:Bezoro.Simulation.Timing.TickScheduler`1.HasDueItems">
+            <summary>Gets whether at least one item is due at CurrentTick.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.Schedule(`0,System.Int64)">
+            <summary>Schedules a payload after a nonnegative delay. Throws if capacity is exhausted.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.ScheduleAt(`0,System.Int64)">
+            <summary>Schedules a payload at or after CurrentTick. Throws if capacity is exhausted.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.TrySchedule(`0,System.Int64,Bezoro.Simulation.Timing.ScheduledHandle@)">
+            <summary>Attempts to schedule a payload after a nonnegative delay. Invalid arguments still throw.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.TryScheduleAt(`0,System.Int64,Bezoro.Simulation.Timing.ScheduledHandle@)">
+            <summary>
+            Attempts to schedule a payload at an absolute tick. Equal due ticks retain scheduling order.
+            Invalid time throws without changing the scheduler. If capacity is available,
+            exhausted insertion-order identities also throw without changing the scheduler.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.Contains(Bezoro.Simulation.Timing.ScheduledHandle)">
+            <summary>Gets whether a handle currently identifies an item in this scheduler.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.TryGet(Bezoro.Simulation.Timing.ScheduledHandle,Bezoro.Simulation.Timing.ScheduledItem{`0}@)">
+            <summary>Reads a scheduled item without removing it. Foreign, default, and stale handles return false.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.TryCancel(Bezoro.Simulation.Timing.ScheduledHandle,`0@)">
+            <summary>Cancels an item and returns its payload. Invalid handles leave the scheduler unchanged.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.TryRescheduleAt(Bezoro.Simulation.Timing.ScheduledHandle,System.Int64)">
+            <summary>
+            Changes an item's absolute due tick, retaining its original tie-breaking insertion order.
+            Invalid times throw even for a stale handle; invalid handles otherwise return false.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.TryPeek(Bezoro.Simulation.Timing.ScheduledItem{`0}@)">
+            <summary>Reads the earliest scheduled item, whether or not it is due.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.AdvanceTo(System.Int64,System.Span{Bezoro.Simulation.Timing.ScheduledItem{`0}})">
+            <summary>
+            Advances monotonically to an absolute tick and drains into the supplied buffer.
+            A full or empty buffer leaves remaining due items queued for DrainDue.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.DrainDue(System.Span{Bezoro.Simulation.Timing.ScheduledItem{`0}})">
+            <summary>Drains a bounded prefix of due work in due-tick and insertion order.</summary>
+        </member>
+        <member name="M:Bezoro.Simulation.Timing.TickScheduler`1.Clear">
+            <summary>
+            Removes all items, clears payload references, and invalidates their handles in O(Count).
+            CurrentTick and retired slots are retained; insertion-order numbering restarts.
+            </summary>
+        </member>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+                Enables C# 9 init-only setters on older frameworks.
+            </summary>
+        </member>
+    </members>
+</doc>

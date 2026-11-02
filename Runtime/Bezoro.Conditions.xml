@@ -1,0 +1,105 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Conditions</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Conditions.ConditionExpression">
+            <summary>Builds an immutable Boolean expression to compile once and share between agents.</summary>
+            <remarks>Construction copies child collections. Evaluation belongs to <see cref="T:Bezoro.Conditions.ConditionProgram" />.</remarks>
+        </member>
+        <member name="P:Bezoro.Conditions.ConditionExpression.True">
+            <summary>Gets the constant true expression.</summary>
+        </member>
+        <member name="P:Bezoro.Conditions.ConditionExpression.False">
+            <summary>Gets the constant false expression.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.Predicate(System.Int32)">
+            <summary>References a nonnegative application predicate. Its meaning is supplied by the evaluator.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.All(Bezoro.Conditions.ConditionExpression[])">
+            <summary>Requires every child, left to right, stopping at the first false result. An empty list is true.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.All(System.ReadOnlySpan{Bezoro.Conditions.ConditionExpression})">
+            <summary>Requires every child, left to right, stopping at the first false result. An empty span is true.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.Any(Bezoro.Conditions.ConditionExpression[])">
+            <summary>Requires any child, left to right, stopping at the first true result. An empty list is false.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.Any(System.ReadOnlySpan{Bezoro.Conditions.ConditionExpression})">
+            <summary>Requires any child, left to right, stopping at the first true result. An empty span is false.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.Not(Bezoro.Conditions.ConditionExpression)">
+            <summary>Negates one child.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.Xor(Bezoro.Conditions.ConditionExpression,Bezoro.Conditions.ConditionExpression)">
+            <summary>Evaluates both children and succeeds when their results differ.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.Equal(Bezoro.Conditions.ConditionExpression,Bezoro.Conditions.ConditionExpression)">
+            <summary>Evaluates both children and succeeds when their results match.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.Choose(Bezoro.Conditions.ConditionExpression,Bezoro.Conditions.ConditionExpression,Bezoro.Conditions.ConditionExpression)">
+            <summary>Evaluates the test and only the selected branch, like the C# conditional operator.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.And(Bezoro.Conditions.ConditionExpression)">
+            <summary>Builds a short-circuit conjunction with this expression first.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.Or(Bezoro.Conditions.ConditionExpression)">
+            <summary>Builds a short-circuit disjunction with this expression first.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionExpression.Compile(System.Int32,System.Int32)">
+            <summary>Compiles using explicit occurrence and instruction limits, without recursive traversal.</summary>
+            <remarks>
+            Shared expression objects are expanded per occurrence. Both limits include constants and predicates.
+            Limits must be positive. Exceeding either limit throws before evaluation can begin.
+            </remarks>
+        </member>
+        <member name="T:Bezoro.Conditions.ConditionProgram">
+            <summary>An immutable, bounded Boolean program with short-circuit control flow.</summary>
+            <remarks>
+            Evaluation reads only this program. Each concurrent evaluation owns its scratch and evaluator state.
+            Single predicates and constants need no scratch; composite expressions use the exact compiled stack bound.
+            Evaluation is atomic with respect to the caller's scheduling budget and never caches predicate results.
+            </remarks>
+        </member>
+        <member name="P:Bezoro.Conditions.ConditionProgram.RequiredStackSize">
+            <summary>Gets the number of temporary Boolean values required by a composite evaluation.</summary>
+        </member>
+        <member name="P:Bezoro.Conditions.ConditionProgram.InstructionCount">
+            <summary>Gets the compiled instruction count. Unselected short-circuit branches are skipped.</summary>
+        </member>
+        <member name="P:Bezoro.Conditions.ConditionProgram.PredicateCount">
+            <summary>Gets the syntactic predicate count, an upper bound that includes unselected branches.</summary>
+        </member>
+        <member name="P:Bezoro.Conditions.ConditionProgram.ExpressionNodeCount">
+            <summary>Gets the number of expression occurrences compiled, including shared expressions at each use.</summary>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionProgram.Evaluate``1(``0@,Bezoro.Conditions.IConditionEvaluator{``0},System.Span{System.Boolean})">
+            <summary>Evaluates with a reference evaluator or an already boxed interface value.</summary>
+            <remarks>Use the generic ref overload with struct evaluators to avoid boxing at the call site.</remarks>
+            <exception cref="T:System.ArgumentNullException">The evaluator is null.</exception>
+            <exception cref="T:System.ArgumentException">The scratch span is smaller than <see cref="P:Bezoro.Conditions.ConditionProgram.RequiredStackSize" />.</exception>
+        </member>
+        <member name="M:Bezoro.Conditions.ConditionProgram.Evaluate``2(``0@,``1@,System.Span{System.Boolean})">
+            <summary>Evaluates without boxing a struct evaluator and preserves changes to its own bookkeeping fields.</summary>
+            <remarks>
+            Predicates execute in source order. All/Any and Choose skip unselected branches; Xor/Equal evaluate both operands.
+            A predicate exception propagates. Scratch contents after evaluation or failure are unspecified.
+            The context and program are never changed by the interpreter; application evaluators own their own effects.
+            </remarks>
+            <exception cref="T:System.ArgumentNullException">A reference evaluator is null.</exception>
+            <exception cref="T:System.ArgumentException">The scratch span is smaller than <see cref="P:Bezoro.Conditions.ConditionProgram.RequiredStackSize" />.</exception>
+        </member>
+        <member name="T:Bezoro.Conditions.IConditionEvaluator`1">
+            <summary>Evaluates application predicates against a typed context.</summary>
+            <typeparam name="TContext">The application-owned context.</typeparam>
+            <remarks>
+            Predicates should read the supplied context without changing the condition program or its execution scratch.
+            They may use ordinary C# comparisons, methods and expressions. The program does not cache their results.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Conditions.IConditionEvaluator`1.Evaluate(System.Int32,`0@)">
+            <summary>Evaluates one nonnegative application-defined predicate identifier.</summary>
+        </member>
+    </members>
+</doc>

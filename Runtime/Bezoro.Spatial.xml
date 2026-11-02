@@ -1,0 +1,168 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Spatial</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Spatial.Bounds2D">
+            <summary>A finite, closed axis-aligned rectangle. Zero width or height is permitted.</summary>
+            <remarks>The default value is the single point at the origin. Boundary points are included.</remarks>
+        </member>
+        <member name="M:Bezoro.Spatial.Bounds2D.#ctor(System.Numerics.Vector2,System.Numerics.Vector2)">
+            <summary>Creates a rectangle with inclusive minimum and maximum coordinates.</summary>
+            <exception cref="T:System.ArgumentOutOfRangeException">A coordinate is not finite, or a minimum exceeds its maximum.</exception>
+        </member>
+        <member name="P:Bezoro.Spatial.Bounds2D.Minimum">
+            <summary>Gets the inclusive minimum coordinates.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.Bounds2D.Maximum">
+            <summary>Gets the inclusive maximum coordinates.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.Bounds2D.Width">
+            <summary>Gets the width using binary64 subtraction to avoid overflowing finite binary32 endpoints.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.Bounds2D.Height">
+            <summary>Gets the height using binary64 subtraction to avoid overflowing finite binary32 endpoints.</summary>
+        </member>
+        <member name="M:Bezoro.Spatial.Bounds2D.Contains(System.Numerics.Vector2)">
+            <summary>Tests inclusive containment. Non-finite points are never contained.</summary>
+        </member>
+        <member name="M:Bezoro.Spatial.Bounds2D.Intersects(Bezoro.Spatial.Bounds2D)">
+            <summary>Tests overlap, including shared edges and single boundary points.</summary>
+        </member>
+        <member name="M:Bezoro.Spatial.Bounds2D.Equals(Bezoro.Spatial.Bounds2D)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Spatial.Bounds2D.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Spatial.Bounds2D.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Spatial.Bounds2D.op_Equality(Bezoro.Spatial.Bounds2D,Bezoro.Spatial.Bounds2D)">
+            <summary>Compares the two endpoint pairs.</summary>
+        </member>
+        <member name="M:Bezoro.Spatial.Bounds2D.op_Inequality(Bezoro.Spatial.Bounds2D,Bezoro.Spatial.Bounds2D)">
+            <summary>Compares the two endpoint pairs.</summary>
+        </member>
+        <member name="T:Bezoro.Spatial.PointSpatialIndex`1">
+            <summary>A bounded uniform-grid index of points with application-owned payloads.</summary>
+            <typeparam name="T">The stored payload type.</typeparam>
+            <remarks>
+            Mutations require one owner or external serialization. Queries may run concurrently when no operation mutates the index.
+            Each entry occupies one cell. Queries own no scratch storage and never allocate managed memory after construction.
+            Handles belong to this index; removal and clearing invalidate them. Results have no stable ordering.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.#ctor(Bezoro.Spatial.Bounds2D,System.Single,System.Int32,System.Int32)">
+            <summary>Allocates fixed entry and cell storage.</summary>
+            <param name="worldBounds">Finite inclusive world bounds with positive width and height.</param>
+            <param name="cellSize">Finite positive cell side length. The final row and column may be shorter.</param>
+            <param name="capacity">Maximum number of entries. Zero creates an index that accepts no points.</param>
+            <param name="maximumCells">Explicit upper limit on the computed cell count, checked before allocation.</param>
+            <exception cref="T:System.ArgumentOutOfRangeException">A bound, capacity, cell size, or cell budget is invalid.</exception>
+        </member>
+        <member name="P:Bezoro.Spatial.PointSpatialIndex`1.WorldBounds">
+            <summary>Gets the inclusive world bounds.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.PointSpatialIndex`1.CellSize">
+            <summary>Gets the configured cell side length.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.PointSpatialIndex`1.Columns">
+            <summary>Gets the number of grid columns.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.PointSpatialIndex`1.Rows">
+            <summary>Gets the number of grid rows.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.PointSpatialIndex`1.CellCount">
+            <summary>Gets the logical number of grid cells.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.PointSpatialIndex`1.Count">
+            <summary>Gets the number of live points.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.PointSpatialIndex`1.Capacity">
+            <summary>Gets the fixed entry capacity.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.PointSpatialIndex`1.AvailableCapacity">
+            <summary>Gets the reusable entry capacity. Exhausted handle generations retire their slots.</summary>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.Add(System.Numerics.Vector2,`0)">
+            <summary>Adds an in-world point and returns its owner-scoped handle.</summary>
+            <exception cref="T:System.ArgumentOutOfRangeException">The point is non-finite or outside the world.</exception>
+            <exception cref="T:System.InvalidOperationException">No entry capacity remains.</exception>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.TryAdd(System.Numerics.Vector2,`0,Bezoro.Core.Collections.SlotHandle@)">
+            <summary>Adds a finite in-world point if capacity remains. Failure leaves the index unchanged and returns a default handle.</summary>
+            <exception cref="T:System.ArgumentOutOfRangeException">The point is non-finite.</exception>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.Contains(Bezoro.Core.Collections.SlotHandle)">
+            <summary>Tests whether this index still owns a live entry for the handle.</summary>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.TryGet(Bezoro.Core.Collections.SlotHandle,Bezoro.Spatial.SpatialHit{`0}@)">
+            <summary>Copies a live entry, or returns false and the default hit for a stale, default, or foreign handle.</summary>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.TryMove(Bezoro.Core.Collections.SlotHandle,System.Numerics.Vector2)">
+            <summary>Moves a live entry without changing its identity. Outside-world or invalid handles return false without mutation.</summary>
+            <exception cref="T:System.ArgumentOutOfRangeException">The point is non-finite.</exception>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.TrySetValue(Bezoro.Core.Collections.SlotHandle,`0)">
+            <summary>Replaces a live payload without changing its position or handle. Invalid handles return false.</summary>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.Remove(Bezoro.Core.Collections.SlotHandle)">
+            <summary>Removes a live point and releases its payload reference. Invalid handles return false.</summary>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.Clear">
+            <summary>Removes all points, releases payload references, and invalidates their handles while retaining storage.</summary>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.QueryRectangle(Bezoro.Spatial.Bounds2D,System.Span{Bezoro.Spatial.SpatialHit{`0}})">
+            <summary>Finds points inside a closed rectangle, including all boundary points.</summary>
+            <remarks>A small destination is left unchanged. Hit order is unspecified. Cells outside the world are skipped.</remarks>
+        </member>
+        <member name="M:Bezoro.Spatial.PointSpatialIndex`1.QueryCircle(System.Numerics.Vector2,System.Single,System.Span{Bezoro.Spatial.SpatialHit{`0}})">
+            <summary>Finds points at most the supplied radius from a finite center, including the circle boundary.</summary>
+            <remarks>
+            Points must satisfy both the binary64 circle bounding rectangle and squared-distance comparison.
+            A small destination is left unchanged; order is unspecified.
+            </remarks>
+            <exception cref="T:System.ArgumentOutOfRangeException">The center is non-finite or the radius is non-finite or negative.</exception>
+        </member>
+        <member name="T:Bezoro.Spatial.SpatialHit`1">
+            <summary>A copied point, payload, and process-local handle returned by a spatial index.</summary>
+            <typeparam name="T">The application's payload type.</typeparam>
+        </member>
+        <member name="P:Bezoro.Spatial.SpatialHit`1.Handle">
+            <summary>Gets the entry's identity. Its liveness must be checked against the owning index.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.SpatialHit`1.Position">
+            <summary>Gets the point at the time it was copied.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.SpatialHit`1.Value">
+            <summary>Gets a copied payload. Reference payloads still refer to the application's objects.</summary>
+        </member>
+        <member name="T:Bezoro.Spatial.SpatialQueryResult">
+            <summary>Reports the complete hit count and whether the supplied destination could hold it.</summary>
+            <remarks>The default result represents a successful empty query.</remarks>
+        </member>
+        <member name="P:Bezoro.Spatial.SpatialQueryResult.Status">
+            <summary>Gets the query outcome.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.SpatialQueryResult.WrittenCount">
+            <summary>Gets the number of published hits, or zero when the destination was too small.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.SpatialQueryResult.RequiredCapacity">
+            <summary>Gets the complete number of hits, including when no output could be published.</summary>
+        </member>
+        <member name="P:Bezoro.Spatial.SpatialQueryResult.IsSuccess">
+            <summary>Gets whether the whole result was published.</summary>
+        </member>
+        <member name="T:Bezoro.Spatial.SpatialQueryStatus">
+            <summary>Describes whether a spatial query could publish its complete result.</summary>
+        </member>
+        <member name="F:Bezoro.Spatial.SpatialQueryStatus.Success">
+            <summary>The entire result was written.</summary>
+        </member>
+        <member name="F:Bezoro.Spatial.SpatialQueryStatus.DestinationTooSmall">
+            <summary>The destination was too small and was left unchanged.</summary>
+        </member>
+    </members>
+</doc>

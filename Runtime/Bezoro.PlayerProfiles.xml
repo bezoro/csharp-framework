@@ -1,0 +1,165 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.PlayerProfiles</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.PlayerProfiles.EloRating">
+            <summary>A finite Elo rating and the number of results applied to it.</summary>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.EloRating.#ctor(System.Double,System.Int32)">
+            <summary>Creates a rating. The host chooses initial ratings and rating pools.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.EloRating.Value">
+            <summary>Gets the finite rating. Negative ratings are mathematically supported.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.EloRating.GamesPlayed">
+            <summary>Gets the number of applied results.</summary>
+        </member>
+        <member name="T:Bezoro.PlayerProfiles.EloRatingUpdate">
+            <summary>The immutable result of updating two ratings from the same pre-match pair.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.EloRatingUpdate.FirstPlayer">
+            <summary>Gets the first player's new rating.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.EloRatingUpdate.SecondPlayer">
+            <summary>Gets the second player's new rating.</summary>
+        </member>
+        <member name="T:Bezoro.PlayerProfiles.EloRatings">
+            <summary>Pure, allocation-free Elo calculations with a 400-point logistic scale.</summary>
+            <remarks>This is configurable Elo, not Chess.com's Glicko system or the complete FIDE rating regulations.</remarks>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.EloRatings.ExpectedScore(Bezoro.PlayerProfiles.EloRating,Bezoro.PlayerProfiles.EloRating)">
+            <summary>Calculates the first player's expected score in [0, 1].</summary>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.EloRatings.ApplyResult(Bezoro.PlayerProfiles.EloRating,Bezoro.PlayerProfiles.EloRating,Bezoro.PlayerProfiles.PlayerMatchOutcome,System.Double,System.Double)">
+            <summary>Updates both players atomically as values. K factors must be finite and positive; defaults are 32.</summary>
+            <remarks>Apply a completed authoritative match exactly once; this pure function retains no match identifiers.</remarks>
+        </member>
+        <member name="T:Bezoro.PlayerProfiles.MatchHistoryAppendResult">
+            <summary>Describes the outcome of an append attempt.</summary>
+        </member>
+        <member name="F:Bezoro.PlayerProfiles.MatchHistoryAppendResult.Added">
+            <summary>A new record was appended.</summary>
+        </member>
+        <member name="F:Bezoro.PlayerProfiles.MatchHistoryAppendResult.AlreadyRecorded">
+            <summary>The identical record was already present.</summary>
+        </member>
+        <member name="F:Bezoro.PlayerProfiles.MatchHistoryAppendResult.ConflictingRecord">
+            <summary>The identifier already refers to different metadata.</summary>
+        </member>
+        <member name="F:Bezoro.PlayerProfiles.MatchHistoryAppendResult.CapacityReached">
+            <summary>The configured page capacity was reached.</summary>
+        </member>
+        <member name="T:Bezoro.PlayerProfiles.PlayerMatchHistory">
+            <summary>A bounded, append-only page of one player's match history with constant-time duplicate checks.</summary>
+            <remarks>
+            Requires one owner or external serialization. Records retain insertion order. Storage grows only with appended records.
+            Full pages reject new records rather than evicting their duplicate ledger. The host pages persistent history separately.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchHistory.#ctor(System.String,System.Int32)">
+            <summary>Creates an empty history page. Capacity must be positive.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchHistory.PlayerId">
+            <summary>Gets the history owner.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchHistory.Capacity">
+            <summary>Gets the maximum number of records in this page.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchHistory.Count">
+            <summary>Gets the number of appended records.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchHistory.Item(System.Int32)">
+            <summary>Gets an immutable record in insertion order.</summary>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchHistory.Append(Bezoro.PlayerProfiles.PlayerMatchRecord)">
+            <summary>Appends a valid record for this player, or reports a conflict, retry or capacity failure without mutation.</summary>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchHistory.TryGet(System.String,Bezoro.PlayerProfiles.PlayerMatchRecord@)">
+            <summary>Looks up a match without allocating. Unknown identifiers return false.</summary>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchHistory.CopyTo(System.Span{Bezoro.PlayerProfiles.PlayerMatchRecord})">
+            <summary>Copies all records into caller-owned storage; too-short destinations throw before copying.</summary>
+        </member>
+        <member name="T:Bezoro.PlayerProfiles.PlayerMatchOutcome">
+            <summary>Describes a completed match from one player's perspective.</summary>
+        </member>
+        <member name="F:Bezoro.PlayerProfiles.PlayerMatchOutcome.Loss">
+            <summary>The player lost.</summary>
+        </member>
+        <member name="F:Bezoro.PlayerProfiles.PlayerMatchOutcome.Draw">
+            <summary>The match was drawn.</summary>
+        </member>
+        <member name="F:Bezoro.PlayerProfiles.PlayerMatchOutcome.Win">
+            <summary>The player won.</summary>
+        </member>
+        <member name="T:Bezoro.PlayerProfiles.PlayerMatchRecord">
+            <summary>Immutable metadata for a completed match; replay content is stored separately by the host.</summary>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchRecord.#ctor(System.String,System.String,System.String,Bezoro.PlayerProfiles.PlayerMatchOutcome,System.DateTimeOffset,System.String,System.Boolean,System.String)">
+            <summary>Creates a completed match record. Identities and game-mode identifiers are case-sensitive.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchRecord.MatchId">
+            <summary>Gets the unique application match identifier; null for the default value.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchRecord.PlayerId">
+            <summary>Gets the player whose history owns this record.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchRecord.OpponentId">
+            <summary>Gets the opponent identity; engines can have application-defined identities.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchRecord.Outcome">
+            <summary>Gets the result from this player's perspective.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchRecord.CompletedAt">
+            <summary>Gets the authoritative completion timestamp.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchRecord.GameMode">
+            <summary>Gets the application's mode or rating-pool identifier.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchRecord.IsRated">
+            <summary>Gets whether the authoritative host designated this match as rated.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchRecord.ReplayReference">
+            <summary>Gets an optional opaque replay-storage reference.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerMatchRecord.IsValid">
+            <summary>Gets whether this value was initialized through its constructor.</summary>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchRecord.Equals(Bezoro.PlayerProfiles.PlayerMatchRecord)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchRecord.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchRecord.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchRecord.op_Equality(Bezoro.PlayerProfiles.PlayerMatchRecord,Bezoro.PlayerProfiles.PlayerMatchRecord)">
+            <summary>Compares complete match metadata.</summary>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchRecord.op_Inequality(Bezoro.PlayerProfiles.PlayerMatchRecord,Bezoro.PlayerProfiles.PlayerMatchRecord)">
+            <summary>Compares complete match metadata.</summary>
+        </member>
+        <member name="T:Bezoro.PlayerProfiles.PlayerProfile">
+            <summary>Immutable presentation metadata for an application-owned player identity.</summary>
+            <remarks>Authentication, display-name moderation, uniqueness and persistence belong to the host.</remarks>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerProfile.#ctor(System.String,System.String,System.String)">
+            <summary>Creates a profile. A portrait identifier refers to a host-owned asset, never a loaded texture.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerProfile.PlayerId">
+            <summary>Gets the stable, case-sensitive application identity; null for the default value.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerProfile.DisplayName">
+            <summary>Gets the human-readable display name; null for the default value.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerProfile.PortraitId">
+            <summary>Gets an optional portrait asset identifier.</summary>
+        </member>
+        <member name="P:Bezoro.PlayerProfiles.PlayerProfile.IsValid">
+            <summary>Gets whether this value was initialized through its constructor.</summary>
+        </member>
+    </members>
+</doc>
