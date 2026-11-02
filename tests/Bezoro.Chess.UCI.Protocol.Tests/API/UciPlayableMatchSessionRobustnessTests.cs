@@ -96,7 +96,7 @@ public sealed class UciPlayableMatchSessionRobustnessTests
     }
 
     [Fact]
-    public async Task ChoosePromotion_AfterFlagFall_PreservesPendingChoiceAndDoesNotApplyMove()
+    public async Task ChoosePromotion_AfterFlagFall_DismissesPendingChoiceAndDoesNotApplyMove()
     {
         await using var match = await Match.CreateAsync(clocked: true);
         await match.Session.LoadMatchAsync(new(Fen.Parse("1r5k/P7/8/8/8/8/8/K7 w - - 0 1")!.Value));
@@ -105,7 +105,7 @@ public sealed class UciPlayableMatchSessionRobustnessTests
         match.Now += TimeSpan.FromSeconds(6);
 
         match.Session.Invoking(s => s.ChoosePromotion('q')).Should().Throw<InvalidOperationException>();
-        match.Session.PendingPromotion.Should().NotBeNull();
+        match.Session.PendingPromotion.Should().BeNull();
         match.Session.PlayedMoves.Should().BeEmpty();
         (await match.Session.RefreshAsync()).Result.Reason.Should().Be(PlayableMatchResultReason.Timeout);
     }

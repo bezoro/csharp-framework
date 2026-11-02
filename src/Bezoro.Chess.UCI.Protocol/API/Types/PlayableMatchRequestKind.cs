@@ -48,5 +48,8 @@ public enum PlayableMatchRequestKind
 	ResumeClock,
 
 	/// <summary>Cancels any in-flight background analysis.</summary>
-	CancelAnalysis
+	CancelAnalysis,
+
+	/// <summary>Dismisses a pending promotion without undoing a completed move.</summary>
+	CancelPendingPromotion
 }

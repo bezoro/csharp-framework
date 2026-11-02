@@ -8,6 +8,9 @@ namespace Bezoro.Chess.UCI.Protocol.API.Common.Extensions;
 /// </summary>
 public static class FenRulesExtensions
 {
+	/// <summary>Returns whether the side to move is in check, using local rules without an engine.</summary>
+	public static bool IsInCheck(this Fen fen) => LocalPositionRules.IsCurrentPlayerInCheck(fen);
+
 	/// <summary>
 	///     Applies a legal UCI move locally and returns the resulting FEN.
 	/// </summary>

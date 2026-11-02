@@ -42,8 +42,9 @@ internal static partial class LocalPositionRules
 
 	internal static bool IsCurrentPlayerInCheck(Fen fen)
 	{
-		var state = Parse(fen);
-		return IsKingInCheck(state.Board, state.ActiveColor);
+		Span<char> board = stackalloc char[64];
+		ReadBoard(fen, board);
+		return IsKingInCheck(board, fen.ActiveColor);
 	}
 
 	internal static bool TryCreatePendingPromotion(

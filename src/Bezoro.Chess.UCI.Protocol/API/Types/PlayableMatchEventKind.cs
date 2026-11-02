@@ -42,5 +42,8 @@ public enum PlayableMatchEventKind
 	ResultChanged,
 
 	/// <summary>An attempted move or request was rejected as illegal.</summary>
-	IllegalMoveRejected
+	IllegalMoveRejected,
+
+	/// <summary>An uncompleted promotion choice was canceled; the board and turn are unchanged.</summary>
+	PromotionCanceled
 }

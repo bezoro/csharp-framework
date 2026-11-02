@@ -81,6 +81,9 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	/// <summary>Gets whether this session has explicitly configured engine clients for analysis and controlled turns.</summary>
 	public bool HasEngineClients => _playingClient is not null;
 
+	/// <summary>Gets the initial position from which the complete played-move history begins.</summary>
+	public Fen BaseFen => _baseFen;
+
 	/// <summary>
 	///     Creates a playable match session.
 	/// </summary>
@@ -369,6 +372,132 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	}
 
 	/// <summary>
+	///     Captures the complete local game, including every available clock checkpoint needed for undo after a reload.
+	///     Snapshot arrays are allocated only on this explicit request. Refreshes and adjudicates the current clock first.
+	/// </summary>
+	public PlayableMatchSave CaptureSave()
+	{
+		var state = Refresh();
+		var clocks = ImmutableArray.CreateBuilder<PlayableMatchClockRestore>(_clockHistory.Count);
+		if (_timeControl.HasValue)
+		{
+			for (int index = 0; index < _clockHistory.Count; index++)
+			{
+				var checkpoint = _clockHistory[index];
+				var snapshot = index == _clockHistory.Count - 1
+					? state.Clock!.Value
+					: PlayableMatchClockKernel.SnapshotAtTurnStart(_timeControl.Value, checkpoint);
+				clocks.Add(new(snapshot.WhiteRemaining, snapshot.BlackRemaining, snapshot.ActiveColor,
+					snapshot.DelayRemaining, snapshot.IsPaused, checkpoint.WhiteMovesCompleted,
+					checkpoint.BlackMovesCompleted, snapshot.ActiveStageIndex, snapshot.SnapshotUtc));
+			}
+		}
+		return new(new(_baseFen, _playedMoves), _timeControl, clocks.MoveToImmutable(),
+			_clockHistoryOriginMoveCount, state.Result, _drawOfferedBy, _pendingPromotion?.MovePrefix,
+			_claimableDrawPolicy, _drawOfferPolicy);
+	}
+
+	/// <summary>
+	///     Restores a saved local match and its undo history after validating the whole save before replacing the game.
+	/// </summary>
+	/// <param name="save">Save produced by <see cref="CaptureSave" /> or authored with the same invariants.</param>
+	/// <param name="countTimeSinceSave">Whether an unpaused clock includes time elapsed since saving. Defaults to resuming at load time.</param>
+	/// <param name="ct">Cancellation before replacement leaves the existing game unchanged.</param>
+	/// <remarks>The receiving session must use equal time-control and draw policies. Clock history may begin after move zero.</remarks>
+	public async Task<PlayableMatchState> LoadSaveAsync(
+		PlayableMatchSave save, bool countTimeSinceSave = false, CancellationToken ct = default)
+	{
+		ThrowIfDisposed();
+		ct.ThrowIfCancellationRequested();
+		var checkpoints = ValidateSave(save, ct, out var currentFen, out var promotion);
+		if (checkpoints.Count > 0 && !countTimeSinceSave)
+		{
+			var last = save.ClockHistory[^1] with { SnapshotUtc = _utcNowProvider() };
+			checkpoints[^1] = PlayableMatchClockKernel.Restore(_timeControl!.Value, currentFen.ActiveColor, last);
+		}
+		ct.ThrowIfCancellationRequested();
+		await LoadMatchCoreAsync(save.Setup, ct).ConfigureAwait(false);
+		_clockHistory.Clear();
+		_clockHistory.AddRange(checkpoints);
+		_clockHistoryOriginMoveCount = save.ClockHistoryOriginMoveCount;
+		_pendingPromotion = promotion;
+		_drawOfferedBy = save.DrawOfferedBy;
+		_forcedResult = save.Result;
+		var state = Refresh();
+		RaiseEvent(PlayableMatchEventKind.PositionLoaded, state: state);
+		return state;
+	}
+
+	private List<PlayableMatchClockCheckpoint> ValidateSave(
+		PlayableMatchSave save, CancellationToken ct, out Fen currentFen, out PendingPromotionRequest? promotion)
+	{
+		if (save.Setup.Clock.HasValue)
+			throw new ArgumentException("Saved clocks must be supplied through ClockHistory, not Setup.Clock.", nameof(save));
+		if (!TimeControlsEqual(_timeControl, save.TimeControl))
+			throw new ArgumentException("The saved time control does not match this session.", nameof(save));
+		if (save.ClaimableDrawPolicy != _claimableDrawPolicy || save.DrawOfferPolicy != _drawOfferPolicy)
+			throw new ArgumentException("The saved draw policies do not match this session.", nameof(save));
+		if (save.ClockHistory.IsDefault || save.ClockHistoryOriginMoveCount < 0 ||
+			save.Setup.PlayedMoves.IsDefault || save.ClockHistoryOriginMoveCount > save.Setup.PlayedMoves.Length)
+			throw new ArgumentException("The saved clock history is not initialized or has an invalid origin.", nameof(save));
+		int expectedClocks = _timeControl.HasValue
+			? save.Setup.PlayedMoves.Length - save.ClockHistoryOriginMoveCount + 1 : 0;
+		if (save.ClockHistory.Length != expectedClocks ||
+			!_timeControl.HasValue && save.ClockHistoryOriginMoveCount != 0)
+			throw new ArgumentException("The saved clock history must contain one snapshot per retained position.", nameof(save));
+		if (!Enum.IsDefined(typeof(PlayableMatchResultReason), save.Result.Reason) ||
+			save.Result.Winner.HasValue && save.Result.Winner is not ('w' or 'b') ||
+			!save.Result.IsTerminal && save.Result.Winner.HasValue ||
+			save.Result.Winner.HasValue && save.Result.Reason is not (PlayableMatchResultReason.Checkmate or
+				PlayableMatchResultReason.Resignation or PlayableMatchResultReason.Timeout) ||
+			save.DrawOfferedBy.HasValue && save.DrawOfferedBy is not ('w' or 'b') ||
+			save.Result.IsTerminal && (save.DrawOfferedBy.HasValue || save.PendingPromotionMove is not null))
+			throw new ArgumentException("The save has inconsistent result, draw-offer or promotion metadata.", nameof(save));
+		currentFen = PlayableMatchHistoryValidator.ValidateAndResolve(save.Setup, _claimableDrawPolicy, ct);
+		var checkpoints = new List<PlayableMatchClockCheckpoint>(expectedClocks);
+		if (_timeControl.HasValue)
+		{
+			char baseColor = save.Setup.BaseFen.ActiveColor;
+			for (int index = 0; index < save.ClockHistory.Length; index++)
+			{
+				ct.ThrowIfCancellationRequested();
+				var restore = save.ClockHistory[index];
+				int moveIndex = index + save.ClockHistoryOriginMoveCount;
+				char activeColor = (moveIndex & 1) == 0 ? baseColor : Opposite(baseColor);
+				var checkpoint = PlayableMatchClockKernel.Restore(_timeControl.Value, activeColor, restore);
+				if (index > 0)
+				{
+					var previous = checkpoints[^1];
+					if (restore.WhiteMovesCompleted != previous.WhiteMovesCompleted + (previous.ActiveColor == 'w' ? 1 : 0) ||
+						restore.BlackMovesCompleted != previous.BlackMovesCompleted + (previous.ActiveColor == 'b' ? 1 : 0))
+						throw new ArgumentException("Saved clock move counts must advance once per played move.", nameof(save));
+				}
+				checkpoints.Add(checkpoint);
+			}
+		}
+		promotion = null;
+		if (save.PendingPromotionMove is not null)
+		{
+			if (!LocalPositionRules.TryCreatePendingPromotion(currentFen, save.PendingPromotionMove,
+				currentFen.GetLegalMoves(), out var request))
+				throw new ArgumentException("The saved promotion is not legal in the saved position.", nameof(save));
+			promotion = request;
+		}
+		return checkpoints;
+	}
+
+	private static bool TimeControlsEqual(PlayableMatchTimeControl? first, PlayableMatchTimeControl? second)
+	{
+		if (!first.HasValue || !second.HasValue)
+			return first.HasValue == second.HasValue;
+		var a = first.Value;
+		var b = second.Value;
+		return a.InitialTime == b.InitialTime && a.IncrementPerMove == b.IncrementPerMove &&
+			a.DelayPerMove == b.DelayPerMove && a.TimeoutPolicy == b.TimeoutPolicy &&
+			a.AdditionalStages.SequenceEqual(b.AdditionalStages);
+	}
+
+	/// <summary>
 	///     Loads an arbitrary base position and optional played-move sequence into the session.
 	/// </summary>
 	[Obsolete("Use LoadMatchAsync(new PlayableMatchSetup(baseFen, moves), ct) instead.")]
@@ -385,7 +514,7 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	{
 		ThrowIfDisposed();
 		ct.ThrowIfCancellationRequested();
-		var currentFen = setup.ResolveCurrentFen();
+		var currentFen = PlayableMatchHistoryValidator.ValidateAndResolve(setup, _claimableDrawPolicy, ct);
 		var clockRestore = CreateClockRestore(currentFen, setup.Clock);
 		PlayableMatchClockCheckpoint? checkpoint = null;
 		if (clockRestore.HasValue)
@@ -540,6 +669,11 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	public PlayableMatchState Refresh()
 	{
 		ThrowIfDisposed();
+		if (_timeControl.HasValue && _clockHistory.Count == 0)
+		{
+			InitializeClocks(BuildCurrentFen().ActiveColor);
+			_clockHistoryOriginMoveCount = _playedMoves.Count;
+		}
 		return RefreshLocalState(BuildCurrentFen());
 	}
 
@@ -566,6 +700,8 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		if (currentResult.IsTerminal)
 		{
 			_forcedResult = currentResult;
+			_pendingPromotion = null;
+			_drawOfferedBy = null;
 			FreezeClock(clock?.SnapshotUtc);
 			if (clock.HasValue)
 				clock = clock.Value with { IsPaused = true };
@@ -699,15 +835,40 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	}
 
 	/// <summary>
+	///     Dismisses an uncompleted promotion so the player can select another legal move. The board, turn and clock
+	///     continue unchanged. Returns false when there is no pending choice; a terminal game cannot be reopened.
+	/// </summary>
+	public bool CancelPendingPromotion()
+	{
+		ThrowIfDisposed();
+		if (!_pendingPromotion.HasValue)
+			return false;
+		EnsureMatchIsPlayable();
+		EnsureTurnHasTimeRemaining(_timeControl.HasValue ? _utcNowProvider() : null);
+		_pendingPromotion = null;
+		UpdateCurrentStateMetadata();
+		RaiseEvent(PlayableMatchEventKind.PromotionCanceled, state: _hasCurrentState ? _currentState : null);
+		return true;
+	}
+
+	/// <summary>
 	///     Offers a draw from the current side.
 	/// </summary>
 	public void OfferDraw()
 	{
+		ThrowIfDisposed();
+		OfferDraw(CurrentState.Fen.ActiveColor);
+	}
+
+	/// <summary>Offers a draw on behalf of either side, including while the opponent is thinking.</summary>
+	public void OfferDraw(char offeringSide)
+	{
+		char side = NormalizeColor(offeringSide, nameof(offeringSide));
 		EnsureMatchIsPlayable();
 		EnsureTurnHasTimeRemaining(_timeControl.HasValue ? _utcNowProvider() : null);
-		var state = CurrentState;
-
-		_drawOfferedBy = state.Fen.ActiveColor;
+		if (_drawOfferedBy.HasValue && _drawOfferedBy != side)
+			throw new InvalidOperationException("Respond to the opposing draw offer before making another offer.");
+		_drawOfferedBy = side;
 		UpdateCurrentStateMetadata();
 		RaiseEvent(PlayableMatchEventKind.DrawOffered, state: _hasCurrentState ? _currentState : null);
 	}
@@ -726,18 +887,40 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		SetForcedResult(new(PlayableMatchResultReason.DrawAgreement, null));
 	}
 
+	/// <summary>Accepts a draw only when the supplied side is the recipient of the pending offer.</summary>
+	public void AcceptDraw(char acceptingSide)
+	{
+		EnsureDrawRecipient(acceptingSide, nameof(acceptingSide));
+		AcceptDraw();
+	}
+
 	/// <summary>
 	///     Declines a pending draw offer from the opposing side.
 	/// </summary>
 	public void DeclineDraw()
 	{
-		ThrowIfDisposed();
+		EnsureMatchIsPlayable();
 		if (!_drawOfferedBy.HasValue)
 			throw new InvalidOperationException("There is no opposing draw offer to decline.");
 
 		_drawOfferedBy = null;
 		UpdateCurrentStateMetadata();
 		RaiseEvent(PlayableMatchEventKind.DrawDeclined, state: _hasCurrentState ? _currentState : null);
+	}
+
+	/// <summary>Declines a draw only when the supplied side is the recipient of the pending offer.</summary>
+	public void DeclineDraw(char decliningSide)
+	{
+		EnsureDrawRecipient(decliningSide, nameof(decliningSide));
+		DeclineDraw();
+	}
+
+	private void EnsureDrawRecipient(char respondingSide, string parameterName)
+	{
+		ThrowIfDisposed();
+		char side = NormalizeColor(respondingSide, parameterName);
+		if (!_drawOfferedBy.HasValue || _drawOfferedBy == side)
+			throw new InvalidOperationException("Only the recipient of a pending draw offer can respond to it.");
 	}
 
 	/// <summary>
@@ -754,14 +937,70 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	}
 
 	/// <summary>
+	///     Checks whether a legal intended move would permit a fifty-move or threefold-repetition draw claim.
+	///     The move is inspected without changing the board, clocks, history or cached analysis.
+	/// </summary>
+	/// <remarks>Returns false for an ended match or while promotion is pending. Invalid UCI notation throws.</remarks>
+	public bool CanClaimDraw(string intendedMove)
+	{
+		ThrowIfDisposed();
+		string move = NormalizeCompletedMove(intendedMove);
+		return !_forcedResult.IsTerminal && !CurrentState.Result.IsTerminal && !_pendingPromotion.HasValue &&
+			ResolveIntendedDrawClaim(move).HasValue;
+	}
+
+	/// <summary>
+	///     Claims a draw by declaring a legal intended move under FIDE articles 9.2.1.1 and 9.3.1.
+	///     The declared move is not executed. No increment is awarded and the clock stops at claim time.
+	/// </summary>
+	public void ClaimDraw(string intendedMove)
+	{
+		EnsureMatchIsPlayable();
+		EnsureTurnHasTimeRemaining(_timeControl.HasValue ? _utcNowProvider() : null);
+		if (_pendingPromotion.HasValue)
+			throw new InvalidOperationException("Choose a promotion piece before claiming an intended move.");
+		var result = ResolveIntendedDrawClaim(NormalizeCompletedMove(intendedMove));
+		if (!result.HasValue)
+			throw new InvalidOperationException("The intended move does not permit a draw claim.");
+		SetForcedResult(result.Value);
+	}
+
+	private PlayableMatchResult? ResolveIntendedDrawClaim(string move)
+	{
+		var state = CurrentState;
+		if (!state.LegalMoves.ContainsUciMove(move))
+			return null;
+		var next = state.Fen.ApplyMove(move);
+		if (next.HalfmoveClock >= 100)
+			return new(PlayableMatchResultReason.FiftyMoveRule, null);
+		string key = LocalPositionRules.BuildRepetitionKey(next);
+		return _repetitionCounts.TryGetValue(key, out int previousOccurrences) && previousOccurrences >= 2
+			? new(PlayableMatchResultReason.ThreefoldRepetition, null)
+			: null;
+	}
+
+	/// <summary>
 	///     Resigns on behalf of the current side.
 	/// </summary>
 	public void Resign()
 	{
+		ThrowIfDisposed();
+		Resign(CurrentState.Fen.ActiveColor);
+	}
+
+	/// <summary>
+	///     Resigns on behalf of either side, including off turn. The game is drawn if the opponent has no possible mate
+	///     under the conservative material test used for timeout adjudication (FIDE article 5.1.2).
+	/// </summary>
+	public void Resign(char resigningSide)
+	{
+		char side = NormalizeColor(resigningSide, nameof(resigningSide));
 		EnsureMatchIsPlayable();
 		EnsureTurnHasTimeRemaining(_timeControl.HasValue ? _utcNowProvider() : null);
 		var state = CurrentState;
-		SetForcedResult(new(PlayableMatchResultReason.Resignation, Opposite(state.Fen.ActiveColor)));
+		char opponent = Opposite(side);
+		SetForcedResult(new(PlayableMatchResultReason.Resignation,
+			LocalPositionRules.CanPossiblyMate(state.Fen, opponent) ? opponent : null));
 	}
 
 	/// <summary>
@@ -838,6 +1077,9 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 
 				ChoosePromotion(request.PromotionPiece.Value);
 				return;
+			case PlayableMatchRequestKind.CancelPendingPromotion:
+				CancelPendingPromotion();
+				return;
 			case PlayableMatchRequestKind.PlayControlledMove:
 				await PlayControlledMoveAsync(ct).ConfigureAwait(false);
 				return;
@@ -854,7 +1096,8 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 				DeclineDraw();
 				return;
 			case PlayableMatchRequestKind.ClaimDraw:
-				ClaimDraw();
+				if (request.Move is null) ClaimDraw();
+				else ClaimDraw(request.Move);
 				return;
 			case PlayableMatchRequestKind.Resign:
 				Resign();
@@ -1076,7 +1319,7 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		_playedMoves.Add(move);
 		_moveHistory.Add(new(previousFen.FullmoveNumber, movingSide, move, previousFen.Raw, resultingFen.Raw, classification));
 		AddRepetition(resultingFen);
-		if (_drawOfferPolicy == PlayableMatchDrawOfferPolicy.ExpireOnMove)
+		if (_drawOfferPolicy == PlayableMatchDrawOfferPolicy.ExpireOnMove && _drawOfferedBy != movingSide)
 			_drawOfferedBy = null;
 		_forcedResult = default;
         PlayableMatchClockState? clock = _timeControl.HasValue && _clockHistory.Count > 0
@@ -1088,6 +1331,8 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		if (immediateOutcome.Result.IsTerminal)
 		{
 			_forcedResult = immediateOutcome.Result;
+			_pendingPromotion = null;
+			_drawOfferedBy = null;
 			FreezeClock(clock?.SnapshotUtc);
 		}
 		_hasCurrentState = false;
@@ -1318,10 +1563,12 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	{
 		_positionRevision++;
 		_forcedResult = result;
+		_pendingPromotion = null;
 		FreezeClock(completedAtUtc);
 		_claimableResult = null;
 		_drawOfferedBy = null;
 		_lastResult = result;
+		ResetBackgroundState();
 		UpdateCurrentStateMetadata(resultOverride: result);
 		RaiseEvent(PlayableMatchEventKind.ResultChanged, state: _hasCurrentState ? _currentState : null, result: result);
 	}
