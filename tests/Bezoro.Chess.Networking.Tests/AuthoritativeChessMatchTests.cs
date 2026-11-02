@@ -151,6 +151,29 @@ public sealed class AuthoritativeChessMatchTests
     }
 
     [Fact]
+    public void HostSaveRestoresGameWithNewIdentityAndFreshCommandStream()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        using var original = Create(timeControl: new(TimeSpan.FromSeconds(30), TimeSpan.Zero), now: () => now);
+        var identity = original.GetSnapshot().MatchId;
+        now += TimeSpan.FromSeconds(3);
+        Submit(original, ChessPlayerSeat.White, 1, ChessMatchCommandKind.Move, "e2e4");
+        now += TimeSpan.FromSeconds(4);
+        var saved = original.CaptureSave();
+        now += TimeSpan.FromHours(1);
+        using var restored = AuthoritativeChessMatch.Restore(Guid.NewGuid(), saved, utcNowProvider: () => now);
+        var snapshot = restored.GetSnapshot();
+        Assert.NotEqual(identity, snapshot.MatchId);
+        Assert.Equal(0, snapshot.Revision);
+        Assert.Single(snapshot.State.MoveHistory);
+        Assert.Equal(TimeSpan.FromSeconds(26), snapshot.State.Clock!.Value.BlackRemaining);
+        Assert.Equal(ChessMatchCommandStatus.WrongMatch,
+            restored.Submit(ChessPlayerSeat.Black, new(identity, 0, 1, ChessMatchCommandKind.Move, "e7e5")).Status);
+        Assert.Equal(ChessMatchCommandStatus.Accepted,
+            Submit(restored, ChessPlayerSeat.Black, 1, ChessMatchCommandKind.Move, "e7e5").Status);
+    }
+
+    [Fact]
     public void HostClockAdjudicatesTimeoutExactlyOnceAndRejectsLateMove()
     {
         var now = DateTimeOffset.UnixEpoch;

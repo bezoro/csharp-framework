@@ -1,4 +1,6 @@
+using System.Collections.Immutable;
 using Bezoro.Chess.UCI.Protocol.API;
+using Bezoro.Chess.UCI.Protocol.API.Common.Extensions;
 using Bezoro.Chess.UCI.Protocol.API.Types;
 
 namespace Bezoro.Chess.Networking;
@@ -28,7 +30,9 @@ public sealed class UciChessMoveService : IChessMoveService
         if (position.Moves.IsDefault || position.Moves.Length > _maximumHalfmoves)
             throw new ArgumentException("The initialized complete move history must fit the service's history budget.", nameof(position));
         // Validate before issuing any engine commands.
-        new PlayableMatchSetup(position.BaseFen, position.Moves).Validate();
+        position.BaseFen.ValidateForPlay();
+        var currentFen = new PlayableMatchSetup(position.BaseFen, position.Moves).ResolveCurrentFen();
+        if (search.HasSearchMoves) ValidateSearchMoves(search, currentFen.GetLegalMoves());
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -45,6 +49,19 @@ public sealed class UciChessMoveService : IChessMoveService
             !(search.Depth.HasValue || search.Nodes.HasValue || search.MoveTimeMs.HasValue ||
               (search.WhiteTimeMs.HasValue && search.BlackTimeMs.HasValue)))
             throw new ArgumentException("Playing requires a finite engine search budget.", nameof(search));
+    }
+
+    internal static void ValidateSearchMoves(SearchParameters search, ImmutableArray<string> legalMoves)
+    {
+        if (!search.HasSearchMoves) return;
+        foreach (string requested in search.SearchMoves)
+        {
+            bool legal = false;
+            foreach (string candidate in legalMoves)
+                if (string.Equals(candidate, requested, StringComparison.OrdinalIgnoreCase)) { legal = true; break; }
+            if (!legal)
+                throw new ArgumentException("Every requested search move must be legal in the captured position.", nameof(search));
+        }
     }
 }
 

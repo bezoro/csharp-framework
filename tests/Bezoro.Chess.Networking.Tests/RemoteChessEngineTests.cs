@@ -1,3 +1,4 @@
+using Bezoro.Chess.UCI.Protocol.API;
 using Bezoro.Chess.UCI.Protocol.API.Types;
 using Xunit;
 
@@ -63,6 +64,25 @@ public sealed class RemoteChessEngineTests
     }
 
     [Fact]
+    public async Task TimeoutDiscoveredByRejectedSecondEngineRequestCancelsFirstRequest()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        using var match = new AuthoritativeChessMatch(Guid.NewGuid(), PlayableMatchSetup.Standard,
+            engineSeat: ChessPlayerSeat.White,
+            timeControl: new(TimeSpan.FromSeconds(1), TimeSpan.Zero), utcNowProvider: () => now);
+        var answer = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationToken captured = default;
+        var service = new DelegateService((_, _, token) => { captured = token; return answer.Task; });
+        var first = match.PlayEngineTurnAsync(service, Budget);
+        now += TimeSpan.FromSeconds(2);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => match.PlayEngineTurnAsync(service, Budget));
+        Assert.True(captured.IsCancellationRequested);
+        Assert.True(match.GetSnapshot().State.Result.IsTerminal);
+        answer.SetResult("e2e4");
+        Assert.False((await first).Applied);
+    }
+
+    [Fact]
     public async Task CallerCancellationLeavesPositionUntouchedAndAllowsNextRequest()
     {
         using var match = Create(ChessPlayerSeat.White);
@@ -91,6 +111,54 @@ public sealed class RemoteChessEngineTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => match.PlayEngineTurnAsync(service, Budget));
         answer.SetResult("e2e5");
         await Assert.ThrowsAsync<InvalidOperationException>(() => pending);
+        Assert.Empty(match.GetSnapshot().State.MoveHistory);
+    }
+
+    [Fact]
+    public async Task LegalReplyOutsideRequestedSearchSubsetIsRejectedBeforeCommit()
+    {
+        using var match = Create(ChessPlayerSeat.White);
+        var restricted = new SearchParameters { Nodes = 1000, SearchMoves = ["e2e4"] };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => match.PlayEngineTurnAsync(
+            new DelegateService((_, _, _) => Task.FromResult("d2d4")), restricted));
+        Assert.Empty(match.GetSnapshot().State.MoveHistory);
+        Assert.Equal(0, match.GetSnapshot().Revision);
+        Assert.True((await match.PlayEngineTurnAsync(
+            new DelegateService((_, _, _) => Task.FromResult("e2e4")), restricted)).Applied);
+    }
+
+    [Fact]
+    public async Task RequestedSearchSubsetMustBeLegalBeforeCallingService()
+    {
+        using var match = Create(ChessPlayerSeat.White);
+        var service = new DelegateService((_, _, _) => throw new Xunit.Sdk.XunitException("Service must not be called."));
+        await Assert.ThrowsAsync<ArgumentException>(() => match.PlayEngineTurnAsync(service,
+            new() { Nodes = 1000, SearchMoves = ["e2e5"] }));
+        Assert.Empty(match.GetSnapshot().State.MoveHistory);
+        Assert.True((await match.PlayEngineTurnAsync(
+            new DelegateService((_, _, _) => Task.FromResult("e2e4")),
+            new() { Nodes = 1000, SearchMoves = ["E2E4"] })).Applied);
+    }
+
+    [Fact]
+    public async Task DirectUciServiceRejectsNonPlayableBaseBeforeContactingEngine()
+    {
+        await using var unstarted = new UciEngineClient("unused-engine-path");
+        var service = new UciChessMoveService(unstarted);
+        var position = new ChessEnginePosition(Guid.NewGuid(), 0,
+            Fen.Parse("7k/8/8/8/8/8/8/8 w - - 0 1")!.Value, []);
+        await Assert.ThrowsAsync<ArgumentException>(() => service.FindMoveAsync(position, Budget));
+        Assert.False(unstarted.IsStarted);
+    }
+
+    [Fact]
+    public async Task ExhaustedRevisionRejectsEngineTurnBeforeServiceOrBoardMutation()
+    {
+        using var match = Create(ChessPlayerSeat.White);
+        typeof(AuthoritativeChessMatch).GetField("_revision", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(match, long.MaxValue);
+        var service = new DelegateService((_, _, _) => throw new Xunit.Sdk.XunitException("Service must not be called."));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => match.PlayEngineTurnAsync(service, Budget));
         Assert.Empty(match.GetSnapshot().State.MoveHistory);
     }
 

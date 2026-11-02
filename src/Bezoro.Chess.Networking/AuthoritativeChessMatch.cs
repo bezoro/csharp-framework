@@ -90,6 +90,48 @@ public sealed class AuthoritativeChessMatch : IDisposable
         return snapshot;
     }
 
+    /// <summary>Captures the complete local match, including clock history and terminal metadata, for host persistence.</summary>
+    /// <remarks>Network identity, command sequences, duplicate receipts and pending takeback proposals are intentionally excluded. Restore creates a new network match identity.</remarks>
+    public PlayableMatchSave CaptureSave()
+    {
+        CancellationTokenSource? obsolete;
+        PlayableMatchSave save;
+        lock (_gate)
+        {
+            ThrowIfDisposed();
+            long before = _revision;
+            save = _match.CaptureSave();
+            var state = _match.CurrentState;
+            if (state.Result != _snapshot.State.Result) IncrementRevision();
+            _snapshot = new(_matchId, _revision, _baseFen, state, _takebackOffer);
+            obsolete = before == _revision ? null : _engineCancellation;
+        }
+        CancelRequest(obsolete);
+        return save;
+    }
+
+    /// <summary>Creates a new network match from a complete host save, resetting revisions, sequences and pending takebacks.</summary>
+    /// <remarks>Use a newly generated match identity and have clients obtain a fresh snapshot. This is host restoration, not continuation of the old network command stream.</remarks>
+    public static AuthoritativeChessMatch Restore(
+        Guid newMatchId,
+        PlayableMatchSave save,
+        bool countTimeSinceSave = false,
+        bool allowTakebacks = false,
+        ChessPlayerSeat? engineSeat = null,
+        int maximumHalfmoves = 4096,
+        Func<DateTimeOffset>? utcNowProvider = null)
+    {
+        var match = new AuthoritativeChessMatch(newMatchId, save.Setup, save.TimeControl,
+            allowTakebacks, engineSeat, maximumHalfmoves, utcNowProvider);
+        try
+        {
+            match._match.LoadSaveAsync(save, countTimeSinceSave).GetAwaiter().GetResult();
+            match._snapshot = new(newMatchId, 0, match._baseFen, match._match.CurrentState, null);
+            return match;
+        }
+        catch { match.Dispose(); throw; }
+    }
+
     /// <summary>Validates an authenticated player's action against the current authoritative revision.</summary>
     /// <remarks>
     /// Only accepted commands consume a sequence. Start at one and increment by one after acceptance.
@@ -154,23 +196,32 @@ public sealed class AuthoritativeChessMatch : IDisposable
         UciChessMoveService.ValidateFiniteSearch(search);
         ChessEnginePosition position;
         CancellationTokenSource cancellation;
-        lock (_gate)
+        CancellationTokenSource? obsolete = null;
+        try
         {
-            ThrowIfDisposed();
-            ct.ThrowIfCancellationRequested();
-            RefreshLocked();
-            if (!_engineSeat.HasValue || Side(_engineSeat.Value) != _snapshot.State.Fen.ActiveColor)
-                throw new InvalidOperationException("The active seat is not controlled by an engine.");
-            if (_snapshot.State.Result.IsTerminal)
-                throw new InvalidOperationException("The match is finished.");
-            if (_snapshot.State.MoveHistory.Length >= _maximumHalfmoves)
-                throw new InvalidOperationException("The host's move-history budget was reached.");
-            if (_engineCancellation is not null)
-                throw new InvalidOperationException("An engine turn is already outstanding.");
-            cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            _engineCancellation = cancellation;
-            position = _snapshot.CreateEnginePosition();
+            lock (_gate)
+            {
+                ThrowIfDisposed();
+                ct.ThrowIfCancellationRequested();
+                if (_revision == long.MaxValue) throw new InvalidOperationException("The match revision space is exhausted.");
+                long before = _revision;
+                RefreshLocked();
+                if (before != _revision) obsolete = _engineCancellation;
+                if (!_engineSeat.HasValue || Side(_engineSeat.Value) != _snapshot.State.Fen.ActiveColor)
+                    throw new InvalidOperationException("The active seat is not controlled by an engine.");
+                if (_snapshot.State.Result.IsTerminal)
+                    throw new InvalidOperationException("The match is finished.");
+                if (_snapshot.State.MoveHistory.Length >= _maximumHalfmoves)
+                    throw new InvalidOperationException("The host's move-history budget was reached.");
+                UciChessMoveService.ValidateSearchMoves(search, _snapshot.State.LegalMoves);
+                if (_engineCancellation is not null)
+                    throw new InvalidOperationException("An engine turn is already outstanding.");
+                cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                _engineCancellation = cancellation;
+                position = _snapshot.CreateEnginePosition();
+            }
         }
+        finally { CancelRequest(obsolete); }
         try
         {
             string move = await service.FindMoveAsync(position, search, cancellation.Token).ConfigureAwait(false);
@@ -184,6 +235,9 @@ public sealed class AuthoritativeChessMatch : IDisposable
                     return new(false, _snapshot);
                 if (!IsLegalMoveLocked(move))
                     throw new InvalidOperationException("The engine service returned an illegal or incomplete move.");
+                if (search.HasSearchMoves && !IsRequestedMove(search, move))
+                    throw new InvalidOperationException("The engine service returned a move outside the requested search subset.");
+                if (_revision == long.MaxValue) throw new InvalidOperationException("The match revision space is exhausted.");
                 try { ApplyMoveLocked(move); }
                 catch (InvalidOperationException) when (_match.Refresh().Result.IsTerminal)
                 {
@@ -303,6 +357,13 @@ public sealed class AuthoritativeChessMatch : IDisposable
         if (move is null) return false;
         foreach (string legal in _snapshot.State.LegalMoves)
             if (string.Equals(legal, move, StringComparison.Ordinal)) return true;
+        return false;
+    }
+
+    private static bool IsRequestedMove(SearchParameters search, string move)
+    {
+        foreach (string requested in search.SearchMoves)
+            if (string.Equals(requested, move, StringComparison.OrdinalIgnoreCase)) return true;
         return false;
     }
 
