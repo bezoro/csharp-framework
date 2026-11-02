@@ -39,6 +39,8 @@ public sealed class StudyTests
     [InlineData("4k3/8/8/8/8/8/8/1N2KN2 w - - 0 1", "b1d2", "Nbd2")]
     [InlineData("4k3/8/8/8/8/R7/8/R3K3 w - - 0 1", "a1a2", "R1a2")]
     [InlineData("7k/8/5KQ1/8/8/8/8/8 w - - 0 1", "g6g7", "Qg7#")]
+    [InlineData("8/7k/8/8/8/Q7/8/Q1Q4K w - - 0 1", "a1c3", "Qa1c3")]
+    [InlineData("k4r2/8/8/8/8/5N2/8/1N3K2 w - - 0 1", "b1d2", "Nd2")]
     public void SanCoversSpecialMovesAndDisambiguation(string rawFen, string move, string san)
     {
         Fen position = Fen.Parse(rawFen)!.Value;
