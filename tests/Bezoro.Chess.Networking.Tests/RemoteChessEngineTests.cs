@@ -83,6 +83,39 @@ public sealed class RemoteChessEngineTests
     }
 
     [Fact]
+    public async Task OffTurnResignationFreezesClocksCancelsEngineAndRejectsItsLateReply()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        using var match = new AuthoritativeChessMatch(Guid.NewGuid(), PlayableMatchSetup.Standard,
+            engineSeat: ChessPlayerSeat.White,
+            timeControl: new(TimeSpan.FromMinutes(5), TimeSpan.Zero), utcNowProvider: () => now);
+        var answer = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationToken searchToken = default;
+        var pending = match.PlayEngineTurnAsync(new DelegateService((_, _, token) =>
+        {
+            searchToken = token;
+            return answer.Task;
+        }), Budget);
+        now = now.AddSeconds(3);
+        var state = match.GetSnapshot();
+        var resigned = match.Submit(ChessPlayerSeat.Black,
+            new(state.MatchId, state.Revision, 1, ChessMatchCommandKind.Resign));
+        Assert.Equal(ChessMatchCommandStatus.Accepted, resigned.Status);
+        Assert.Equal(PlayableMatchResultReason.Resignation, resigned.Snapshot.State.Result.Reason);
+        Assert.Equal('w', resigned.Snapshot.State.Result.Winner);
+        Assert.True(resigned.Snapshot.State.Clock!.Value.IsPaused);
+        Assert.True(searchToken.IsCancellationRequested);
+        now = now.AddMinutes(10);
+        var frozen = match.GetSnapshot();
+        Assert.Equal(resigned.Snapshot.State.Clock.Value.WhiteRemaining, frozen.State.Clock!.Value.WhiteRemaining);
+        answer.SetResult("e2e4");
+        Assert.False((await pending).Applied);
+        Assert.Empty(match.GetSnapshot().State.MoveHistory);
+        using var restored = AuthoritativeChessMatch.Restore(Guid.NewGuid(), match.CaptureSave(), utcNowProvider: () => now);
+        Assert.Equal(resigned.Snapshot.State.Result, restored.GetSnapshot().State.Result);
+    }
+
+    [Fact]
     public async Task CallerCancellationLeavesPositionUntouchedAndAllowsNextRequest()
     {
         using var match = Create(ChessPlayerSeat.White);
