@@ -141,6 +141,12 @@ namespace Bezoro.Chess.UnitySample
         private void Reconcile()
         {
             if (palette == null) RebuildAppearance();
+            // Activation runs the new child's Awake/OnEnable before its first Render call.
+            // Unity does not render an intermediate frame while this synchronous method executes.
+            if (twoDimensionalRenderer != null)
+                twoDimensionalRenderer.gameObject.SetActive(visualMode == ChessBoardVisualMode.TwoDimensional);
+            if (threeDimensionalRenderer != null)
+                threeDimensionalRenderer.gameObject.SetActive(visualMode == ChessBoardVisualMode.ThreeDimensional);
             if (hasPosition)
             {
                 board = ChessBoardPresentation.FromMatch(in state, selectedSquare);
@@ -148,11 +154,6 @@ namespace Bezoro.Chess.UnitySample
                 if (ActiveRenderer != null)
                     ActiveRenderer.Render(in board, palette, orientation, skin.GetAssetKey(visualMode));
             }
-            // Prepare the new view before showing it. Assign distinct child objects in the inspector.
-            if (twoDimensionalRenderer != null)
-                twoDimensionalRenderer.gameObject.SetActive(visualMode == ChessBoardVisualMode.TwoDimensional);
-            if (threeDimensionalRenderer != null)
-                threeDimensionalRenderer.gameObject.SetActive(visualMode == ChessBoardVisualMode.ThreeDimensional);
         }
 
         private void RebuildAppearance()
