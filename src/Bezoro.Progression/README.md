@@ -6,7 +6,7 @@ Immutable content catalogs can be shared across players and threads. Each mutabl
 
 ## Quests
 
-Quests require **all** their objectives. Each objective observes an application-defined counter and saturates at its target. A catalog indexes objectives by counter, so recording an event visits only matching objectives; unrelated quest nodes receive no work. Inactive, completed, and claimed quests do not accumulate further progress.
+Quests require **all** their objectives. Each objective observes an application-defined counter and saturates at its target. A catalog indexes objectives by counter, so recording an event visits only matching objectives; unrelated quest nodes receive no work. When a catalog contains multi-objective quests, a per-quest remaining-objective counter detects completion in constant work, without rescanning the quest's other objectives when a target is reached. Catalogs containing only single-objective quests require no completion-counter array. Inactive, completed, and claimed quests do not accumulate further progress.
 
 ```csharp
 using Bezoro.Progression;
@@ -110,7 +110,7 @@ Arrays use catalog input order; quest objectives use definition order. Persist t
 
 ## Costs and validation
 
-After construction, expected queries, event updates, completion, claims, copy, and restore allocate no managed storage. Exception creation, application snapshot arrays, and host reward delivery allocate as usual. Catalog construction copies definitions/rewards and builds shared indexes; immutable definition objects can be reused. Per-player quest storage is one `long` per objective and one status byte per quest; battle-pass storage is one claim byte per tier plus scalar experience/access; story storage is one best-score byte per stage. Array/object headers are additional. Zero-sized player arrays use shared empty storage. No event history, callbacks, task, polling interval, or asset references are retained.
+After construction, expected queries, event updates, completion, claims, copy, and restore allocate no managed storage. Exception creation, application snapshot arrays, and host reward delivery allocate as usual. Catalog construction copies definitions/rewards and builds shared indexes; immutable definition objects can be reused. Per-player quest storage is one `long` per objective and one status byte per quest, plus one remaining-objective `int` per quest when the catalog includes multi-objective quests; battle-pass storage is one claim byte per tier plus scalar experience/access; story storage is one best-score byte per stage. Array/object headers are additional. The remaining-objective counters are derived on restore and need no persisted field. Zero-sized player arrays use shared empty storage. No event history, callbacks, task, polling interval, or asset references are retained.
 
 Tests cover malformed content, overflow boundaries, claim replay, premium retroactivity, state restore atomicity, story cycles and a 25,000-stage chain, seeded event/claim models, and zero managed allocation in warmed operations on .NET 10. Unity Mono/IL2CPP performance must be measured in the consuming player.
 

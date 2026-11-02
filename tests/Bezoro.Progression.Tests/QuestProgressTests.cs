@@ -232,6 +232,40 @@ public sealed class QuestProgressTests
         Assert.Equal(0, claimAllocated);
     }
 
+    [Fact]
+    public void ManyObjectiveQuestCompletesOnceAcrossPartialRestoreAndBothEventOrders()
+    {
+        const int objectiveCount = 512;
+        var objectives = new QuestObjective[objectiveCount];
+        for (int index = 0; index < objectives.Length; index++)
+            objectives[index] = new QuestObjective(new ProgressionId((uint)(index + 1)), 2);
+        var quest = new ProgressionId(1000);
+        var catalog = new QuestCatalog(new[] { new QuestDefinition(quest, objectives) });
+        foreach (bool reverse in new[] { false, true })
+        {
+            var progress = new QuestProgress(catalog);
+            progress.TryActivate(quest);
+            for (int index = 0; index < objectiveCount; index++)
+                Assert.Equal(0, progress.Record(objectives[index].Counter));
+            for (int index = 0; index < objectiveCount / 2; index++)
+                Assert.Equal(0, progress.Record(objectives[reverse ? objectiveCount - index - 1 : index].Counter));
+
+            var statuses = new QuestStatus[1];
+            var counters = new long[objectiveCount];
+            progress.CopyStateTo(statuses, counters);
+            var restored = new QuestProgress(catalog);
+            Assert.True(restored.TryRestore(statuses, counters));
+            // A rejected snapshot must not change the derived completion state either.
+            Assert.False(restored.TryRestore(new[] { QuestStatus.Completed }, counters));
+            for (int index = objectiveCount / 2; index < objectiveCount; index++)
+                Assert.Equal(index == objectiveCount - 1 ? 1 : 0,
+                    restored.Record(objectives[reverse ? objectiveCount - index - 1 : index].Counter));
+            Assert.Equal(QuestStatus.Completed, restored.GetStatus(quest));
+            Assert.True(restored.TryClaim(quest, out _));
+            Assert.Equal(0, restored.Record(objectives[0].Counter));
+        }
+    }
+
     private static QuestProgress CreateProgress() => new(new QuestCatalog(new[]
     {
         new QuestDefinition(FirstQuest, new[] { new QuestObjective(Wins, 2), new QuestObjective(Lessons, 1) }, new[] { new RewardGrant(Coins, 20) }),

@@ -6,6 +6,7 @@ public sealed class QuestProgress
 {
     private readonly long[] _progress;
     private readonly QuestStatus[] _statuses;
+    private readonly int[] _remainingObjectives;
 
     /// <summary>Creates inactive quests with zero counters.</summary>
     public QuestProgress(QuestCatalog catalog)
@@ -13,6 +14,10 @@ public sealed class QuestProgress
         Catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _progress = catalog.ObjectiveCount == 0 ? Array.Empty<long>() : new long[catalog.ObjectiveCount];
         _statuses = catalog.Count == 0 ? Array.Empty<QuestStatus>() : new QuestStatus[catalog.Count];
+        // Single-objective catalogs complete directly and need no per-quest completion counters.
+        _remainingObjectives = catalog.ObjectiveCount == catalog.Count ? Array.Empty<int>() : new int[catalog.Count];
+        for (int index = 0; index < _remainingObjectives.Length; index++)
+            _remainingObjectives[index] = catalog.Definitions[index].Objectives.Length;
     }
 
     /// <summary>Gets the immutable catalog defining this state.</summary>
@@ -52,7 +57,8 @@ public sealed class QuestProgress
             if (current == link.Target) continue;
             long remaining = link.Target - current;
             _progress[link.ProgressIndex] = amount >= remaining ? link.Target : current + amount;
-            if (_progress[link.ProgressIndex] == link.Target && AllObjectivesCompleted(link.QuestIndex, _progress))
+            if (_progress[link.ProgressIndex] == link.Target &&
+                (_remainingObjectives.Length == 0 || --_remainingObjectives[link.QuestIndex] == 0))
             {
                 _statuses[link.QuestIndex] = QuestStatus.Completed;
                 completed++;
@@ -108,15 +114,18 @@ public sealed class QuestProgress
         }
         statuses.CopyTo(_statuses);
         objectiveProgress.CopyTo(_progress);
+        for (int questIndex = 0; questIndex < _remainingObjectives.Length; questIndex++)
+            _remainingObjectives[questIndex] = CountIncompleteObjectives(questIndex, _progress);
         return true;
     }
 
-    private bool AllObjectivesCompleted(int questIndex, ReadOnlySpan<long> progress)
+    private int CountIncompleteObjectives(int questIndex, ReadOnlySpan<long> progress)
     {
         ReadOnlySpan<QuestObjective> objectives = Catalog.Definitions[questIndex].Objectives;
         int offset = Catalog.GetObjectiveOffset(questIndex);
+        int remaining = 0;
         for (int objectiveIndex = 0; objectiveIndex < objectives.Length; objectiveIndex++)
-            if (progress[offset + objectiveIndex] != objectives[objectiveIndex].Target) return false;
-        return true;
+            if (progress[offset + objectiveIndex] != objectives[objectiveIndex].Target) remaining++;
+        return remaining;
     }
 }
