@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;netstandard2.1</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Bezoro.Chess.UCI.Protocol/Bezoro.Chess.UCI.Protocol.csproj" />
+    <Compile Include="../Bezoro.Core/Compatibility/IsExternalInit.cs" Link="Compatibility/IsExternalInit.cs" />
+  </ItemGroup>
+</Project>
