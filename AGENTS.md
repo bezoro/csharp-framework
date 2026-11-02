@@ -41,3 +41,7 @@ Every pull request description must start with a concise summary of what it does
 ## CI economy
 
 Preserve CI quota by consolidating verification. Working-branch commits and pushes should not automatically run CI; prefer automatic validation on integration into `main`, including merges. Use focused local checks during development. Trigger an additional manual CI run only when it has a concrete purpose, such as consolidated pre-merge validation or diagnosing a platform-specific failure. Avoid redundant runs of unchanged code while retaining the checks required for integration and publication.
+
+## Immutable Unity package metadata
+
+Include stable .meta files for every staged asset and directory, including generated XML documentation. Validate missing, malformed and duplicate GUIDs before publication; Unity cannot repair metadata in a Git package cache. Preserve existing GUIDs when rebuilding.
