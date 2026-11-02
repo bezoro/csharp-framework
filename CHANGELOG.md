@@ -9,6 +9,7 @@
 - Optional authoritative command boundary for Unity networking and explicit remote engine/review contracts. Includes stale-response rejection, authenticated-seat actions and opt-in casual takebacks; no network stack or backend vendor is imposed.
 - Independent profiles/history/Elo, quests/battle passes/story progress, and cosmetic store modules with bounded state, explicit claims, currency and purchase receipts.
 - Corrected facade clock undo, full-history engine searches, off-turn resignation/draw actions, intended-move draw claims, save restoration and playable-position validation. Resignation respects impossible mating material; draw offers survive the offerer's own move.
+- Shared validated saves retain live clocks separately from undo baselines; queued analysis snapshots cannot overwrite newer UI metadata. Optional engine workers start only when used, and default coordinator options initialize valid budgets.
 - Expanded precompiled Unity package, older-compiler consumption checks, cross-module smoke coverage and integration documentation. See [coverage and remaining product work](docs/unity-chess-product.md).
 
 ### Framework API and runtime review

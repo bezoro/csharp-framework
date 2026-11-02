@@ -55,3 +55,16 @@ Profile history is a bounded working set, not the entire account database. Store
 Keep runtime binaries on `netstandard2.1`, built with `LangVersion=latest`; Unity does not compile the framework source. Unity 6's [API compatibility documentation](https://docs.unity3d.com/6000.0/Documentation/Manual/dotnet-profile-support.html) supports .NET Standard libraries and describes AOT differences. The .NET 10 build serves managed hosts and servers; it is not the DLL selected for Unity.
 
 Real Roslyn 3.8/C# 9 consumption, mixed-target managed execution and .NET tests establish useful API and IL checks. They do not establish IL2CPP, trimming, WebGL, device or console behavior. The process-based UCI transport is for supported desktops/servers; remote service contracts avoid requiring an installed Stockfish executable in mobile/WebGL clients. Measure gameplay latency and allocations in the actual target player, independently from engine search time.
+
+### Recorded local verification
+
+Runtime changes through `41d8a321` were checked with .NET SDK 10.0.203/runtime 10.0.7 and Stockfish 19 on Linux. The consolidated result is **3,657 passed tests across 25 suites**, with zero failures or skipped cases. This includes 773 protocol/rules tests, 279 facade tests, 35 networking tests, 24 presentation tests, 40 study tests and 37 build/compatibility tests; the other framework suites remain covered as well.
+
+- Both runtime targets built with zero warnings/errors, using the canonical package version `0.1.0-preview.1665` for this recorded build.
+- Staging produced 31 runtime DLLs and 59 unique Unity GUIDs. Public-type inventory checks passed.
+- Real Roslyn 3.8 compiled all five C# 9 consumers and the two actual Unity adapter files against the test-only Unity surface. Executing its generated consumer IL on the managed host returned the expected `4, 4, 2, 97, 50`; four existing console examples also completed.
+- Six reference perft positions totaled 500,117 leaves. Independent python-chess 1.11.2 comparisons found no mismatch across 5,593 rule positions (48 deterministic games, seed 113589) and 1,498 SAN vectors.
+- Checked-arithmetic runs passed for progression, commerce and study. Model tests cover event counters, claim replay and restoration; queued-callback tests cover moves, takebacks, terminal results, clock changes and draw offers.
+- Warmed .NET 10 checks observed zero managed allocation for unchanged protocol refreshes with history, board projection/queries, and the documented progression query/update paths. Snapshot/save creation, changed history and explicit serialization still allocate. These checks are not Unity-player latency or allocation guarantees.
+
+The recorded package version identifies this verification build, not a fixed installation requirement. Publication resolves the merge revision's version through `Get-PackageVersion.ps1`. Real Unity/Godot player testing, deployed networking/backend services, art and authored curriculum remain outside these managed checks.
