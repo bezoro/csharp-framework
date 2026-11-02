@@ -14,7 +14,17 @@ public sealed class ChessLesson
         internal readonly Fen Position = position;
         internal readonly Node? Parent = parent;
         internal readonly string? Move = move;
-        internal readonly List<Node> Children = new(1);
+        internal List<Node>? Children;
+        internal int ChildCount => Children?.Count ?? 0;
+        internal Node ChildAt(int index) => Children![index];
+        internal Node? FindChild(string move)
+        {
+            if (Children is not null)
+                foreach (var child in Children)
+                    if (child.Move == move) return child;
+            return null;
+        }
+        internal void Add(Node node) => (Children ??= new List<Node>(1)).Add(node);
     }
     internal Node Root { get; }
 
@@ -45,10 +55,10 @@ public sealed class ChessLesson
                 if (endings.Contains(current)) throw new ArgumentException("A solution cannot extend another accepted solution.", nameof(acceptedLines));
                 if (move is null) throw new ArgumentException("Moves cannot be null.", nameof(acceptedLines));
                 string normalized = move.Trim().ToLowerInvariant();
-                Node? next = current.Children.Find(candidate => candidate.Move == normalized);
+                Node? next = current.FindChild(normalized);
                 if (next is null)
                 {
-                    if (current.Position.ActiveColor != LearnerSide && current.Children.Count != 0)
+                    if (current.Position.ActiveColor != LearnerSide && current.ChildCount != 0)
                         throw new ArgumentException("Scripted opponent replies must be unambiguous.", nameof(acceptedLines));
                     if (nodes == maxNodes) throw new ArgumentException("Lesson node limit exceeded.", nameof(acceptedLines));
                     Fen nextPosition;
@@ -56,12 +66,12 @@ public sealed class ChessLesson
                     catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
                     { throw new ArgumentException("A solution contains an illegal move.", nameof(acceptedLines), exception); }
                     next = new Node(nextPosition, current, normalized);
-                    current.Children.Add(next);
+                    current.Add(next);
                     nodes++;
                 }
                 current = next;
             }
-            if (moves == 0 || current.Parent!.Position.ActiveColor != LearnerSide || current.Children.Count != 0)
+            if (moves == 0 || current.Parent!.Position.ActiveColor != LearnerSide || current.ChildCount != 0)
                 throw new ArgumentException("Solutions must end after a learner move and cannot prefix another solution.", nameof(acceptedLines));
             if (endings.Add(current)) lines++;
         }
@@ -85,13 +95,13 @@ public sealed class ChessLessonAttempt
     /// <summary>Gets the current position, after any automatic scripted reply.</summary>
     public Fen Position => _current.Position;
     /// <summary>Gets whether an accepted solution was completed.</summary>
-    public bool IsCompleted => _current.Children.Count == 0;
+    public bool IsCompleted => _current.ChildCount == 0;
     /// <summary>Gets rejected move attempts since reset. Undo does not erase mistakes.</summary>
     public int MistakeCount { get; private set; }
     /// <summary>Gets the available learner hints; completed attempts have none.</summary>
-    public int HintCount => _current.Children.Count;
+    public int HintCount => _current.ChildCount;
     /// <summary>Gets one accepted UCI move without allocating.</summary>
-    public string GetHint(int index) => _current.Children[index].Move!;
+    public string GetHint(int index) => _current.ChildAt(index).Move!;
 
     /// <summary>
     /// Attempts one learner move. A rejected move leaves the board unchanged; a correct non-final move also
@@ -103,7 +113,7 @@ public sealed class ChessLessonAttempt
         if (IsCompleted) return new LessonMoveResult(false, true, null, null);
         string normalized = move.Trim().ToLowerInvariant();
         ChessLesson.Node? next = null;
-        foreach (var candidate in _current.Children)
+        foreach (var candidate in _current.Children!)
             if (candidate.Move == normalized) { next = candidate; break; }
         if (next is null)
         {
@@ -112,9 +122,9 @@ public sealed class ChessLessonAttempt
         }
         _current = next;
         string? reply = null;
-        if (_current.Children.Count != 0)
+        if (_current.ChildCount != 0)
         {
-            _current = _current.Children[0];
+            _current = _current.ChildAt(0);
             reply = _current.Move;
         }
         return new LessonMoveResult(true, IsCompleted, normalized, reply);

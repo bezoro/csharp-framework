@@ -90,11 +90,12 @@ public sealed class ChessStudy
         if (comment.IndexOf('\0') >= 0) throw new ArgumentException("Comments cannot contain NUL.", nameof(comment));
         node.Comment = comment;
     }
-    /// <summary>Attaches a comment before a move, preserving variation introductions during PGN interchange.</summary>
+    /// <summary>Attaches an introduction to an alternative's first move, preserving its scope during PGN interchange.</summary>
     public void SetLeadingComment(StudyNode node, string comment)
     {
         ValidateOwner(node);
-        if (node.Parent is null) throw new ArgumentException("Use the root's position comment before the main line.", nameof(node));
+        if (node.Parent is null || ReferenceEquals(node.Parent.GetVariation(0), node))
+            throw new ArgumentException("Leading comments introduce alternative variations. Use a position comment for the main line.", nameof(node));
         if (comment is null) throw new ArgumentNullException(nameof(comment));
         if (comment.IndexOf('\0') >= 0) throw new ArgumentException("Comments cannot contain NUL.", nameof(comment));
         node.LeadingComment = comment;

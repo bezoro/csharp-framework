@@ -151,6 +151,7 @@ public sealed class StudyTests
         Assert.Equal(" note {idea}", study.Root.GetVariation(0).Comment);
         Assert.Equal("Alternative", study.Root.GetVariation(1).LeadingComment);
         Assert.Equal("postmove", study.Root.GetVariation(1).Comment);
+        Assert.Throws<ArgumentException>(() => study.SetLeadingComment(study.Root.GetVariation(0), "unscoped"));
         string exported = Pgn.Write(study);
         Assert.Equal(exported, Pgn.Write(Pgn.Parse(exported)));
     }
