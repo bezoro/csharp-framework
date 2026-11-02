@@ -41,4 +41,7 @@ public readonly record struct UciWdl
 
 	/// <summary>Gets the same distribution from the opponent's perspective.</summary>
 	public UciWdl OpponentPerspective => new(Losses, Draws, Wins);
+
+	/// <summary>Formats the three UCI values without recursively formatting the opponent-perspective property.</summary>
+	public override string ToString() => $"{Wins} {Draws} {Losses}";
 }

@@ -303,6 +303,53 @@ public sealed class UciGameReviewAnalyzerTests
 	}
 
 	[Fact]
+	public async Task AnalyzeAsync_WhenADeeperIterationEndsWithABound_ShouldUseTheCompletedExactBestMoveIteration()
+	{
+		await using var client = CreateTranscriptClient("e2e4",
+			"info depth 3 score cp 10 wdl 300 500 200 pv e2e4",
+			"info depth 6 score cp 30 wdl 400 400 200 pv e2e4",
+			"info depth 7 score cp 50 lowerbound wdl 600 300 100 pv e2e4");
+		await client.StartAsync();
+		var analyzer = new UciGameReviewAnalyzer(client, new(new() { Nodes = 1_000 }));
+		var result = await analyzer.AnalyzeAsync(Fen.Default, []);
+		var evaluation = result.Positions[0];
+		evaluation.Score.Cp.Should().Be(30);
+		evaluation.PrincipalVariation!.Value.Depth.Should().Be(6);
+		evaluation.PrincipalVariation.Value.ScoreBound.Should().Be(UciScoreBound.Exact);
+		evaluation.BestMove.Should().Be("e2e4");
+	}
+
+	[Fact]
+	public async Task AnalyzeAsync_WhenOnlyAnotherMoveHasAnExactScore_ShouldRejectUnsupportedBestMoveEvidence()
+	{
+		await using var client = CreateTranscriptClient("e2e4",
+			"info depth 6 score cp 30 wdl 400 400 200 pv d2d4",
+			"info depth 7 score cp 50 lowerbound wdl 600 300 100 pv e2e4");
+		await client.StartAsync();
+		var analyzer = new UciGameReviewAnalyzer(client, new(new() { Nodes = 1_000 }));
+		await FluentActions.Awaiting(() => analyzer.AnalyzeAsync(Fen.Default, []))
+			.Should().ThrowAsync<InvalidOperationException>().WithMessage("*exact*best move*");
+	}
+
+	private static UciEngineClient CreateTranscriptClient(string bestMove, params string[] variations)
+	{
+		var (transport, channel) = UciEngineClientTestHelpers.CreateMockTransport();
+		transport.WriteLineAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
+		{
+			string command = (string)call[0];
+			if (command == "uci") channel.Writer.TryWrite("uciok");
+			if (command == "isready") channel.Writer.TryWrite("readyok");
+			if (command.StartsWith("go ", StringComparison.Ordinal))
+			{
+				foreach (string variation in variations) channel.Writer.TryWrite(variation);
+				channel.Writer.TryWrite($"bestmove {bestMove}");
+			}
+			return Task.CompletedTask;
+		});
+		return new UciEngineClient(transport);
+	}
+
+	[Fact]
 	public async Task AnalyzeAsync_WhenEngineClaimsMateZeroInANonterminalPosition_ShouldRejectIt()
 	{
 		var (client, _) = CreateClient(("score mate 0 wdl 0 0 1000", "d2d4"));

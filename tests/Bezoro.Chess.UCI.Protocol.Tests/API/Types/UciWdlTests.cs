@@ -5,6 +5,13 @@ namespace Bezoro.Chess.UCI.Protocol.Tests.API.Types;
 
 public class UciWdlTests
 {
+	[Fact]
+	public void Formatting_DoesNotRecursivelyFormatOpponentPerspectiveOrEvaluateInvalidDefaults()
+	{
+		new UciWdl(300, 500, 200).ToString().Should().Be("300 500 200");
+		default(UciWdl).ToString().Should().Be("0 0 0");
+	}
+
 	[Theory]
 	[InlineData(1000, 0, 0, 1)]
 	[InlineData(0, 1000, 0, 0.5)]
