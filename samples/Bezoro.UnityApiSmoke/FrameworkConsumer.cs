@@ -19,6 +19,9 @@ namespace Bezoro.UnityApiSmoke
     {
         public static int ExerciseDataApis()
         {
+            var chessOptions = new UciCoordinatorOptions();
+            if (chessOptions.PonderThreads <= 0)
+                throw new InvalidOperationException("Chess coordinator defaults were not initialized.");
             // Initializers must also work when a .NET host selects the framework's .NET target.
             var poolOptions = new PoolOptions { MaxCapacity = 1 };
             if (poolOptions.MaxCapacity != 1 || !poolOptions.EnableAsyncWait || !poolOptions.ValidateOnRent)
@@ -81,6 +84,12 @@ namespace Bezoro.UnityApiSmoke
             game.NewGameAsync().GetAwaiter().GetResult();
             if (game.LegalMoves.Count != 20)
                 throw new InvalidOperationException("Local chess facade failed.");
+            game.LoadSaveAsync(match.CaptureSave()).GetAwaiter().GetResult();
+            game.UndoAsync().GetAwaiter().GetResult();
+            game.MakeMoveAsync("d2d4").GetAwaiter().GetResult();
+            match.LoadSaveAsync(game.CaptureSaveAsync().GetAwaiter().GetResult()).GetAwaiter().GetResult();
+            if (match.CurrentState.MoveHistory.Length != 1 || match.CurrentState.MoveHistory[0].Move != "d2d4")
+                throw new InvalidOperationException("Chess saves were not interchangeable across the public APIs.");
             return checked((int)world.Read<Health>(actor).Current);
         }
 

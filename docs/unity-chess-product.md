@@ -28,7 +28,9 @@ Keep rendering, scene and UI operations on Unity's main thread. Independent immu
 
 ## Undo, replay and save boundaries
 
-Live undo rewinds rule state and clock checkpoints. It must restore the active side, castling rights, en-passant target, halfmove/fullmove counters, repetition context and any adjudicated result. A clocked save needs historical clock checkpoints to permit takebacks before the load point: a final clock pair alone cannot reconstruct previous increments, stages and time spent. Use the complete match-save API when that history must survive restart. A FEN alone is insufficient for repetition or a complete match archive.
+Live undo rewinds rule state and clock checkpoints. It must restore the active side, castling rights, en-passant target, halfmove/fullmove counters, repetition context and any adjudicated result. A clocked save needs historical clock checkpoints to permit takebacks before the load point: a final clock pair alone cannot reconstruct previous increments, stages and time spent. Use protocol `CaptureSave`/`LoadSaveAsync` or facade `CaptureSaveAsync`/`LoadSaveAsync` when that history must survive restart. The APIs share the same validated save contract, with the saved current clock kept separate from turn-start undo baselines. A FEN alone is insufficient for repetition or a complete match archive.
+
+Players may resign even outside their turn. Local `Resign(side)`/`ResignAsync(side)` and the authenticated network resignation command finalize the result, freeze clocks and invalidate pending engine work. Saves retain that result. FIDE's impossible-mate exception uses the conservative material test described below.
 
 Study undo has different semantics: it moves the cursor while preserving all continuations, and a new move becomes a sibling variation. Study nodes retain their full positions so navigation does not replay the line. Scripted lesson undo rewinds one learner decision together with its automatic opponent reply, preserving mistake counts until reset. None of these operations requires an engine.
 
