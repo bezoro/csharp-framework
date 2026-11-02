@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Immutable;
 using Bezoro.Chess.UCI.Protocol.API;
 using Bezoro.Chess.UCI.Protocol.API.Types;
 using Bezoro.Chess.UnitySample;
@@ -71,6 +72,14 @@ public sealed class PresenterAdapterTests
         state = match.Refresh();
         presenter.Present(in state);
         presenter.Present(in state);
+        var rehydrated = state with
+        {
+            PendingPromotion = state.PendingPromotion!.Value with
+            {
+                AllowedPromotionPieces = ImmutableArray.CreateRange(state.PendingPromotion.Value.AllowedPromotionPieces.ToArray())
+            }
+        };
+        presenter.Present(in rehydrated);
         Assert.Single(requests);
         Assert.NotNull(requests[0]);
         presenter.ChoosePromotion('N');
@@ -82,6 +91,29 @@ public sealed class PresenterAdapterTests
         presenter.Present(in state);
         Assert.Equal(2, requests.Count);
         Assert.Null(requests[1]);
+    }
+
+    [Fact]
+    public void AppearanceConfiguredBeforeAwake_IsInitializedIndependentlyAndSurvivesAwake()
+    {
+        using var match = new UciPlayableMatchSession();
+        var state = match.Refresh();
+        var renderer = new RecordingRenderer();
+        var presenter = Create(renderer, new RecordingRenderer());
+        var palette = new ChessHighlightPalette(selected: new Bezoro.Core.Types.Color(1, 2, 3, 4));
+        presenter.SetPalette(palette);
+        presenter.SetSkin(new ChessPieceSkin("marble", "marble/2d", "marble/3d"));
+        typeof(ChessBoardPresenter).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(presenter, null);
+        presenter.Present(in state);
+        Assert.Same(palette, renderer.Palette);
+        Assert.Equal("marble/2d", renderer.AssetKey);
+
+        var skinFirstRenderer = new RecordingRenderer();
+        var skinFirst = Create(skinFirstRenderer, new RecordingRenderer());
+        skinFirst.SetSkin(new ChessPieceSkin("wood", "wood/2d", "wood/3d"));
+        skinFirst.Present(in state);
+        Assert.Equal("wood/2d", skinFirstRenderer.AssetKey);
     }
 
     private static ChessBoardPresenter Create(RecordingRenderer two, RecordingRenderer three)
@@ -97,11 +129,13 @@ public sealed class PresenterAdapterTests
     {
         public ChessBoardPresentation LastBoard { get; private set; }
         public string? AssetKey { get; private set; }
+        public ChessHighlightPalette? Palette { get; private set; }
         public override void Render(in ChessBoardPresentation board, ChessHighlightPalette palette,
             ChessBoardOrientation orientation, string pieceSetAssetKey)
         {
             LastBoard = board;
             AssetKey = pieceSetAssetKey;
+            Palette = palette;
         }
     }
 }

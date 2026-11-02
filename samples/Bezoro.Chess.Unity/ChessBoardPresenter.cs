@@ -48,7 +48,7 @@ namespace Bezoro.Chess.UnitySample
         /// <summary>The controller may disable input while awaiting authority or during an animation.</summary>
         public bool InteractionEnabled { get; set; } = true;
 
-        private void Awake() => RebuildAppearance();
+        private void Awake() => EnsureAppearance();
 
         /// <summary>
         /// Call on Unity's main thread after a move, undo, load, result change or authoritative network snapshot.
@@ -65,7 +65,7 @@ namespace Bezoro.Chess.UnitySample
                 var value = animation.Value;
                 ActiveRenderer.Animate(in value);
             }
-            if (previousPromotion != state.PendingPromotion)
+            if (!SamePromotion(previousPromotion, state.PendingPromotion))
                 PromotionChanged?.Invoke(state.PendingPromotion);
         }
 
@@ -140,7 +140,7 @@ namespace Bezoro.Chess.UnitySample
 
         private void Reconcile()
         {
-            if (palette == null) RebuildAppearance();
+            EnsureAppearance();
             // Activation runs the new child's Awake/OnEnable before its first Render call.
             // Unity does not render an intermediate frame while this synchronous method executes.
             if (twoDimensionalRenderer != null)
@@ -156,12 +156,29 @@ namespace Bezoro.Chess.UnitySample
             }
         }
 
-        private void RebuildAppearance()
+        private void EnsureAppearance()
         {
-            palette = new ChessHighlightPalette(ToColor(selected), ToColor(legalMove), ToColor(legalCapture),
-                ToColor(lastMove), ToColor(capture), ToColor(castlingRook), ToColor(promotion),
-                ToColor(check), ToColor(checkmate));
-            skin = new ChessPieceSkin(skinId, spriteSetAssetKey, modelSetAssetKey);
+            if (palette == null)
+                palette = new ChessHighlightPalette(ToColor(selected), ToColor(legalMove), ToColor(legalCapture),
+                    ToColor(lastMove), ToColor(capture), ToColor(castlingRook), ToColor(promotion),
+                    ToColor(check), ToColor(checkmate));
+            if (skin.Id == null)
+                skin = new ChessPieceSkin(skinId, spriteSetAssetKey, modelSetAssetKey);
+        }
+
+        private static bool SamePromotion(PendingPromotionRequest? previous, PendingPromotionRequest? current)
+        {
+            if (!previous.HasValue || !current.HasValue) return previous.HasValue == current.HasValue;
+            var left = previous.Value;
+            var right = current.Value;
+            if (left.MovePrefix != right.MovePrefix || left.PositionKey != right.PositionKey ||
+                left.MovingSide != right.MovingSide || left.MovingPiece != right.MovingPiece ||
+                left.From != right.From || left.To != right.To || left.Fen.Raw != right.Fen.Raw ||
+                left.AllowedPromotionPieces.Length != right.AllowedPromotionPieces.Length)
+                return false;
+            for (int i = 0; i < left.AllowedPromotionPieces.Length; i++)
+                if (left.AllowedPromotionPieces[i] != right.AllowedPromotionPieces[i]) return false;
+            return true;
         }
 
         private static FrameworkColor ToColor(Color32 color) => new FrameworkColor(color.r, color.g, color.b, color.a);
