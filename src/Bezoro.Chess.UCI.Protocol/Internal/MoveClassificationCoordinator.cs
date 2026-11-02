@@ -22,6 +22,7 @@ internal sealed class MoveClassificationCoordinator : IDisposable
 	private readonly object                               _sync               = new();
 	private readonly Queue<PendingClassificationPosition> _pendingPositions   = new();
 	private          long                                 _generation;
+	private          long                                 _knownVersion;
 	private          WorkerCancellationSource?            _workerCancellation;
 	private          long                                 _workerGeneration;
 	private          Task?                                _workerTask;
@@ -62,6 +63,11 @@ internal sealed class MoveClassificationCoordinator : IDisposable
 		get { lock (_sync) return _classificationsByPosition.Count != 0; }
 	}
 
+	internal long KnownVersion
+	{
+		get { lock (_sync) return _classificationsByPosition.Count == 0 ? 0 : _knownVersion; }
+	}
+
 	public void Enqueue(string positionKey, Fen fen, ImmutableArray<string> legalMoves)
 	{
 		var structural = fen.ClassifyMoves(legalMoves);
@@ -72,6 +78,7 @@ internal sealed class MoveClassificationCoordinator : IDisposable
 				structural = MergeClassifications(structural, existing);
 
 			_classificationsByPosition[positionKey] = structural;
+			_knownVersion++;
 
 			var waiter = GetOrCreateWaiter(positionKey);
 			if (legalMoves.IsDefaultOrEmpty ||
@@ -246,6 +253,7 @@ internal sealed class MoveClassificationCoordinator : IDisposable
 							return;
 
 						_classificationsByPosition[position.PositionKey] = completed;
+						_knownVersion++;
 						_queuedPositionKeys.Remove(position.PositionKey);
 						if (_waiters.Remove(position.PositionKey, out var waiter))
 							waiter.TrySetResult(completed);

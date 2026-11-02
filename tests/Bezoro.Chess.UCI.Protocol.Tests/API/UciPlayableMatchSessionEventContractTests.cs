@@ -235,7 +235,7 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	}
 
 	[Fact]
-	public async Task ApplyMove_WhenDrawOfferPolicyExpiresOnMove_ShouldClearPendingOffer()
+	public async Task ApplyMove_WhenDrawOfferPolicyExpiresOnMove_ShouldClearOnlyAfterRecipientsMove()
 	{
 		await using var playingClient = await CreateStartedClientAsync();
 
@@ -258,6 +258,9 @@ public sealed class UciPlayableMatchSessionEventContractTests
 		session.OfferDraw();
 		session.ApplyMove("e2e4");
 		var refreshed = await session.RefreshAsync(CancellationToken.None);
+		refreshed.DrawOfferedBy.Should().Be('w');
+		session.ApplyMove("e7e5");
+		refreshed = await session.RefreshAsync(CancellationToken.None);
 
 		refreshed.DrawOfferedBy.Should().BeNull();
 		session.CancelAnalysis();

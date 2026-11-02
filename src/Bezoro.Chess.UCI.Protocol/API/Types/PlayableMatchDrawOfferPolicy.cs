@@ -6,7 +6,7 @@ namespace Bezoro.Chess.UCI.Protocol.API.Types;
 public enum PlayableMatchDrawOfferPolicy
 {
 	/// <summary>
-	///     Clears any pending offer as soon as the next move is completed.
+	///     Clears a pending offer when its recipient completes a move. The offer survives the offering side's own move.
 	/// </summary>
 	ExpireOnMove = 0,
 

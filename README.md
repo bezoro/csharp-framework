@@ -24,12 +24,20 @@ Reusable C# libraries for Unity 6 and other .NET game projects, including Godot 
 | [TypingSystem](src/Bezoro.TypingSystem/README.md) | Word consumption and typing state |
 | [Chess protocol and rules](src/Bezoro.Chess.UCI.Protocol/README.md) | Local chess, match state, optional UCI engines, and game review |
 | [Chess game facade](src/Bezoro.Chess.UCI/README.md) | Game-facing board snapshots, moves, and UI event dispatch |
+| [Chess study](src/Bezoro.Chess.Study/README.md) | SAN/PGN, retained variations, navigation and scripted lessons |
+| [Chess presentation](src/Bezoro.Chess.Presentation/README.md) | Shared 2D/3D board projection, special-move feedback and configurable highlights |
+| [Chess networking boundary](src/Bezoro.Chess.Networking/README.md) | Optional authoritative commands and remote engine/review service contracts |
+| [Player profiles](src/Bezoro.PlayerProfiles/README.md) | Profile values, bounded match history and pure Elo updates |
+| [Progression](src/Bezoro.Progression/README.md) | Event-fed quests, free/premium battle passes and story prerequisites |
+| [Commerce](src/Bezoro.Commerce/README.md) | Cosmetic catalogs, currency, idempotent purchases, ownership and equipment |
 
 The [toolkit example](samples/Bezoro.Toolkit.ConsoleDemo/README.md) combines pickup queries, inventories, quest states, and a byte checkpoint. Core also provides [binary span cursors](src/Bezoro.Core/Binary/README.md), [bit sets and span algorithms](src/Bezoro.Core/Collections/README.BitSet.md), and [scalar/grid arithmetic](src/Bezoro.Core/Numerics/README.md). See [module ownership and validation](docs/gameplay-toolkit.md).
 
 Use the [statechart examples](samples/Bezoro.Statecharts.ConsoleDemo/README.md) for a chest, parallel character states, and scheduled perception. The [NPC example](samples/Bezoro.Behaviors.ConsoleDemo/README.md) nests trees and machines with one shared work budget. See [composition, costs and lifecycle](docs/composable-behaviors.md).
 
 The [framework API review](docs/framework-api-review.md) describes declarative state/tree construction, ownership fixes, allocation measurements and breaking migrations across the libraries. Construction builders compile to the existing compact runtimes and can be released after setup.
+
+For a Unity chess product, see [the integration and coverage review](docs/unity-chess-product.md). It connects local/shared-device play, Unity-managed networking, remote engines, undo, study, lesson progress, cosmetics and the same match displayed in 2D or 3D. Domain modules are optional; they impose no common update loop or backend vendor.
 
 ## Unity installation
 

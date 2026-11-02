@@ -42,8 +42,9 @@ internal static partial class LocalPositionRules
 
 	internal static bool IsCurrentPlayerInCheck(Fen fen)
 	{
-		var state = Parse(fen);
-		return IsKingInCheck(state.Board, state.ActiveColor);
+		Span<char> board = stackalloc char[64];
+		ReadBoard(fen, board);
+		return IsKingInCheck(board, fen.ActiveColor);
 	}
 
 	internal static bool TryCreatePendingPromotion(
@@ -87,13 +88,14 @@ internal static partial class LocalPositionRules
 
 	internal static bool HasInsufficientMaterial(Fen fen)
 	{
-		var state = Parse(fen);
+		Span<char> board = stackalloc char[64];
+		ReadBoard(fen, board);
 		var knightCount = 0;
 		bool? bishopIsLightSquare = null;
 
-		for (var squareIndex = 0; squareIndex < state.Board.Length; squareIndex++)
+		for (var squareIndex = 0; squareIndex < board.Length; squareIndex++)
 		{
-			char piece = state.Board[squareIndex];
+			char piece = board[squareIndex];
 			if (piece == '\0' || char.ToLowerInvariant(piece) == 'k')
 				continue;
 

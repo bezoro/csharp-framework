@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
+using Bezoro.Chess.Networking;
 using Bezoro.Chess.UCI.API;
 using Bezoro.Chess.UCI.Protocol.API;
 using Bezoro.Core.Types;
@@ -29,6 +30,7 @@ public sealed class UnityRuntimeCompatibilityTests
             ToolkitConsumer.ExerciseDataApis().Should().Be(4);
             BehaviorConsumer.ExerciseDataApis().Should().Be(2);
             FrameworkConsumer.ExerciseDataApis().Should().Be(97);
+            ChessProductConsumer.ExerciseDataApis().Should().Be(50);
         });
     }
 
@@ -39,7 +41,8 @@ public sealed class UnityRuntimeCompatibilityTests
         [
             typeof(PoolOptions).Assembly, typeof(World).Assembly, typeof(Health).Assembly,
             typeof(LogPayload).Assembly, typeof(TypingState).Assembly,
-            typeof(UciPlayableMatchSession).Assembly, typeof(UciGameEngineSession).Assembly
+            typeof(UciPlayableMatchSession).Assembly, typeof(UciGameEngineSession).Assembly,
+            typeof(ChessMatchCommand).Assembly
         ];
         foreach (var assembly in assemblies)
         {

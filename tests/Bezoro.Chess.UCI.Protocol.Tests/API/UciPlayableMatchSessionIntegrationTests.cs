@@ -142,13 +142,13 @@ public class UciPlayableMatchSessionIntegrationTests(StockfishFixture fixture)
 			analysisFallbackMoveTimeMs: 100
 		);
 
-		await session.LoadMatchAsync(new PlayableMatchSetup(Fen.Parse("k7/1QK5/8/8/8/8/8/8 w - - 0 1")!.Value, []), CancellationToken.None);
+		await session.LoadMatchAsync(new PlayableMatchSetup(Fen.Parse("k7/8/2K5/1Q6/8/8/8/8 w - - 0 1")!.Value, []), CancellationToken.None);
 
 		await session.RefreshAsync(CancellationToken.None);
 		var classifications = await session.WaitForCurrentMoveClassificationsAsync(CancellationToken.None);
 
-		classifications["b7b6"].IsStalemate.Should().BeTrue();
-		classifications["b7b6"].IsResolved.Should().BeTrue();
+		classifications["b5b6"].IsStalemate.Should().BeTrue();
+		classifications["b5b6"].IsResolved.Should().BeTrue();
 		session.CancelAnalysis();
 	}
 

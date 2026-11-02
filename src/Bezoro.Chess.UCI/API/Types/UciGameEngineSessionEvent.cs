@@ -20,8 +20,13 @@ public readonly record struct UciGameEngineSessionEvent(
 	IllegalMoveRejectedEvent? IllegalMoveRejected = null,
 	PrincipalVariation? Evaluation = null,
 	Move? ClassifiedMove = null,
-	Exception? Exception = null)
+	Exception? Exception = null,
+	PromotionCanceledEvent? PromotionCanceled = null)
 {
+	/// <summary>Creates a pending-promotion cancellation event.</summary>
+	public static UciGameEngineSessionEvent ForPromotionCanceled(PromotionCanceledEvent payload) =>
+		new(UciGameEngineSessionEventKind.PromotionCanceled, payload.TimestampUtc, PromotionCanceled: payload);
+
 	/// <summary>Creates an event without a specialized payload.</summary>
 	public static UciGameEngineSessionEvent Create(UciGameEngineSessionEventKind kind) =>
 		new(kind, DateTimeOffset.UtcNow);

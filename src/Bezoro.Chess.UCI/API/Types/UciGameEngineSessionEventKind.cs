@@ -72,5 +72,7 @@ public enum UciGameEngineSessionEventKind
 	/// <summary>An engine stopped thinking.</summary>
 	EngineThinkingStopped,
 	/// <summary>The session stopped.</summary>
-	Stopped
+	Stopped,
+	/// <summary>A pending promotion prompt was canceled before a move was applied.</summary>
+	PromotionCanceled
 }

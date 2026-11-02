@@ -24,6 +24,7 @@ Bezoro.Chess.UCI.API.Types.PieceMove | public readonly record struct | stable-sh
 Bezoro.Chess.UCI.API.Types.Position | public readonly record struct | stable-shape | API/Types/Position.cs
 Bezoro.Chess.UCI.API.Types.PositionLoadedEvent | public readonly record struct | stable-shape | API/Types/PositionLoadedEvent.cs
 Bezoro.Chess.UCI.API.Types.Promotion | public readonly record struct | stable-shape | API/Types/Promotion.cs
+Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent | public readonly record struct | stable-shape | API/Types/PromotionCanceledEvent.cs
 Bezoro.Chess.UCI.API.Types.PromotionChosenEvent | public readonly record struct | stable-shape | API/Types/PromotionChosenEvent.cs
 Bezoro.Chess.UCI.API.Types.PromotionRequiredEvent | public readonly record struct | stable-shape | API/Types/PromotionRequiredEvent.cs
 Bezoro.Chess.UCI.API.Types.TurnChangedEvent | public readonly record struct | stable-shape | API/Types/TurnChangedEvent.cs

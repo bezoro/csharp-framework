@@ -90,7 +90,7 @@ public sealed class UciGameReviewAnalyzer
 		await _gate.WaitAsync(ct).ConfigureAwait(false);
 		try
 		{
-			ValidateInitialPosition(initialFen);
+			PlayablePositionValidator.Validate(initialFen);
 			var positions = new Fen[moves.Length + 1];
 			var results = new PlayableMatchResult[positions.Length];
 			var classifications = new MoveClassification[moves.Length];
@@ -230,17 +230,30 @@ public sealed class UciGameReviewAnalyzer
 	{
 		await client.SetPositionAsync(initialFen, new ArraySegment<string>(moves, 0, index), ct).ConfigureAwait(false);
 		var search = await client.GoAsync(_options.Search, ct).ConfigureAwait(false);
-		var variation = search.BestPv ?? throw new InvalidOperationException("The engine returned no primary variation for review.");
-		if (variation.ScoreBound != UciScoreBound.Exact ||
-			!variation.ScoreCp.HasValue && !variation.ScoreMate.HasValue || variation.ScoreMate == 0)
-			throw new InvalidOperationException("Review requires an exact primary-variation score.");
-		if (variation.Moves.IsDefaultOrEmpty ||
-			!string.Equals(variation.Moves[0], search.BestMove, StringComparison.OrdinalIgnoreCase))
-			throw new InvalidOperationException("The engine's best move does not match its primary variation.");
+		var variation = SelectExactBestMoveVariation(search);
 		// Validate engine output without trusting a protocol-valid coordinate as a legal chess move.
 		LocalPositionRules.ApplyMove(position, search.BestMove);
 		return new(position, new PositionScore(variation.ScoreMate.HasValue ? null : variation.ScoreCp, variation.ScoreMate),
 			search.BestMove.ToLowerInvariant(), variation, default);
+	}
+
+	private static PrincipalVariation SelectExactBestMoveVariation(SearchResult search)
+	{
+		PrincipalVariation? selected = null;
+		foreach (var variation in search.PrincipalVariations)
+		{
+			// A finite budget can interrupt a deeper aspiration-window iteration. Its score is only
+			// a bound, even when the engine retains the same best move from a completed iteration.
+			if (variation.MultiPv > 1 || variation.ScoreBound != UciScoreBound.Exact ||
+				!variation.ScoreCp.HasValue && !variation.ScoreMate.HasValue || variation.ScoreMate == 0 ||
+				variation.Moves.IsDefaultOrEmpty ||
+				!string.Equals(variation.Moves[0], search.BestMove, StringComparison.OrdinalIgnoreCase))
+				continue;
+			if (!selected.HasValue || variation.Depth >= selected.Value.Depth)
+				selected = variation;
+		}
+		return selected ?? throw new InvalidOperationException(
+			"Review requires a retained exact primary-variation score matching the engine's best move. Increase the search or PV-retention budget.");
 	}
 
 	private static void ValidateResourceOption(UciEngineClient client, string name, int requested)
@@ -250,61 +263,6 @@ public sealed class UciGameReviewAnalyzer
 			throw new ArgumentException($"The requested {name} budget is outside an engine's advertised range.", nameof(requested));
 	}
 
-	private static void ValidateInitialPosition(Fen fen)
-	{
-		var state = LocalPositionRules.Parse(fen);
-		var counts = new int[2];
-		var pawns = new int[2];
-		int whiteKing = -1, blackKing = -1;
-		for (var square = 0; square < state.Board.Length; square++)
-		{
-			char piece = state.Board[square];
-			if (piece == '\0') continue;
-			int side = char.IsUpper(piece) ? 0 : 1;
-			counts[side]++;
-			if (char.ToLowerInvariant(piece) == 'p')
-			{
-				if (LocalPositionRules.GetRank(square) is 0 or 7)
-					throw new ArgumentException("Pawns cannot occupy the first or eighth rank in a playable position.", nameof(fen));
-				pawns[side]++;
-			}
-			if (piece == 'K')
-			{
-				if (whiteKing >= 0) throw new ArgumentException("Exactly one king per side is required.", nameof(fen));
-				whiteKing = square;
-			}
-			if (piece == 'k')
-			{
-				if (blackKing >= 0) throw new ArgumentException("Exactly one king per side is required.", nameof(fen));
-				blackKing = square;
-			}
-		}
-		if (whiteKing < 0 || blackKing < 0 || counts[0] > 16 || counts[1] > 16 || pawns[0] > 8 || pawns[1] > 8)
-			throw new ArgumentException("A playable position requires two kings and at most sixteen pieces and eight pawns per side.", nameof(fen));
-
-		foreach (char right in state.CastlingRights)
-		{
-			int kingSquare = char.IsUpper(right) ? 4 : 60;
-			int rookSquare = right switch { 'K' => 7, 'Q' => 0, 'k' => 63, _ => 56 };
-			if (state.Board[kingSquare] != (char.IsUpper(right) ? 'K' : 'k') ||
-				state.Board[rookSquare] != (char.IsUpper(right) ? 'R' : 'r'))
-				throw new ArgumentException("Castling rights require the king and rook on their original squares.", nameof(fen));
-		}
-		if (state.EnPassantTarget.Length > 0)
-		{
-			int target = LocalPositionRules.ParseSquare(state.EnPassantTarget.AsSpan());
-			int direction = state.ActiveColor == 'w' ? 8 : -8;
-			if (LocalPositionRules.GetRank(target) != (state.ActiveColor == 'w' ? 5 : 2) ||
-				state.Board[target] != '\0' ||
-				state.Board[target - direction] != (state.ActiveColor == 'w' ? 'p' : 'P') ||
-				state.Board[target + direction] != '\0' || state.HalfmoveClock != 0)
-				throw new ArgumentException("The en-passant target must describe the preceding double pawn push.", nameof(fen));
-		}
-
-		var inactiveSide = Fen.Parse($"{fen.PiecePlacement} {LocalPositionRules.Opposite(fen.ActiveColor)} - - 0 1")!.Value;
-		if (LocalPositionRules.IsCurrentPlayerInCheck(inactiveSide))
-			throw new ArgumentException("The side that is not moving cannot already be in check. Kings must not be adjacent.", nameof(fen));
-	}
 
 	private async Task ConfigureEngineAsync(UciEngineClient client, CancellationToken ct)
 	{
@@ -336,16 +294,7 @@ public sealed class UciGameReviewAnalyzer
 	private static PositionScore InvertScore(PositionScore score) =>
 		new(score.Cp is int cp ? checked(-cp) : null, score.Mate is int mate ? checked(-mate) : null);
 
-	private static PlayableMatchResult GetTerminalResult(Fen fen, ImmutableArray<string> legalMoves, int repetitions)
-	{
-		if (legalMoves.IsEmpty)
-			return LocalPositionRules.IsCurrentPlayerInCheck(fen)
-				? new(PlayableMatchResultReason.Checkmate, LocalPositionRules.Opposite(fen.ActiveColor))
-				: new(PlayableMatchResultReason.Stalemate, null);
-		if (LocalPositionRules.HasInsufficientMaterial(fen))
-			return new(PlayableMatchResultReason.InsufficientMaterial, null);
-		if (fen.HalfmoveClock >= 150)
-			return new(PlayableMatchResultReason.SeventyFiveMoveRule, null);
-		return repetitions >= 5 ? new(PlayableMatchResultReason.FivefoldRepetition, null) : default;
-	}
+	private static PlayableMatchResult GetTerminalResult(Fen fen, ImmutableArray<string> legalMoves, int repetitions) =>
+		PlayableMatchAdjudication.Evaluate(fen, legalMoves.Length, null, null, repetitions,
+			PlayableMatchClaimableDrawPolicy.ClaimRequired).Result;
 }

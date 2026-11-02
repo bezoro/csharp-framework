@@ -6,10 +6,23 @@ internal static partial class LocalPositionRules
 {
 	internal static LocalPositionState Parse(Fen fen)
 	{
+		var board = new char[64];
+		ReadBoard(fen, board);
+		return new(
+			board,
+			fen.ActiveColor,
+			NormalizeCastlingRights(fen.CastlingRights),
+			NormalizeEnPassantTarget(fen.EnPassantTarget),
+			fen.HalfmoveClock,
+			fen.FullmoveNumber
+		);
+	}
+
+	private static void ReadBoard(Fen fen, Span<char> board)
+	{
 		if (fen.PiecePlacement is null || fen.ActiveColor is not ('w' or 'b'))
 			throw new ArgumentException("A parsed FEN position is required.", nameof(fen));
-
-		var board = new char[64];
+		board.Clear();
 		var rank = 7;
 		var file = 0;
 		foreach (char symbol in fen.PiecePlacement)
@@ -24,15 +37,6 @@ internal static partial class LocalPositionRules
 			else
 				board[GetIndex(file++, rank)] = symbol;
 		}
-
-		return new(
-			board,
-			fen.ActiveColor,
-			NormalizeCastlingRights(fen.CastlingRights),
-			NormalizeEnPassantTarget(fen.EnPassantTarget),
-			fen.HalfmoveClock,
-			fen.FullmoveNumber
-		);
 	}
 
 	internal static string NormalizeMove(string move)

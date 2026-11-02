@@ -18,8 +18,9 @@ internal sealed class GameEngineClients : IAsyncDisposable
 	internal SerializedUciEngineClientRuntime Snapshot { get; }
 	internal UciPonderRuntime Ponder { get; }
 	internal SerializedUciEngineClientRuntime Classifier { get; }
-	internal bool IsStarted => Snapshot.IsStarted && Ponder.IsStarted && Classifier.IsStarted;
-	internal bool IsHealthy => Snapshot.IsHealthy && Ponder.IsHealthy && Classifier.IsHealthy;
+	internal bool IsStarted => Snapshot.IsStarted;
+	internal bool IsHealthy => Snapshot.IsHealthy &&
+		(!Ponder.IsStarted || Ponder.IsHealthy) && (!Classifier.IsStarted || Classifier.IsHealthy);
 
 	internal static GameEngineClients Create(string enginePath, IEnumerable<string>? args, string? workingDirectory)
 	{
