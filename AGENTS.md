@@ -37,3 +37,7 @@ Commit cohesive, validated increments as work progresses. Use Conventional Commi
 For changes intended for integration, open a draft pull request as soon as the first coherent implementation is pushed, so the user can follow progress. Keep its scope, description and validation status current as commits arrive. Mark it ready for review when implementation and the relevant checks are complete.
 
 Every pull request description must start with a concise summary of what it does, followed by a `## Changes` section listing all changes and a `## Verification` section listing every verification performed and its result. Clearly identify pending checks separately from completed verification.
+
+## CI economy
+
+Preserve CI quota by consolidating verification. Working-branch commits and pushes should not automatically run CI; prefer automatic validation on integration into `main`, including merges. Use focused local checks during development. Trigger an additional manual CI run only when it has a concrete purpose, such as consolidated pre-merge validation or diagnosing a platform-specific failure. Avoid redundant runs of unchanged code while retaining the checks required for integration and publication.
