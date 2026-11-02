@@ -25,6 +25,9 @@ public readonly struct CommerceReceipt
             (operation == CommerceOperation.GrantSkin && amount != 0)) throw new ArgumentOutOfRangeException(nameof(amount));
         if (balanceAfter < 0 || (operation == CommerceOperation.GrantSkin && balanceAfter != 0))
             throw new ArgumentOutOfRangeException(nameof(balanceAfter));
+        if ((operation == CommerceOperation.CreditCurrency && balanceAfter < amount) ||
+            (operation == CommerceOperation.Purchase && amount > long.MaxValue - balanceAfter))
+            throw new ArgumentOutOfRangeException(nameof(balanceAfter), "The receipt must imply a nonnegative, representable balance before the operation.");
         TransactionId = transactionId;
         Operation = operation;
         TargetId = targetId;

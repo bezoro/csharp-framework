@@ -43,6 +43,8 @@ public sealed class CommerceAccount
         {
             if (!receipt.IsValid || _receipts.ContainsKey(receipt.TransactionId))
                 throw new ArgumentException("Snapshot receipts must be initialized and unique.", nameof(snapshot));
+            if (receipt.Operation == CommerceOperation.GrantSkin && !_ownedSkins.Contains(receipt.TargetId))
+                throw new ArgumentException("A successful skin-grant receipt requires the corresponding permanent ownership.", nameof(snapshot));
             _receipts.Add(receipt.TransactionId, receipt);
         }
         if (snapshot.EquippedSkinId is not null && !TryEquipSkin(snapshot.EquippedSkinId))

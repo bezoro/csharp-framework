@@ -182,9 +182,54 @@ public class CommerceTests
             new CommerceAccountSnapshot("alice", Array.Empty<WalletBalance>(), Array.Empty<string>(), Array.Empty<CommerceReceipt>(), "marble")));
         var receipt = new CommerceReceipt("a", CommerceOperation.GrantSkin, "marble", 0, 0);
         Assert.Throws<ArgumentException>(() => new CommerceAccount(catalog,
-            new CommerceAccountSnapshot("alice", Array.Empty<WalletBalance>(), Array.Empty<string>(), new[] { receipt, receipt })));
+            new CommerceAccountSnapshot("alice", Array.Empty<WalletBalance>(), new[] { "marble" }, new[] { receipt, receipt })));
         Assert.Throws<ArgumentOutOfRangeException>(() => new CommerceAccount(catalog,
             new CommerceAccountSnapshot("alice", Array.Empty<WalletBalance>(), Array.Empty<string>(), new[] { receipt }), receiptCapacity: 0));
+    }
+
+
+    [Theory]
+    [InlineData(CommerceOperation.CreditCurrency, 10, 0)]
+    [InlineData(CommerceOperation.CreditCurrency, long.MaxValue, long.MaxValue - 1)]
+    [InlineData(CommerceOperation.Purchase, long.MaxValue, 1)]
+    [InlineData(CommerceOperation.Purchase, 1, long.MaxValue)]
+    public void Receipts_reject_impossible_balances_before_the_operation(CommerceOperation operation, long amount, long balanceAfter)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new CommerceReceipt("operation", operation, "target", amount, balanceAfter));
+    }
+
+    [Theory]
+    [InlineData(CommerceOperation.CreditCurrency, long.MaxValue, long.MaxValue)]
+    [InlineData(CommerceOperation.CreditCurrency, 1, long.MaxValue)]
+    [InlineData(CommerceOperation.Purchase, long.MaxValue, 0)]
+    [InlineData(CommerceOperation.Purchase, 0, long.MaxValue)]
+    public void Receipts_accept_representable_balance_boundaries(CommerceOperation operation, long amount, long balanceAfter)
+    {
+        var receipt = new CommerceReceipt("operation", operation, "target", amount, balanceAfter);
+        Assert.True(receipt.IsValid);
+        Assert.Equal(balanceAfter, receipt.BalanceAfter);
+    }
+
+    [Theory]
+    [InlineData("marble")]
+    [InlineData("unknown-skin")]
+    public void Restore_rejects_successful_skin_grants_missing_their_permanent_ownership(string skinId)
+    {
+        var receipt = new CommerceReceipt("grant", CommerceOperation.GrantSkin, skinId, 0, 0);
+        var snapshot = new CommerceAccountSnapshot("alice", Array.Empty<WalletBalance>(), Array.Empty<string>(), new[] { receipt });
+        Assert.Throws<ArgumentException>(() => new CommerceAccount(Catalog(), snapshot));
+    }
+
+    [Fact]
+    public void Restored_successful_skin_grant_retries_preserve_ownership()
+    {
+        var catalog = Catalog();
+        var original = new CommerceAccount(catalog, "alice");
+        original.GrantSkin("grant", "marble");
+        var restored = new CommerceAccount(catalog, original.CreateSnapshot());
+        Assert.Equal(CommerceTransactionStatus.AlreadyApplied, restored.GrantSkin("grant", "marble").Status);
+        Assert.True(restored.OwnsSkin("marble"));
+        Assert.Equal(1, restored.ReceiptCount);
     }
 
     [Fact]
