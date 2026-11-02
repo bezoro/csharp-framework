@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
 
@@ -26,6 +27,78 @@ public sealed class UnityPackageScriptTests
         File.Exists(Path.Combine(fixture.Path, "artifacts/package/Runtime/System.Memory.dll")).Should().BeFalse();
         File.Exists(Path.Combine(fixture.Path, "artifacts/package/Runtime/Bezoro.One.README.md")).Should().BeTrue();
         File.ReadAllText(Path.Combine(fixture.Path, "artifacts/package/package.json")).Should().Contain("1.2.3");
+    }
+
+    [Fact]
+    public void StagingPreservesXmlAndAssemblyMetadataAcrossRebuilds()
+    {
+        using var fixture = new StagingFixture();
+        fixture.AddProject("Bezoro.One");
+        string template = Path.Combine(fixture.Path, "unity-package/Runtime");
+        string xmlMetadata = File.ReadAllText(Path.Combine(template, "Bezoro.One.xml.meta"));
+        string assemblyMetadata = File.ReadAllText(Path.Combine(template, "Bezoro.One.dll.meta"));
+
+        var first = fixture.Run();
+
+        first.ExitCode.Should().Be(0, first.Error);
+        string output = Path.Combine(fixture.Path, "artifacts/package/Runtime");
+        File.ReadAllText(Path.Combine(output, "Bezoro.One.xml")).Should().Be("<doc>Bezoro.One</doc>");
+        File.ReadAllText(Path.Combine(output, "Bezoro.One.xml.meta")).Should().Be(xmlMetadata);
+        File.ReadAllText(Path.Combine(output, "Bezoro.One.dll.meta")).Should().Be(assemblyMetadata);
+        Regex.Match(xmlMetadata, @"(?m)^guid: ([0-9a-f]{32})$").Success.Should().BeTrue();
+        xmlMetadata.Should().NotBe(assemblyMetadata);
+
+        File.WriteAllText(Path.Combine(fixture.Path, "src/Bezoro.One/bin/Release/netstandard2.1/Bezoro.One.xml"),
+            "<doc>Updated documentation</doc>");
+        var rebuilt = fixture.Run();
+
+        rebuilt.ExitCode.Should().Be(0, rebuilt.Error);
+        File.ReadAllText(Path.Combine(output, "Bezoro.One.xml")).Should().Be("<doc>Updated documentation</doc>");
+        File.ReadAllText(Path.Combine(output, "Bezoro.One.xml.meta")).Should().Be(xmlMetadata);
+        File.ReadAllText(Path.Combine(output, "Bezoro.One.dll.meta")).Should().Be(assemblyMetadata);
+    }
+
+    [Fact]
+    public void StagingRejectsXmlDocumentationWithoutStableMetadata()
+    {
+        using var fixture = new StagingFixture();
+        fixture.AddProject("Bezoro.One");
+        File.Delete(Path.Combine(fixture.Path, "unity-package/Runtime/Bezoro.One.xml.meta"));
+
+        var result = fixture.Run();
+
+        result.ExitCode.Should().NotBe(0);
+        result.Error.Should().Contain("Missing Unity metadata").And.Contain("Runtime/Bezoro.One.xml");
+    }
+
+    [Theory]
+    [InlineData("fileFormatVersion: 2\nguid: invalid\n")]
+    [InlineData("fileFormatVersion: 2\\nguid: 11111111111111111111111111111111\\n")]
+    public void StagingRejectsMalformedXmlMetadata(string metadata)
+    {
+        using var fixture = new StagingFixture();
+        fixture.AddProject("Bezoro.One");
+        File.WriteAllText(Path.Combine(fixture.Path, "unity-package/Runtime/Bezoro.One.xml.meta"), metadata);
+
+        var result = fixture.Run();
+
+        result.ExitCode.Should().NotBe(0);
+        result.Error.Should().Contain("Invalid Unity metadata GUID").And.Contain("Runtime/Bezoro.One.xml");
+    }
+
+    [Fact]
+    public void StagingRejectsDuplicateMetadataGuids()
+    {
+        using var fixture = new StagingFixture();
+        fixture.AddProject("Bezoro.One");
+        fixture.AddProject("Bezoro.Two");
+        string runtime = Path.Combine(fixture.Path, "unity-package/Runtime");
+        File.Copy(Path.Combine(runtime, "Bezoro.One.xml.meta"), Path.Combine(runtime, "Bezoro.Two.xml.meta"), overwrite: true);
+
+        var result = fixture.Run();
+
+        result.ExitCode.Should().NotBe(0);
+        result.Error.Should().Contain("Duplicate Unity metadata GUID");
     }
 
     [Fact]
@@ -140,6 +213,8 @@ public sealed class UnityPackageScriptTests
             foreach (var script in new[] { "Build-UnityPackage.ps1", "Get-PackageVersion.ps1" })
                 File.Copy(System.IO.Path.Combine(root, "scripts", script), System.IO.Path.Combine(Path, "scripts", script));
             File.WriteAllText(System.IO.Path.Combine(Path, "unity-package/package.json"), "{\"name\":\"test\",\"version\":\"0.0.0\"}");
+            AddMetadata("package.json");
+            AddMetadata("Runtime");
         }
 
         public void AddProject(string name, params (string Name, string Content)[] dependencies)
@@ -150,8 +225,22 @@ public sealed class UnityPackageScriptTests
             File.WriteAllText(System.IO.Path.Combine(project, name + ".csproj"), "<Project />");
             File.WriteAllText(System.IO.Path.Combine(project, "README.md"), name);
             File.WriteAllText(System.IO.Path.Combine(output, name + ".dll"), name);
+            File.WriteAllText(System.IO.Path.Combine(output, name + ".xml"), "<doc>" + name + "</doc>");
+            AddMetadata("Runtime/" + name + ".dll");
+            AddMetadata("Runtime/" + name + ".README.md");
+            AddMetadata("Runtime/" + name + ".xml");
             foreach (var dependency in dependencies)
+            {
                 File.WriteAllText(System.IO.Path.Combine(output, dependency.Name), dependency.Content);
+                AddMetadata("Runtime/" + dependency.Name);
+            }
+        }
+
+        private void AddMetadata(string assetPath)
+        {
+            string metadata = System.IO.Path.Combine(Path, "unity-package", assetPath + ".meta");
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(metadata)!);
+            File.WriteAllText(metadata, "fileFormatVersion: 2\nguid: " + Guid.NewGuid().ToString("N") + "\n");
         }
 
         public (int ExitCode, string Error) Run(string output = "artifacts/package")

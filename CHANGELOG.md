@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Unity package metadata
+
+- Include stable importer metadata for every runtime XML documentation file. Staging rejects missing, malformed or duplicate asset GUIDs before publishing an immutable Git package, while preserving existing assembly GUIDs.
+
 ### Unity chess product foundations
 
 - Optional local study trees with retained undo/redo variations, legal SAN conversion, bounded PGN import/export and authored lesson attempts with scripted replies and decision undo.

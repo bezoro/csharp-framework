@@ -138,4 +138,24 @@ foreach ($project in $projects) {
 	}
 }
 
+# Immutable Git packages cannot create importer metadata during AssetDatabase.Refresh.
+# Keep GUIDs in the template and reject incomplete or ambiguous staged assets before publication.
+$metadataGuids = @{}
+foreach ($asset in Get-ChildItem -LiteralPath $outputRoot -Recurse -Force | Where-Object { $_.Extension -ne '.meta' } | Sort-Object FullName) {
+    $relativeAsset = [IO.Path]::GetRelativePath($outputRoot, $asset.FullName).Replace('\', '/')
+    $metadataPath = $asset.FullName + '.meta'
+    if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+        throw "Missing Unity metadata for staged asset '$relativeAsset'. Add a stable .meta file under unity-package."
+    }
+    $guidMatches = [regex]::Matches((Get-Content -LiteralPath $metadataPath -Raw), '(?m)^guid: ([0-9a-fA-F]{32})\r?$')
+    if ($guidMatches.Count -ne 1) {
+        throw "Invalid Unity metadata GUID for staged asset '$relativeAsset'."
+    }
+    $guid = $guidMatches[0].Groups[1].Value.ToLowerInvariant()
+    if ($metadataGuids.ContainsKey($guid)) {
+        throw "Duplicate Unity metadata GUID for '$relativeAsset' and '$($metadataGuids[$guid])'."
+    }
+    $metadataGuids[$guid] = $relativeAsset
+}
+
 Write-Host "Unity package $PackageVersion staged at $outputRoot"
