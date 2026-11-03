@@ -26,6 +26,11 @@ on:
         type: boolean
         required: false
         default: false
+      publish_candidate:
+        description: Publish this validated revision to the Chess Crush UPM candidate branch
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -36,12 +41,17 @@ jobs:
       fail-fast: false
       matrix:
         # Main integration and publication always use both. Manual diagnosis can target one runner.
-        os: ${{ fromJSON((github.event_name == 'workflow_dispatch' && !inputs.publish_upm && inputs.validation_platform == 'windows') && '["windows-latest"]' || (github.event_name == 'workflow_dispatch' && !inputs.publish_upm && inputs.validation_platform == 'linux') && '["ubuntu-latest"]' || '["windows-latest","ubuntu-latest"]') }}
+        os: ${{ fromJSON((github.event_name == 'workflow_dispatch' && !inputs.publish_upm && !inputs.publish_candidate && inputs.validation_platform == 'windows') && '["windows-latest"]' || (github.event_name == 'workflow_dispatch' && !inputs.publish_upm && !inputs.publish_candidate && inputs.validation_platform == 'linux') && '["ubuntu-latest"]' || '["windows-latest","ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     env:
-      VALIDATION_TESTS: ${{ (github.event_name == 'workflow_dispatch' && !inputs.publish_upm && inputs.validation_tests == 'persistence') && 'persistence' || 'all' }}
+      VALIDATION_TESTS: ${{ (github.event_name == 'workflow_dispatch' && !inputs.publish_upm && !inputs.publish_candidate && inputs.validation_tests == 'persistence') && 'persistence' || 'all' }}
 
     steps:
+      - name: Check publication mode
+        if: inputs.publish_upm && inputs.publish_candidate
+        shell: pwsh
+        run: throw 'Choose either official or candidate UPM publication.'
+
       - name: Check publication target
         if: inputs.publish_upm && github.ref != 'refs/heads/main'
         shell: pwsh
@@ -96,7 +106,9 @@ jobs:
 
   publish-unity-package:
     needs: validate
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish_upm)
+    if: >-
+      (github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish_upm)) ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_candidate && !inputs.publish_upm)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -127,10 +139,13 @@ jobs:
         shell: pwsh
         run: ./scripts/Build-UnityPackage.ps1 -Configuration Release -OutputPath ./artifacts/unity-package -PackageVersion "${{ steps.package-version.outputs.version }}"
 
-      - name: Publish upm branch
+      - name: Publish validated UPM branch
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
-        run: ./scripts/Publish-UnityPackageBranch.ps1 -PackagePath ./artifacts/unity-package -Branch upm
+          CANDIDATE: ${{ inputs.publish_candidate && 'true' || 'false' }}
+        run: |
+          $branch = if ($env:CANDIDATE -eq 'true') { 'upm-candidate/chesscrush' } else { 'upm' }
+          ./scripts/Publish-UnityPackageBranch.ps1 -PackagePath ./artifacts/unity-package -Branch $branch

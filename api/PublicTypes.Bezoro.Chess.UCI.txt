@@ -9,6 +9,7 @@ Bezoro.Chess.UCI.API.Common.Enums.PieceType | public enum | stable-shape | API/C
 Bezoro.Chess.UCI.API.Common.Extensions.CharExtensions | public static class | stable-shape | API/Common/Extensions/CharExtensions.cs
 Bezoro.Chess.UCI.API.Common.Extensions.PieceTypeExtensions | public static class | stable-shape | API/Common/Extensions/PieceTypeExtensions.cs
 Bezoro.Chess.UCI.API.Types.BoardState | public readonly record struct | stable-shape | API/Types/BoardState.cs
+Bezoro.Chess.UCI.API.Types.GameFinishedEvent | public readonly record struct | stable-shape | API/Types/GameFinishedEvent.cs
 Bezoro.Chess.UCI.API.Types.GameMoveEvent | public readonly record struct | stable-shape | API/Types/GameMoveEvent.cs
 Bezoro.Chess.UCI.API.Types.GameStartedEvent | public readonly record struct | stable-shape | API/Types/GameStartedEvent.cs
 Bezoro.Chess.UCI.API.Types.IllegalMoveRejectedEvent | public readonly record struct | stable-shape | API/Types/IllegalMoveRejectedEvent.cs
