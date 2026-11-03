@@ -49,6 +49,22 @@ public readonly record struct PlayableMatchTimeControl
 	/// </summary>
 	public PlayableMatchTimeoutPolicy TimeoutPolicy { get; }
 
+	/// <summary>Creates a valid time control from authored seconds, clamping negative values to zero.</summary>
+	/// <remarks>Negative infinity is clamped to zero. NaN and positive infinity are rejected by <see cref="TimeSpan.FromSeconds(double)" />.</remarks>
+	/// <exception cref="ArgumentException">A value is NaN, the initial time is not positive, or the timeout policy is invalid.</exception>
+	/// <exception cref="OverflowException">A positive value exceeds the range of <see cref="TimeSpan" />.</exception>
+	public static PlayableMatchTimeControl FromClampedSeconds(
+		double initialSeconds, double incrementSeconds = 0, double delaySeconds = 0,
+		PlayableMatchTimeoutPolicy timeoutPolicy = PlayableMatchTimeoutPolicy.AutomaticLoss)
+	{
+		var control = new PlayableMatchTimeControl(
+			TimeSpan.FromSeconds(Math.Max(0, initialSeconds)),
+			TimeSpan.FromSeconds(Math.Max(0, incrementSeconds)),
+			TimeSpan.FromSeconds(Math.Max(0, delaySeconds)), timeoutPolicy);
+		control.Validate();
+		return control;
+	}
+
 	/// <summary>
 	///     Validates the configured time control values.
 	/// </summary>
