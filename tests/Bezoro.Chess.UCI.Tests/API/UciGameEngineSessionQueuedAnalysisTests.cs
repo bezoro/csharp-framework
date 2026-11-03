@@ -52,7 +52,7 @@ public sealed class UciGameEngineSessionQueuedAnalysisTests
         Task worker = Task.Run(() => Publish(session, notification));
         try
         {
-            Assert.True(context.Entered.Wait(TimeSpan.FromSeconds(5)), "The worker must reach its queued notification.");
+            await context.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             if (change == "move") await session.MakeMoveAsync("e2e4");
             else if (change == "undo") await session.UndoAsync();
             else await session.ResignAsync();
@@ -141,7 +141,7 @@ public sealed class UciGameEngineSessionQueuedAnalysisTests
         Task worker = Task.Run(() => Publish(session, notification));
         try
         {
-            Assert.True(context.Entered.Wait(TimeSpan.FromSeconds(5)), "The worker must reach its queued state notification.");
+            await context.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             now += TimeSpan.FromSeconds(1);
             if (change == "pause") await session.PauseClockAsync();
             else if (change == "resume") await session.ResumeClockAsync();
@@ -189,7 +189,7 @@ public sealed class UciGameEngineSessionQueuedAnalysisTests
         Task pause = Task.Run(() => session.PauseClockAsync());
         try
         {
-            Assert.True(context.Entered.Wait(TimeSpan.FromSeconds(5)), "The clock command must reach its queued state notification.");
+            await context.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Publish(session, "evaluation");
         }
         finally { context.Release.Set(); }
@@ -335,7 +335,7 @@ public sealed class UciGameEngineSessionQueuedAnalysisTests
     {
         private readonly ConcurrentQueue<(SendOrPostCallback Callback, object? State)> _pending = new();
         private int _armed;
-        internal ManualResetEventSlim Entered { get; } = new(false);
+        internal TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal ManualResetEventSlim Release { get; } = new(false);
         internal void Arm() => Interlocked.Exchange(ref _armed, 1);
 
@@ -343,7 +343,7 @@ public sealed class UciGameEngineSessionQueuedAnalysisTests
         {
             if (Interlocked.Exchange(ref _armed, 0) == 1)
             {
-                Entered.Set();
+                Entered.TrySetResult();
                 if (!Release.Wait(TimeSpan.FromSeconds(10)))
                     throw new TimeoutException("The test did not release the blocked worker notification.");
             }
