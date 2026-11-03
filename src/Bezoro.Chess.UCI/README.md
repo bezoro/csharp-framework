@@ -61,6 +61,10 @@ Loaded positions now use the same basic validation as game review: both kings, l
 
 `IsStarted` describes the primary engine. `IsHealthy` includes the primary engine and each running optional worker. Configuration commands target only currently started engines; a worker started later uses its own defaults and the configured coordinator search settings. Stopping does not contact workers that were never started. A failed on-demand worker startup leaves the primary engine available; failed automatic-analysis startup rolls back the engines started by that startup sequence.
 
+Use `SetStrengthLimitAsync(elo)` and `ClearStrengthLimitAsync()` to configure the playing engine. The framework validates advertised Elo support and bounds. These typed operations leave the analysis workers unchanged; generic `SetOptionAsync` still broadcasts to started workers.
+
+Goal puzzles can await `PlayEngineDefenseAsync()` for one engine defense even when the side is configured as Manual. It starts the independent analysis worker on demand, clears its standard Elo limit, and uses `EngineMoveTimeMs`. The command gate remains held through search and application, with normal clocks, cancellation, promotion, and gameplay events. A complete legal reply must become exactly one applied engine ply. Search failures and invalid or canceled replies never use the controlled-move local fallback. The returned `UciState` is the applied position, ready for the lesson to evaluate.
+
 `new UciCoordinatorOptions()` uses the documented defaults. Sessions validate resource budgets and enum policies at construction; `default(UciCoordinatorOptions)` is an uninitialized, invalid configuration.
 
 Current-position searches send the base FEN and complete played history so the engine retains repetition context. Terminal results cancel automatic classification and pondering, and discard obsolete search hints.

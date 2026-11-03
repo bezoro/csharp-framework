@@ -43,6 +43,12 @@ internal sealed class SerializedUciEngineClientRuntime : IAsyncDisposable, IDisp
 	public async Task SetOptionAsync(string name, string? value, CancellationToken ct = default) =>
 		await ExecuteAsync(client => client.SetOptionAsync(name, value, ct), ct).ConfigureAwait(false);
 
+	public Task SetStrengthLimitAsync(int elo, CancellationToken ct = default) =>
+		ExecuteAsync(client => client.SetStrengthLimitAsync(elo, ct), ct);
+
+	public Task ClearStrengthLimitAsync(CancellationToken ct = default) =>
+		ExecuteAsync(client => client.ClearStrengthLimitAsync(ct), ct);
+
 	public async Task SetDebugAsync(bool enabled, CancellationToken ct = default) =>
 		await ExecuteAsync(client => client.SetDebugAsync(enabled, ct), ct).ConfigureAwait(false);
 

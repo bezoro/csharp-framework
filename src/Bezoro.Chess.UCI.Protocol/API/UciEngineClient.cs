@@ -314,6 +314,16 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 		await SetOptionAsync(eloOption.Name, elo.ToString(CultureInfo.InvariantCulture), ct).ConfigureAwait(false);
 	}
 
+	/// <summary>Disables the standard Elo strength limit when the engine advertises that option.</summary>
+	/// <param name="ct">Cancellation token for the option update.</param>
+	/// <remarks>Engines without the standard check option require no update.</remarks>
+	public Task ClearStrengthLimitAsync(CancellationToken ct = default)
+	{
+		ct.ThrowIfCancellationRequested();
+		return TryGetOption(UciConstants.Options.LIMIT_STRENGTH, out var option) && option.Type == UciOptionType.Check
+			? SetOptionAsync(option.Name, "false", ct) : Task.CompletedTask;
+	}
+
 	/// <summary>
 	///     Starts a search with the given parameters and does not await engine termination nor the bestmove response.
 	///     Use for fire-and-forget searches (e.g., GUI spinning).
