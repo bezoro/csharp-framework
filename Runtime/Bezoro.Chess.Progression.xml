@@ -1,0 +1,409 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Chess.Progression</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Chess.Progression.ChessCosmeticSlot">
+            <summary>The independent presentation slot affected by a permanent cosmetic choice.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Progression.ChessCosmeticSlot.Board">
+            <summary>Board squares and their presentation.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Progression.ChessCosmeticSlot.Pieces">
+            <summary>The complete chess piece set.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessCosmeticDefinition">
+            <summary>Immutable local cosmetic content. The game resolves its ID to assets; this module loads no images or materials.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessCosmeticDefinition.#ctor(System.String,System.String,Bezoro.Chess.Progression.ChessCosmeticSlot,System.Int64,System.Boolean)">
+            <summary>Creates a board or piece offer. Each slot's default must be free; paid variants use local training points.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticDefinition.Id">
+            <summary>Gets the opaque cosmetic and host presentation-registry identity.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticDefinition.Title">
+            <summary>Gets a default title, localizable by the host using the identity.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticDefinition.Slot">
+            <summary>Gets the board or piece slot.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticDefinition.Price">
+            <summary>Gets the nonnegative local training-point price.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticDefinition.IsDefault">
+            <summary>Gets whether every local profile owns and initially equips this free definition.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessCosmeticCatalog">
+            <summary>Shares typed cosmetics while delegating ownership, wallet and purchase rules to Bezoro.Commerce.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessCosmeticCatalog.#ctor(System.Collections.Generic.IEnumerable{Bezoro.Chess.Progression.ChessCosmeticDefinition})">
+            <summary>Copies definitions, requiring unique IDs and exactly one free default per slot.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticCatalog.Definitions">
+            <summary>Gets copied immutable content in authored display order.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticCatalog.Store">
+            <summary>Gets the shared generic Commerce catalog; asset IDs remain opaque game-owned keys.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessCosmeticCatalog.Get(System.String)">
+            <summary>Gets a known cosmetic or throws for an unknown identity.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessCosmeticCatalog.GetDefault(Bezoro.Chess.Progression.ChessCosmeticSlot)">
+            <summary>Gets the free default for an initialized slot.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessCosmeticCatalog.CreateStarter">
+            <summary>Creates two free defaults and one earnable variant per slot. Assets stay in the consuming game.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessCosmeticSnapshot">
+            <summary>Immutable store availability and equipment state; views do not decide ownership or affordability.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticSnapshot.Id">
+            <summary>Gets the game-owned presentation identity.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticSnapshot.Title">
+            <summary>Gets its default title.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticSnapshot.Slot">
+            <summary>Gets the affected slot.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticSnapshot.Price">
+            <summary>Gets its local training-point cost.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticSnapshot.IsDefault">
+            <summary>Gets whether this is a free initial choice.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticSnapshot.IsOwned">
+            <summary>Gets permanent ownership.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticSnapshot.IsEquipped">
+            <summary>Gets whether this is the current choice for its slot.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessCosmeticSnapshot.CanPurchase">
+            <summary>Gets whether the current local balance and ownership permit purchase.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessProgressOptions">
+            <summary>Immutable local rating and storage limits. Changing rating policy requires an explicit save migration.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessProgressOptions.#ctor(System.Double,System.Double,System.Int32,System.Int32)">
+            <summary>Creates explicit limits. History never evicts its duplicate ledger; a full history rejects new matches.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressOptions.InitialTrainingRating">
+            <summary>Gets the initial local training rating.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressOptions.RatingKFactor">
+            <summary>Gets the training Elo K factor.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressOptions.HistoryCapacity">
+            <summary>Gets the maximum retained matches, including their duplicate identities.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressOptions.MaximumSaveBytes">
+            <summary>Gets the maximum encoded application payload accepted when reading or writing.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessPlayerProgress">
+            <summary>Owns one local profile's progression commands and atomic persisted facts.</summary>
+            <remarks>
+            Use one application owner per save slot. Commands are serialized within this owner; other processes/owners require host coordination.
+            The host owns ISaveStore and its platform path. A successful atomic store write precedes snapshot publication; failures leave the visible snapshot unchanged.
+            Saved facts derive Elo, history, quests, story and reward balances through existing Framework modules. This is not an online authority or tamper-proof economy.
+            </remarks>
+        </member>
+        <member name="F:Bezoro.Chess.Progression.ChessPlayerProgress.SaveSchemaVersion">
+            <summary>The persistence schema for the bounded local application fact ledger.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerProgress.Catalog">
+            <summary>Gets immutable quest/curriculum content; it does not contain player counters.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerProgress.Snapshot">
+            <summary>Gets the last fully persisted immutable snapshot, safe to retain across subsequent commands.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessPlayerProgress.OpenAsync(Bezoro.Persistence.ISaveStore,System.String,Bezoro.PlayerProfiles.PlayerProfile,Bezoro.Chess.Progression.ChessProgressCatalog,Bezoro.Chess.Progression.ChessProgressOptions,System.Threading.CancellationToken)">
+            <summary>Restores a matching schema/catalog/player, or atomically creates a new local profile and first-visit quest progress.</summary>
+            <remarks>Corrupt, incompatible or foreign saves throw and are never silently overwritten. Initial metadata is only used for a missing save.</remarks>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessPlayerProgress.UpdateProfileAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>Persists display-name/portrait metadata without changing the stable player identity.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessPlayerProgress.TryGetUnlockedLesson(Bezoro.Progression.ProgressionId,Bezoro.Chess.Study.GuidedLessonDefinition@)">
+            <summary>Returns an authored lesson only when its StoryCatalog prerequisites are currently satisfied.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessPlayerProgress.RecordMatchAsync(Bezoro.Chess.Progression.ChessTrainingMatch,System.Threading.CancellationToken)">
+            <summary>Records one trusted terminal live match. Identical retries return false; conflicting identities throw; replays award nothing.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessPlayerProgress.CompleteLessonAsync(Bezoro.Chess.Study.ChessLessonCompletion,System.Threading.CancellationToken)">
+            <summary>Accepts only a Study-produced completion matching an unlocked campaign definition. Each lesson contributes progression once.</summary>
+            <remarks>There is no public arbitrary-stage or arbitrary-stars completion command. Undo/replay cannot award the same lesson again.</remarks>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessPlayerProgress.ClaimQuestAsync(Bezoro.Progression.ProgressionId,System.Threading.CancellationToken)">
+            <summary>Atomically persists a completed quest's claim identity and its local reward entitlements. Subsequent claims return false.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessPlayerProgress.PurchaseCosmeticAsync(System.String,System.Threading.CancellationToken)">
+            <summary>Purchases a permanent cosmetic once using local training points; insufficient funds and existing ownership return false.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessPlayerProgress.EquipCosmeticAsync(Bezoro.Chess.Progression.ChessCosmeticSlot,System.String,System.Threading.CancellationToken)">
+            <summary>Persists an owned choice for its matching board or piece slot; wrong-slot, unowned and unchanged choices return false.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessQuestObjectiveSnapshot">
+            <summary>One immutable quest objective projection.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessQuestObjectiveSnapshot.Counter">
+            <summary>Gets the application event counter.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessQuestObjectiveSnapshot.Current">
+            <summary>Gets persisted, bounded progress.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessQuestObjectiveSnapshot.Target">
+            <summary>Gets the catalog target.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessQuestSnapshot">
+            <summary>Immutable quest state for presentation; no counter mutation is exposed.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessQuestSnapshot.Id">
+            <summary>Gets the stable quest identity.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessQuestSnapshot.Title">
+            <summary>Gets default display content.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessQuestSnapshot.Status">
+            <summary>Gets the quest lifecycle.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessQuestSnapshot.Objectives">
+            <summary>Gets read-only objective counters.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessQuestSnapshot.Rewards">
+            <summary>Gets the immutable claim entitlements.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessStageSnapshot">
+            <summary>Immutable curriculum stage progress; metadata remains in the shared campaign.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessStageSnapshot.Id">
+            <summary>Gets the curriculum stage identity.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessStageSnapshot.LessonId">
+            <summary>Gets the authored lesson identity.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessStageSnapshot.IsUnlocked">
+            <summary>Gets whether StoryCatalog prerequisites are satisfied.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessStageSnapshot.BestStars">
+            <summary>Gets one completion star, or zero before completion; no scoring policy is invented.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessPlayerSnapshot">
+            <summary>A fully persisted, immutable local player view. Retained snapshots never change after later commands.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.Profile">
+            <summary>Gets local profile presentation metadata.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.TrainingRating">
+            <summary>Gets Elo in the local training pool, never an online or global ranking.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.History">
+            <summary>Gets completed live training matches in insertion order.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.Wins">
+            <summary>Gets the number of wins in this retained history.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.Draws">
+            <summary>Gets the number of draws in this retained history.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.Losses">
+            <summary>Gets the number of losses in this retained history.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.Quests">
+            <summary>Gets immutable quest projections.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.Stages">
+            <summary>Gets immutable stage unlock/completion projections.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.RewardBalances">
+            <summary>Gets local entitlements applied atomically with their quest claim identities.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.Cosmetics">
+            <summary>Gets typed ownership, equipment and purchasing availability.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.EquippedBoardId">
+            <summary>Gets the equipped board presentation ID.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.EquippedPiecesId">
+            <summary>Gets the equipped piece-set presentation ID.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessPlayerSnapshot.TrainingPoints">
+            <summary>Gets the local starter training-point balance after purchases.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessProgressIds">
+            <summary>Stable starter counter, quest and local reward identities. They are content IDs, not player counters.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressIds.ProfileOpened">
+            <summary>The profile has been opened.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressIds.MatchesFinished">
+            <summary>A distinct live training match has finished.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressIds.MatchesWon">
+            <summary>A distinct live training match was won.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressIds.LessonsCompleted">
+            <summary>A distinct curriculum lesson was completed.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressIds.FirstVisit">
+            <summary>The first local profile visit quest.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressIds.FirstLesson">
+            <summary>The first lesson quest.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressIds.FirstMatch">
+            <summary>The first training match quest.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressIds.FirstWin">
+            <summary>The first training win quest.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressIds.FiveMatches">
+            <summary>The five training matches quest.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressIds.TrainingPoints">
+            <summary>Local training points; no purchase, monetary value or online balance is implied.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessQuestDefinition">
+            <summary>Immutable display content around an existing quest definition.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessQuestDefinition.#ctor(System.String,Bezoro.Progression.QuestDefinition)">
+            <summary>Associates a readable title with a shared, immutable business definition.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessQuestDefinition.Title">
+            <summary>Gets the default display title. A host may localize by quest identity.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessQuestDefinition.Definition">
+            <summary>Gets the existing Framework objective/reward definition.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessProgressCatalog">
+            <summary>Shares curriculum unlocks and quest content. Its fingerprint rejects incompatible save/catalog restores.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessProgressCatalog.#ctor(Bezoro.Chess.Study.ChessLearningCampaign,System.Collections.Generic.IEnumerable{Bezoro.Chess.Progression.ChessQuestDefinition},Bezoro.Chess.Progression.ChessCosmeticCatalog)">
+            <summary>Copies quest references; the campaign and underlying catalogs remain immutable shared content.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressCatalog.Campaign">
+            <summary>Gets the immutable authored curriculum; its StoryCatalog is the only unlock authority.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressCatalog.Quests">
+            <summary>Gets default quest titles and definitions.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressCatalog.QuestCatalog">
+            <summary>Gets the shared Framework quest catalog.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressCatalog.Cosmetics">
+            <summary>Gets typed local cosmetic offers and free defaults.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessProgressCatalog.Fingerprint">
+            <summary>Gets the SHA-256 binding saved facts to the exact curriculum and quest definitions.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessProgressCatalog.CreateStarter(Bezoro.Chess.Study.ChessLearningCampaign)">
+            <summary>Defines one-time profile, lesson, match, win and five-match quests as ordinary catalog data.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessMatchProgressSource">
+            <summary>Distinguishes actual training from imported or replayed games.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Progression.ChessMatchProgressSource.LiveTraining">
+            <summary>A finalized match owned by the local live-training application.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Progression.ChessMatchProgressSource.Replay">
+            <summary>A replay; it cannot award training Elo, history, or quest progress.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessTrainingMatch">
+            <summary>A trusted finalized training result, supplied by the session owner rather than a view or a replay controller.</summary>
+            <remarks>Keep MatchId unchanged across undo, retries, and repeated terminal notifications. This is a local application boundary, not server authentication.</remarks>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingMatch.#ctor(System.String,System.String,System.Double,System.Char,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult,System.DateTimeOffset,Bezoro.Chess.Progression.ChessMatchProgressSource,System.String)">
+            <summary>Validates a terminal result and the player's side. Opponent ratings refer only to the local training pool.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingMatch.MatchId">
+            <summary>Gets the stable logical match identity.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingMatch.OpponentId">
+            <summary>Gets the application-owned opponent identity, including engine identities.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingMatch.OpponentRating">
+            <summary>Gets the opponent's pre-match local training rating.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingMatch.PlayerSide">
+            <summary>Gets the player's white or black side.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingMatch.Result">
+            <summary>Gets the finalized rule-session result.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingMatch.CompletedAt">
+            <summary>Gets the completion time supplied by the session owner.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingMatch.Source">
+            <summary>Gets whether this is live training or a non-awarding replay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingMatch.ReplayReference">
+            <summary>Gets an optional host-owned replay reference.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingMatch.IsValid">
+            <summary>Gets whether the constructor initialized this value.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingMatch.Outcome">
+            <summary>Gets the outcome derived from the terminal result and the player's side.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingMatch.Equals(Bezoro.Chess.Progression.ChessTrainingMatch)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingMatch.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingMatch.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessTrainingProgressMode">
+            <summary>Explicit application intent; lesson and replay sessions never award live training progress.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Progression.ChessTrainingProgressMode.Disabled">
+            <summary>No match recording is enabled.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Progression.ChessTrainingProgressMode.Training">
+            <summary>New live training play may produce one terminal record.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Progression.ChessTrainingProgressMode.Replay">
+            <summary>Imported/replayed history is presentation only.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Progression.ChessTrainingProgressMode.Lesson">
+            <summary>Study owns progression through its separately verified completion receipts.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Progression.ChessTrainingProgressRecorder">
+            <summary>Opt-in binding from typed UCI events to durable local training progress.</summary>
+            <remarks>
+            Bind before play and set context before loading or starting a match. Historical position loads never award training Elo:
+            their new UCI GameId cannot authenticate the identity of an earlier saved match. New live moves after an empty-history load are eligible.
+            Undo and repeated terminal notifications retain the current GameId and cannot award twice. Changing context during a game invalidates that game.
+            No engine objects or Unity calls are used. An on-demand data worker drains captured immutable records; failed writes remain queued with their original timestamps.
+            Dispose stops observation; DisposeAsync also drains. Hosts must await shutdown drainage and surface failures instead of abandoning pending writes.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.#ctor(Bezoro.Chess.UCI.API.UciGameEngineSession,Bezoro.Chess.Progression.ChessPlayerProgress,System.String,System.Double,System.Char,Bezoro.Chess.Progression.ChessTrainingProgressMode,System.Func{System.DateTimeOffset})">
+            <summary>Observes one session. The default mode is disabled; timestamps are captured once from terminal clocks or the supplied clock.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.LastError">
+            <summary>Gets the last captured observation/storage failure, or null. DrainAsync also reports it.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.PendingCount">
+            <summary>Gets the number of terminal records awaiting a successful durable write.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.SetContext(Bezoro.Chess.Progression.ChessTrainingProgressMode,System.String,System.Double,System.Char)">
+            <summary>Sets explicit match intent and actual configured opponent strength/perspective before a new session position or game.</summary>
+            <remarks>A changed context invalidates the session's current logical game even when its events are still queued. Reapplying identical metadata is harmless.</remarks>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.DrainAsync">
+            <summary>Waits for captured writes and reports any failure. Stop observing first when using it as a shutdown barrier.</summary>
+            <remarks>This does not deliver callbacks still queued in the session's synchronization context. Let terminal events arrive before disposing when their results must be retained.</remarks>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.RetryPendingAsync">
+            <summary>Retries retained failed writes without changing their match metadata, then drains. This also works after observation was disposed.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.Dispose">
+            <summary>Stops new event delivery. Already captured records continue draining and must still be awaited.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.DisposeAsync">
+            <summary>Stops observation and waits for all queued records, surfacing any storage failure.</summary>
+        </member>
+    </members>
+</doc>

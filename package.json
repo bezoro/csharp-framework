@@ -1,0 +1,17 @@
+{
+  "name": "com.bezoro.framework",
+  "displayName": "Bezoro Framework",
+  "version": "0.1.0-preview.1679",
+  "unity": "6000.0",
+  "description": "Precompiled Bezoro Framework assemblies for Unity distributed through the Unity Package Manager from Git.",
+  "keywords": [
+    "bezoro",
+    "framework",
+    "unity"
+  ],
+  "author": {
+    "name": "Bezoro",
+    "url": "https://github.com/bezoro"
+  },
+  "documentationUrl": "https://github.com/bezoro/framework/tree/main/unity-package"
+}

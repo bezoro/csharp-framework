@@ -1,0 +1,189 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Persistence</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Persistence.AtomicFileSaveStore">
+            <summary>Stores versioned envelopes using temporary files and same-directory replacement.</summary>
+            <remarks>
+            Intended for a trusted, application-owned directory on a local filesystem with atomic replacement support.
+            Operations own their streams and may run concurrently; same-process snapshot opens, commits,
+            and deletes for a normalized path share bounded synchronization. The last filesystem commit wins.
+            Atomic visibility is not a guarantee of survival across power loss or failure of a filesystem or storage device.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Persistence.AtomicFileSaveStore.#ctor(System.String,System.Int32,System.Boolean)">
+            <summary>Creates a store configuration. The directory is created by the first write, not the constructor.</summary>
+            <param name="rootDirectory">A trusted save directory, resolved to an absolute path at construction.</param>
+            <param name="maximumPayloadBytes">An explicit payload limit, which may be zero for empty saves only.</param>
+            <param name="flushToDisk">Whether to request an additional synchronous disk flush before committing a write.</param>
+        </member>
+        <member name="P:Bezoro.Persistence.AtomicFileSaveStore.RootDirectory">
+            <summary>Gets the absolute save-directory path.</summary>
+        </member>
+        <member name="P:Bezoro.Persistence.AtomicFileSaveStore.MaximumPayloadBytes">
+            <summary>Gets the maximum payload size accepted by writes and read headers.</summary>
+        </member>
+        <member name="P:Bezoro.Persistence.AtomicFileSaveStore.FlushToDisk">
+            <summary>Gets whether writes request a synchronous disk flush before replacement.</summary>
+        </member>
+        <member name="M:Bezoro.Persistence.AtomicFileSaveStore.WriteAsync(System.String,System.UInt32,System.ReadOnlyMemory{System.Byte},System.Threading.CancellationToken)">
+            <inheritdoc />
+            <remarks>
+            Cancellation or failure before replacement preserves an existing save and removes this operation's temporary file.
+            No cancellation check occurs after replacement: a committed write reports success.
+            Checksumming runs on the calling execution context; async I/O does not automatically offload CPU work.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Persistence.AtomicFileSaveStore.ReadAsync(System.String,System.Memory{System.Byte},System.Nullable{System.UInt32},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Persistence.AtomicFileSaveStore.DeleteAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc />
+            <remarks>
+            The slot is removed by a same-directory rename under the path gate. Retired-file cleanup is synchronous.
+            Cancellation is checked before the rename, never after it. Cleanup failure may therefore be reported after removal.
+            </remarks>
+        </member>
+        <member name="T:Bezoro.Persistence.Crc32">
+            <summary>Computes the IEEE CRC-32 checksum, using the reflected polynomial <c>0xEDB88320</c>.</summary>
+            <remarks>This detects accidental corruption. It does not authenticate data or provide encryption.</remarks>
+        </member>
+        <member name="M:Bezoro.Persistence.Crc32.Compute(System.ReadOnlySpan{System.Byte})">
+            <summary>Computes a checksum. The checksum of an empty span is zero.</summary>
+        </member>
+        <member name="M:Bezoro.Persistence.Crc32.Append(System.UInt32,System.ReadOnlySpan{System.Byte})">
+            <summary>Continues a previously finalized checksum with another block.</summary>
+        </member>
+        <member name="T:Bezoro.Persistence.ISaveStore">
+            <summary>Stores serialized payloads without selecting an application's serialization or migration policy.</summary>
+        </member>
+        <member name="M:Bezoro.Persistence.ISaveStore.WriteAsync(System.String,System.UInt32,System.ReadOnlyMemory{System.Byte},System.Threading.CancellationToken)">
+            <summary>Writes a payload. The caller must keep its memory unchanged until the operation completes.</summary>
+        </member>
+        <member name="M:Bezoro.Persistence.ISaveStore.ReadAsync(System.String,System.Memory{System.Byte},System.Nullable{System.UInt32},System.Threading.CancellationToken)">
+            <summary>Reads into caller-owned memory. Consume output only when the result succeeds.</summary>
+            <remarks>The destination may be modified on failure or cancellation. Its memory is exclusively borrowed until completion.</remarks>
+        </member>
+        <member name="M:Bezoro.Persistence.ISaveStore.DeleteAsync(System.String,System.Threading.CancellationToken)">
+            <summary>Deletes a slot if present.</summary>
+        </member>
+        <member name="T:Bezoro.Persistence.SaveEnvelope">
+            <summary>Encodes and validates a versioned, little-endian save envelope without allocating payload buffers.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveEnvelope.FormatVersion">
+            <summary>The supported binary format version.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveEnvelope.HeaderSize">
+            <summary>The fixed header size, in bytes.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveEnvelope.MaximumPayloadLength">
+            <summary>The largest payload whose entire encoded envelope fits a span.</summary>
+        </member>
+        <member name="M:Bezoro.Persistence.SaveEnvelope.GetEncodedLength(System.Int32)">
+            <summary>Returns the complete encoded length, rejecting negative or unrepresentable payload lengths.</summary>
+        </member>
+        <member name="M:Bezoro.Persistence.SaveEnvelope.Write(System.UInt32,System.ReadOnlySpan{System.Byte},System.Span{System.Byte})">
+            <summary>Writes an envelope and returns the bytes written. Any unused destination tail is unchanged.</summary>
+            <remarks>Source and destination may overlap. Invalid arguments and insufficient capacity do not change the destination.</remarks>
+        </member>
+        <member name="M:Bezoro.Persistence.SaveEnvelope.WriteHeader(System.UInt32,System.ReadOnlySpan{System.Byte},System.Span{System.Byte})">
+            <summary>Writes only the fixed header for the supplied payload.</summary>
+            <remarks>The checksum includes the payload, so the same unchanged payload must follow this header.</remarks>
+        </member>
+        <member name="M:Bezoro.Persistence.SaveEnvelope.Decode(System.ReadOnlySpan{System.Byte},System.Int32,Bezoro.Persistence.SaveEnvelopeHeader@,System.ReadOnlySpan{System.Byte}@,System.Nullable{System.UInt32})">
+            <summary>Validates a complete envelope and returns a borrowed payload span on success.</summary>
+            <remarks>
+            On schema mismatch the header is checksum-validated and the payload output is empty.
+            On every other failure both outputs are default. A null expected schema permits the application to select a migration.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Persistence.SaveEnvelope.DecodeHeader(System.ReadOnlySpan{System.Byte},System.Int32,Bezoro.Persistence.SaveEnvelopeHeader@)">
+            <summary>Validates fixed-header structure and bounds before any payload allocation or read.</summary>
+            <remarks>This does not validate the checksum or require payload bytes. Bytes beyond the header are ignored.</remarks>
+        </member>
+        <member name="T:Bezoro.Persistence.SaveEnvelopeHeader">
+            <summary>Immutable metadata from a structurally valid envelope header.</summary>
+            <remarks><see cref="M:Bezoro.Persistence.SaveEnvelope.DecodeHeader(System.ReadOnlySpan{System.Byte},System.Int32,Bezoro.Persistence.SaveEnvelopeHeader@)"/> validates structure only; complete decoding also validates the checksum.</remarks>
+        </member>
+        <member name="P:Bezoro.Persistence.SaveEnvelopeHeader.FormatVersion">
+            <summary>Gets the binary envelope format version.</summary>
+        </member>
+        <member name="P:Bezoro.Persistence.SaveEnvelopeHeader.SchemaVersion">
+            <summary>Gets the application's schema version, which starts at one.</summary>
+        </member>
+        <member name="P:Bezoro.Persistence.SaveEnvelopeHeader.PayloadLength">
+            <summary>Gets the number of payload bytes, excluding the header.</summary>
+        </member>
+        <member name="P:Bezoro.Persistence.SaveEnvelopeHeader.Checksum">
+            <summary>Gets the checksum over the header metadata and payload.</summary>
+        </member>
+        <member name="T:Bezoro.Persistence.SaveReadResult">
+            <summary>Describes a read into a caller-owned buffer. A default result is not successful.</summary>
+        </member>
+        <member name="P:Bezoro.Persistence.SaveReadResult.Status">
+            <summary>Gets the read outcome.</summary>
+        </member>
+        <member name="P:Bezoro.Persistence.SaveReadResult.IsSuccess">
+            <summary>Gets whether the complete save passed validation and any requested schema check.</summary>
+        </member>
+        <member name="P:Bezoro.Persistence.SaveReadResult.Header">
+            <summary>Gets checksum-validated metadata on success or schema mismatch; otherwise the value is default.</summary>
+        </member>
+        <member name="P:Bezoro.Persistence.SaveReadResult.BytesWritten">
+            <summary>Gets the payload bytes available for consumption. This is zero on failure.</summary>
+        </member>
+        <member name="P:Bezoro.Persistence.SaveReadResult.RequiredCapacity">
+            <summary>Gets the bounded payload size on success, schema mismatch, or an undersized destination.</summary>
+            <remarks>An undersized-destination result does not validate the payload checksum.</remarks>
+        </member>
+        <member name="T:Bezoro.Persistence.SaveReadStatus">
+            <summary>Describes a save-envelope validation or store-read outcome.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.Unknown">
+            <summary>No read has been performed.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.Success">
+            <summary>The complete envelope and its checksum are valid.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.NotFound">
+            <summary>The requested save slot does not exist.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.HeaderTooShort">
+            <summary>There are fewer bytes than the fixed header requires.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.InvalidMagic">
+            <summary>The header does not identify a Bezoro save envelope.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.UnsupportedFormatVersion">
+            <summary>The envelope format version is not supported by this codec.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.InvalidHeader">
+            <summary>The header size, reserved fields, or schema version are invalid.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.PayloadTooLarge">
+            <summary>The declared payload exceeds the caller's configured limit.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.TruncatedPayload">
+            <summary>The payload is shorter than its declared length.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.TrailingData">
+            <summary>Bytes follow the declared payload.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.ChecksumMismatch">
+            <summary>The header or payload has a different checksum from the stored value.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.SchemaMismatch">
+            <summary>A valid envelope uses a schema version different from the requested version.</summary>
+        </member>
+        <member name="F:Bezoro.Persistence.SaveReadStatus.DestinationTooSmall">
+            <summary>The caller's output buffer cannot hold the declared payload.</summary>
+        </member>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+                Enables C# 9 init-only setters on older frameworks.
+            </summary>
+        </member>
+    </members>
+</doc>

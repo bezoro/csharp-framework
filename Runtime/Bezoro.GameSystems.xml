@@ -1,0 +1,1419 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.GameSystems</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Abstractions.IActivationCommandSink">
+            <summary>
+                Thread-safe producer contract for queueing activation commands from any thread.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Abstractions.IActivationCommandSink.Register(System.Action,System.Int32)">
+            <summary>
+                Queues a callback to be activated by the ECS activation pipeline.
+            </summary>
+            <param name="callback">Callback to invoke when activated.</param>
+            <param name="priority">Activation priority. Higher values activate first.</param>
+            <returns>Stable handle used for future cancellation.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Abstractions.IActivationCommandSink.Cancel(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle)">
+            <summary>
+                Queues cancellation for a previously registered activation handle.
+            </summary>
+            <param name="handle">Handle to cancel.</param>
+            <returns><c>true</c> when cancellation was queued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Extensions.ActivationWorldExtensions">
+            <summary>
+                Helpers for wiring activation resources and systems into an ECS world.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Extensions.ActivationWorldExtensions.GetOrCreateActivationCommandQueue(Bezoro.ECS.Services.World)">
+            <summary>
+                Gets the existing <see cref="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationCommandQueue" /> resource or creates one if missing.
+            </summary>
+            <param name="world">The ECS world.</param>
+            <returns>The activation command queue resource.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Extensions.ActivationWorldExtensions.AddActivationPipeline(Bezoro.ECS.Services.World)">
+            <summary>
+                Registers activation systems with their declared stage ordering.
+            </summary>
+            <param name="world">The ECS world.</param>
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Services.ActivationDispatchSystem">
+            <summary>
+                ECS system that executes callbacks activated by <see cref="T:Bezoro.GameSystems.ActivationSystem.Services.ActivationProcessingSystem" />.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Services.ActivationDispatchSystem.Stage">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Services.ActivationDispatchSystem.LoopPhase">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Services.ActivationDispatchSystem.OnCreate(Bezoro.ECS.Services.World)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Services.ActivationDispatchSystem.Update(Bezoro.ECS.Types.SystemContext@)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Services.ActivationIngestionSystem">
+            <summary>
+                ECS system that drains externally queued activation commands.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Services.ActivationIngestionSystem.Stage">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Services.ActivationIngestionSystem.LoopPhase">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Services.ActivationIngestionSystem.OnCreate(Bezoro.ECS.Services.World)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Services.ActivationIngestionSystem.Update(Bezoro.ECS.Types.SystemContext@)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Services.ActivationProcessingSystem">
+            <summary>
+                ECS system that applies activation cancellation, ordering, and per-tick activation budget.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.ActivationSystem.Services.ActivationProcessingSystem.Completed">
+            <summary>
+                Raised when all pending entries have been activated.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Services.ActivationProcessingSystem.Stage">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Services.ActivationProcessingSystem.LoopPhase">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Services.ActivationProcessingSystem.OnCreate(Bezoro.ECS.Services.World)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Services.ActivationProcessingSystem.Update(Bezoro.ECS.Types.SystemContext@)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationCallbackDispatcher">
+            <summary>
+                Dispatches an activation callback to a host-specific execution context.
+            </summary>
+            <param name="callback">Callback to dispatch.</param>
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationCancellationRequest">
+            <summary>
+                ECS request component that cancels a pending activation entry by handle.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationCancellationRequest.#ctor(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle)">
+            <summary>
+                Initializes a cancellation request.
+            </summary>
+            <param name="handle">Target activation handle.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationCancellationRequest.Handle">
+            <summary>
+                Gets the target activation handle.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationCommandQueue">
+            <summary>
+                Thread-safe ingress queue for activation register/cancel commands.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationCommandQueue.PendingCommandCount">
+            <summary>
+                Gets an approximate count of pending ingress commands.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationCommandQueue.Cancel(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationCommandQueue.Register(System.Action,System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent">
+            <summary>
+                Event payload emitted when all pending activation entries complete.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent.#ctor(System.Int32)">
+            <summary>
+                Initializes a completion event payload.
+            </summary>
+            <param name="activatedCount">Total activated entries at completion.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent.ActivatedCount">
+            <summary>
+                Gets the total activated entry count when completion was observed.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationConfig">
+            <summary>
+                Configuration resource consumed by activation ECS systems.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationConfig.#ctor(System.Int32,Bezoro.GameSystems.ActivationSystem.Types.ActivationCallbackDispatcher)">
+            <summary>
+                Initializes activation configuration.
+            </summary>
+            <param name="maxActivationsPerTick">
+                Maximum entries to activate per tick. Values less than or equal to zero process all pending entries.
+            </param>
+            <param name="callbackDispatcher">
+                Optional callback dispatcher for marshalling callback execution to a custom context.
+            </param>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationConfig.MaxActivationsPerTick">
+            <summary>
+                Gets the maximum number of entries to activate per tick.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationConfig.CallbackDispatcher">
+            <summary>
+                Gets the optional callback dispatcher used by <c>ActivationDispatchSystem</c>.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource">
+            <summary>
+                Resource queue containing callbacks ready for dispatch.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource.Count">
+            <summary>
+                Gets the number of queued callbacks.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource.Clear">
+            <summary>
+                Clears all queued callbacks.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource.Enqueue(System.Action)">
+            <summary>
+                Enqueues a callback for dispatch.
+            </summary>
+            <param name="callback">Callback to enqueue.</param>
+            <exception cref="T:System.ArgumentNullException">Thrown when <paramref name="callback" /> is null.</exception>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource.TryDequeue(System.Action@)">
+            <summary>
+                Attempts to dequeue the next callback.
+            </summary>
+            <param name="callback">Dequeued callback when available.</param>
+            <returns><c>true</c> when a callback was dequeued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry">
+            <summary>
+                ECS component representing an activation callback and its processing state.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry.#ctor(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle,System.Action,System.Int32)">
+            <summary>
+                Initializes a new activation entry.
+            </summary>
+            <param name="handle">Stable handle assigned by the command queue.</param>
+            <param name="callback">Callback invoked once the entry is activated.</param>
+            <param name="priority">Activation priority. Higher values activate first.</param>
+            <exception cref="T:System.ArgumentNullException">Thrown when <paramref name="callback" /> is null.</exception>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry.Handle">
+            <summary>
+                Gets the stable activation handle for this entry.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry.Priority">
+            <summary>
+                Gets priority used for ordering pending entries.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry.State">
+            <summary>
+                Gets the current activation state. Only the activation pipeline changes it.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource">
+            <summary>
+                Resource queue used to consume activation completion events.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.Count">
+            <summary>
+                Gets the current queued event count.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.Clear">
+            <summary>
+                Clears all queued events.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.Enqueue(Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent@)">
+            <summary>
+                Enqueues a completion event.
+            </summary>
+            <param name="eventData">Event payload to enqueue.</param>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.TryDequeue(Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent@)">
+            <summary>
+                Attempts to dequeue the next completion event.
+            </summary>
+            <param name="eventData">Dequeued event payload when available.</param>
+            <returns><c>true</c> when an event was dequeued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle">
+            <summary>
+                A lightweight handle to an activation entry. Value 0 represents an invalid/uninitialized handle.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle.None">
+            <summary>
+                A handle representing no activation entry (ID = 0).
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle.Id">
+            <summary>
+                The unique identifier for this activation entry.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle.#ctor(System.Int32)">
+            <summary>
+                Creates a new activation handle with the specified ID.
+            </summary>
+            <param name="id">The unique activation identifier.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle.IsValid">
+            <summary>
+                Gets whether this handle refers to a valid activation entry (ID &gt; 0).
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle.op_Equality(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle,Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle)">
+            <summary>Determines whether two activation handles identify the same entry.</summary>
+            <param name="left">First handle to compare.</param>
+            <param name="right">Second handle to compare.</param>
+            <returns><c>true</c> when both handles have the same identifier.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle.op_Inequality(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle,Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle)">
+            <summary>Determines whether two activation handles identify different entries.</summary>
+            <param name="left">First handle to compare.</param>
+            <param name="right">Second handle to compare.</param>
+            <returns><c>true</c> when the handles have different identifiers.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle.Equals(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle.ToString">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationRuntimeState">
+            <summary>
+                Mutable runtime counters produced by activation ECS systems.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationRuntimeState.ActivatedCount">
+            <summary>
+                Gets the number of entries currently in <see cref="F:Bezoro.GameSystems.ActivationSystem.Types.ActivationState.Activated" />.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationRuntimeState.IsComplete">
+            <summary>
+                Gets whether there are no pending entries.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationRuntimeState.PendingCount">
+            <summary>
+                Gets the number of entries currently in <see cref="F:Bezoro.GameSystems.ActivationSystem.Types.ActivationState.Pending" />.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationState">
+            <summary>
+                Represents the current state of an activation entry.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.ActivationSystem.Types.ActivationState.Pending">
+            <summary>The entry is waiting to be activated.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.ActivationSystem.Types.ActivationState.Activated">
+            <summary>The entry was selected and its callback queued for dispatch. Host dispatch can defer execution.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.ActivationSystem.Types.ActivationState.Cancelled">
+            <summary>The entry was cancelled before activation.</summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.HealthSystem.Extensions.HealthWorldExtensions">
+            <summary>
+                Helper methods for queueing health mutations.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Extensions.HealthWorldExtensions.QueueHealthDamage(Bezoro.ECS.Services.World,Bezoro.ECS.Types.Entity,System.UInt32)">
+            <summary>
+                Queues a damage request for the target entity.
+            </summary>
+            <param name="world">World containing the target entity.</param>
+            <param name="targetEntity">Entity to damage.</param>
+            <param name="amount">Damage amount.</param>
+            <returns><c>true</c> when queued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Extensions.HealthWorldExtensions.QueueHealthHeal(Bezoro.ECS.Services.World,Bezoro.ECS.Types.Entity,System.UInt32)">
+            <summary>
+                Queues a heal request for the target entity.
+            </summary>
+            <param name="world">World containing the target entity.</param>
+            <param name="targetEntity">Entity to heal.</param>
+            <param name="amount">Heal amount applied to base health only.</param>
+            <returns><c>true</c> when queued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Extensions.HealthWorldExtensions.QueueHealthDirectDamage(Bezoro.ECS.Services.World,Bezoro.ECS.Types.Entity,System.UInt32)">
+            <summary>
+                Queues a direct damage request that ignores excess health.
+            </summary>
+            <param name="world">World containing the target entity.</param>
+            <param name="targetEntity">Entity to damage.</param>
+            <param name="amount">Damage amount applied to base health only.</param>
+            <returns><c>true</c> when queued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Extensions.HealthWorldExtensions.QueueHealthIncreaseHealth(Bezoro.ECS.Services.World,Bezoro.ECS.Types.Entity,System.UInt32)">
+            <summary>
+                Queues an increase-health request that can overflow into excess.
+            </summary>
+            <param name="world">World containing the target entity.</param>
+            <param name="targetEntity">Entity to heal.</param>
+            <param name="amount">Heal amount that can overflow from base health into excess.</param>
+            <returns><c>true</c> when queued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Extensions.HealthWorldExtensions.QueueSetHealthMax(Bezoro.ECS.Services.World,Bezoro.ECS.Types.Entity,System.UInt32,Bezoro.Core.Types.MaxValueUpdateMode)">
+            <summary>
+                Queues a max-health change request for the target entity.
+            </summary>
+            <param name="world">World containing the target entity.</param>
+            <param name="targetEntity">Entity whose max health should be changed.</param>
+            <param name="maxHealth">New max health value.</param>
+            <param name="mode">How current health should be updated.</param>
+            <returns><c>true</c> when queued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="T:Bezoro.GameSystems.HealthSystem.Services.HealthSystem">
+            <summary>
+                ECS system that applies queued health mutations to health components.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.HealthSystem.Services.HealthSystem.Changed">
+            <summary>
+                Raised when a request changes health values.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Services.HealthSystem.Stage">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Services.HealthSystem.LoopPhase">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Services.HealthSystem.UpdateSettings">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Services.HealthSystem.OnCreate(Bezoro.ECS.Services.World)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Services.HealthSystem.Update(Bezoro.ECS.Types.SystemContext@)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.GameSystems.HealthSystem.Types.Health">
+            <summary>
+                Health component used by the ECS health simulation.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Types.Health.#ctor(System.UInt32,System.UInt32,System.UInt32,System.UInt32)">
+            <summary>
+                Initializes a health component.
+            </summary>
+            <param name="max">Base health cap.</param>
+            <param name="current">Base health value.</param>
+            <param name="excessCurrent">Excess health value.</param>
+            <param name="excessMax">Excess health cap.</param>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.Health.Current">
+            <summary>
+                Gets or sets current base health.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.Health.ExcessCurrent">
+            <summary>
+                Gets or sets current excess health.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.Health.ExcessMax">
+            <summary>
+                Gets or sets excess health cap.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.Health.Max">
+            <summary>
+                Gets or sets base health cap.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.Health.BasePercentage">
+            <summary>
+                Gets base health percentage.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.Health.EffectiveCurrent">
+            <summary>
+                Gets effective health used for damage processing.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.Health.ExcessPercentage">
+            <summary>
+                Gets excess health percentage.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.Health.IsEmpty">
+            <summary>
+                Gets whether all health pools are empty.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.Health.IsFull">
+            <summary>
+                Gets whether all health pools are full.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.Health.TotalPercentage">
+            <summary>
+                Gets combined base + excess percentage.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent">
+            <summary>
+                Event payload describing a health mutation and its before/after state.
+            </summary>
+            <param name="TargetEntity">Entity whose health was modified.</param>
+            <param name="Kind">The kind of change that occurred.</param>
+            <param name="Value">The value passed to the change operation.</param>
+            <param name="MaxUpdateMode">The max update mode used for max changes.</param>
+            <param name="OldCurrent">The current health before the change.</param>
+            <param name="OldMax">The max health before the change.</param>
+            <param name="OldExcess">The excess health before the change.</param>
+            <param name="NewCurrent">The current health after the change.</param>
+            <param name="NewMax">The max health after the change.</param>
+            <param name="NewExcess">The excess health after the change.</param>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.#ctor(Bezoro.ECS.Types.Entity,Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind,System.UInt32,Bezoro.Core.Types.MaxValueUpdateMode,System.UInt32,System.UInt32,System.UInt32,System.UInt32,System.UInt32,System.UInt32)">
+            <summary>
+                Event payload describing a health mutation and its before/after state.
+            </summary>
+            <param name="TargetEntity">Entity whose health was modified.</param>
+            <param name="Kind">The kind of change that occurred.</param>
+            <param name="Value">The value passed to the change operation.</param>
+            <param name="MaxUpdateMode">The max update mode used for max changes.</param>
+            <param name="OldCurrent">The current health before the change.</param>
+            <param name="OldMax">The max health before the change.</param>
+            <param name="OldExcess">The excess health before the change.</param>
+            <param name="NewCurrent">The current health after the change.</param>
+            <param name="NewMax">The max health after the change.</param>
+            <param name="NewExcess">The excess health after the change.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.TargetEntity">
+            <summary>Entity whose health was modified.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.Kind">
+            <summary>The kind of change that occurred.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.Value">
+            <summary>The value passed to the change operation.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.MaxUpdateMode">
+            <summary>The max update mode used for max changes.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.OldCurrent">
+            <summary>The current health before the change.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.OldMax">
+            <summary>The max health before the change.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.OldExcess">
+            <summary>The excess health before the change.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.NewCurrent">
+            <summary>The current health after the change.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.NewMax">
+            <summary>The max health after the change.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.NewExcess">
+            <summary>The excess health after the change.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.Changed">
+            <summary>
+                Gets whether any tracked value changed.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.DeltaCurrent">
+            <summary>
+                Signed delta of current health.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.DeltaExcess">
+            <summary>
+                Signed delta of excess health.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent.DeltaMax">
+            <summary>
+                Signed delta of max health.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind">
+            <summary>
+                Describes the mutation applied to a health component.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind.Damage">
+            <summary>
+                Damage was applied and consumed excess first.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind.Heal">
+            <summary>
+                Healing was applied to base health only.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind.DirectDamage">
+            <summary>
+                Damage was applied directly to base health.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind.IncreaseHealth">
+            <summary>
+                Healing was applied and overflowed into excess health.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind.SetMax">
+            <summary>
+                Maximum health was set.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource">
+            <summary>
+                Resource queue used to consume health mutation events.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.Count">
+            <summary>
+                Gets current queued event count.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.Enqueue(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent@)">
+            <summary>
+                Enqueues a health event.
+            </summary>
+            <param name="eventData">Event payload to enqueue.</param>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.TryDequeue(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent@)">
+            <summary>
+                Attempts to dequeue the next health event.
+            </summary>
+            <param name="eventData">Dequeued event payload when available.</param>
+            <returns><c>true</c> when an event was dequeued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.Clear">
+            <summary>
+                Clears all queued events.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.HealthSystem.Types.HealthMutationKind">
+            <summary>
+                Request type consumed by <see cref="T:Bezoro.GameSystems.HealthSystem.Services.HealthSystem" />.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.HealthMutationKind.Damage">
+            <summary>
+                Apply damage (consumes excess first, then base health).
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.HealthMutationKind.Heal">
+            <summary>
+                Apply healing to base health only (does not overflow into excess).
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.HealthMutationKind.SetMax">
+            <summary>
+                Set max health.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.HealthMutationKind.DirectDamage">
+            <summary>
+                Apply damage directly to base health (ignores excess).
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.HealthSystem.Types.HealthMutationKind.IncreaseHealth">
+            <summary>
+                Apply healing that overflows into excess health.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.HealthSystem.Types.HealthMutationRequest">
+            <summary>
+                Deferred mutation request consumed by <see cref="T:Bezoro.GameSystems.HealthSystem.Services.HealthSystem" />.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Types.HealthMutationRequest.#ctor(Bezoro.ECS.Types.Entity,Bezoro.GameSystems.HealthSystem.Types.HealthMutationKind,System.UInt32,Bezoro.Core.Types.MaxValueUpdateMode)">
+            <summary>
+                Initializes a mutation request.
+            </summary>
+            <param name="targetEntity">Entity whose <see cref="T:Bezoro.GameSystems.HealthSystem.Types.Health" /> component will be modified.</param>
+            <param name="kind">Mutation operation.</param>
+            <param name="value">Amount or target value for the operation.</param>
+            <param name="maxUpdateMode">Mode used when <paramref name="kind" /> is <see cref="F:Bezoro.GameSystems.HealthSystem.Types.HealthMutationKind.SetMax" />.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthMutationRequest.MaxUpdateMode">
+            <summary>
+                Gets mode used when setting max health.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthMutationRequest.TargetEntity">
+            <summary>
+                Gets target entity to mutate.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthMutationRequest.Kind">
+            <summary>
+                Gets requested mutation operation.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthMutationRequest.Value">
+            <summary>
+                Gets amount or target value used by the operation.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.InputSystem.Abstractions.IInputCommandSink">
+            <summary>
+                Accepts externally produced input commands for later ECS consumption.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Abstractions.IInputCommandSink.Enqueue(Bezoro.GameSystems.InputSystem.Types.InputCommand@)">
+            <summary>
+                Enqueues a command produced by an external source.
+            </summary>
+            <param name="command">The input command to enqueue.</param>
+        </member>
+        <member name="T:Bezoro.GameSystems.InputSystem.Extensions.InputWorldExtensions">
+            <summary>
+                Helpers for wiring external input resources and input systems into an ECS world.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Extensions.InputWorldExtensions.GetOrCreateInputCommandQueue(Bezoro.ECS.Services.World)">
+            <summary>
+                Gets the existing <see cref="T:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue" /> resource or creates one if missing.
+            </summary>
+            <param name="world">The ECS world.</param>
+            <returns>The input command queue resource.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Extensions.InputWorldExtensions.AddMovementInputPipeline(Bezoro.ECS.Services.World,System.Int32)">
+            <summary>
+                Registers fixed-tick input systems with their declared stage ordering.
+            </summary>
+            <param name="world">The ECS world.</param>
+            <param name="maxCommandsPerUpdate">Maximum dequeued commands per fixed update. Zero pauses ingestion.</param>
+        </member>
+        <member name="T:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem">
+            <summary>
+                Drains external input commands into latest-per-control snapshots each fixed update.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem.#ctor(System.Int32)">
+            <summary>Creates ingestion with an explicit maximum number of dequeued commands per update.</summary>
+            <param name="maxCommandsPerUpdate">Zero pauses ingestion. The default drains until empty.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem.MaxCommandsPerUpdate">
+            <summary>Maximum dequeued commands, including stale commands, per update.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem.Stage">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem.LoopPhase">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem.OnCreate(Bezoro.ECS.Services.World)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Services.InputIngestionSystem.Update(Bezoro.ECS.Types.SystemContext@)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.GameSystems.InputSystem.Services.IntentToVelocitySystem">
+            <summary>
+                Converts held movement intent into per-entity velocity for movement simulation.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Services.IntentToVelocitySystem.Stage">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Services.IntentToVelocitySystem.LoopPhase">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Services.IntentToVelocitySystem.OnCreate(Bezoro.ECS.Services.World)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Services.IntentToVelocitySystem.Update(Bezoro.ECS.Types.SystemContext@)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.GameSystems.InputSystem.Types.InputCommand">
+            <summary>
+                Immutable movement input command produced by an external source.
+            </summary>
+            <remarks>
+                Higher <see cref="P:Bezoro.GameSystems.InputSystem.Types.InputCommand.Sequence" /> values supersede older commands for the same control.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommand.#ctor(System.Int32,System.Single,System.Single,System.Single,System.UInt64)">
+            <summary>
+                Initializes a new instance of the <see cref="T:Bezoro.GameSystems.InputSystem.Types.InputCommand" /> struct.
+            </summary>
+            <param name="controlId">Logical control channel identifier.</param>
+            <param name="moveX">Commanded X movement component.</param>
+            <param name="moveY">Commanded Y movement component.</param>
+            <param name="moveZ">Commanded Z movement component.</param>
+            <param name="sequence">Monotonic sequence number for ordering.</param>
+            <exception cref="T:System.ArgumentOutOfRangeException">
+                Thrown when <paramref name="controlId" /> is negative or a movement component is not finite.
+            </exception>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommand.ControlId">
+            <summary>
+                Gets the logical control channel identifier.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommand.MoveX">
+            <summary>
+                Gets the commanded X movement component.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommand.MoveY">
+            <summary>
+                Gets the commanded Y movement component.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommand.MoveZ">
+            <summary>
+                Gets the commanded Z movement component.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommand.Sequence">
+            <summary>
+                Gets the monotonic sequence number for ordering.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue">
+            <summary>
+                Thread-safe ingress queue for external input commands.
+            </summary>
+            <remarks>
+                Producers can enqueue from any thread. ECS systems drain and consume latest-per-control snapshots on the world thread.
+            </remarks>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.SimulationTimeSeconds">
+            <summary>
+                Gets the simulation time accumulated by ingestion updates.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.PendingCommandCount">
+            <summary>Approximate pending ingress count. Producers may change it concurrently.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.TrackedControlCount">
+            <summary>Number of retained control snapshots. Read on the world thread.</summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.ForgetControl(System.Int32)">
+            <summary>Forgets a control's snapshot and sequence on the world thread.</summary>
+            <remarks>Pending commands remain queued and can recreate the control on a later update.</remarks>
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.Enqueue(Bezoro.GameSystems.InputSystem.Types.InputCommand@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.Enqueue(System.Int32,System.Single,System.Single,System.Single,System.UInt64)">
+            <summary>
+                Enqueues a new command for the provided control id.
+            </summary>
+            <param name="controlId">Logical control channel identifier.</param>
+            <param name="moveX">Commanded X movement component.</param>
+            <param name="moveY">Commanded Y movement component.</param>
+            <param name="moveZ">Commanded Z movement component.</param>
+            <param name="sequence">Monotonic sequence number for ordering.</param>
+        </member>
+        <member name="T:Bezoro.GameSystems.InputSystem.Types.InputControl">
+            <summary>
+                Associates an entity with a logical external input control channel.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.InputSystem.Types.InputControl.ControlId">
+            <summary>
+                Gets or sets the logical control channel identifier.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.InputSystem.Types.MovementInputSettings">
+            <summary>
+                Per-entity settings for converting movement intent into velocity.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.InputSystem.Types.MovementInputSettings.Speed">
+            <summary>
+                Gets or sets the movement speed multiplier.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.InputSystem.Types.MovementInputSettings.HoldDurationSeconds">
+            <summary>
+                Gets or sets how long the most recent input is kept when no new command arrives.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.InputSystem.Types.MovementIntent">
+            <summary>
+                Current movement intent applied to an entity.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.InputSystem.Types.MovementIntent.X">
+            <summary>
+                Gets or sets the intent X movement component.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.InputSystem.Types.MovementIntent.Y">
+            <summary>
+                Gets or sets the intent Y movement component.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.InputSystem.Types.MovementIntent.Z">
+            <summary>
+                Gets or sets the intent Z movement component.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.MovementSystem.Services.MovementSystem">
+            <summary>
+                Updates position components using their velocity each tick.
+            </summary>
+            <remarks>
+                Uses typed query iteration for cache-friendly sequential processing.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.GameSystems.MovementSystem.Services.MovementSystem.#ctor">
+            <summary>
+                Initializes a new instance of the <see cref="T:Bezoro.GameSystems.MovementSystem.Services.MovementSystem" /> class.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.MovementSystem.Services.MovementSystem.#ctor(Bezoro.ECS.Types.SystemUpdateSettings)">
+            <summary>
+                Initializes a new instance of the <see cref="T:Bezoro.GameSystems.MovementSystem.Services.MovementSystem" /> class.
+            </summary>
+            <param name="updateSettings">Tick frequency configuration.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.MovementSystem.Services.MovementSystem.Stage">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.MovementSystem.Services.MovementSystem.LoopPhase">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.MovementSystem.Services.MovementSystem.UpdateSettings">
+            <summary>
+                Gets the update settings that control how often this system runs.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.MovementSystem.Services.MovementSystem.OnCreate(Bezoro.ECS.Services.World)">
+            <summary>
+                Compiles the movement query used during updates.
+            </summary>
+            <param name="world">The world that owns this system.</param>
+        </member>
+        <member name="M:Bezoro.GameSystems.MovementSystem.Services.MovementSystem.Update(Bezoro.ECS.Types.SystemContext@)">
+            <summary>
+                Performs the movement update for all matching entities.
+            </summary>
+            <param name="context">The update context for this execution.</param>
+        </member>
+        <member name="T:Bezoro.GameSystems.MovementSystem.Types.Position">
+            <summary>
+                Position component for ECS movement.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.MovementSystem.Types.Position.X">
+            <summary>
+                Gets or sets the X coordinate.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.MovementSystem.Types.Position.Y">
+            <summary>
+                Gets or sets the Y coordinate.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.MovementSystem.Types.Position.Z">
+            <summary>
+                Gets or sets the Z coordinate.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.MovementSystem.Types.Velocity">
+            <summary>
+                Velocity component for ECS movement.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.MovementSystem.Types.Velocity.X">
+            <summary>
+                Gets or sets the X velocity.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.MovementSystem.Types.Velocity.Y">
+            <summary>
+                Gets or sets the Y velocity.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.MovementSystem.Types.Velocity.Z">
+            <summary>
+                Gets or sets the Z velocity.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem">
+            <summary>
+                ECS system that applies distance-based streaming transitions.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem.Changed">
+            <summary>
+                Raised when an entity changes streaming state.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem.StreamedIn">
+            <summary>
+                Raised when an entity transitions to streamed-in.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem.StreamedOut">
+            <summary>
+                Raised when an entity transitions to streamed-out.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem.Stage">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem.LoopPhase">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem.UpdateSettings">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem.OnCreate(Bezoro.ECS.Services.World)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem.Update(Bezoro.ECS.Types.SystemContext@)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.GameSystems.StreamingSystem.Types.StreamingConfig">
+            <summary>
+                Shared streaming configuration consumed by <see cref="T:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem" />.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.StreamingSystem.Types.StreamingConfig.ReferencePosition">
+            <summary>
+                Gets or sets the reference position used for distance checks.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.StreamingSystem.Types.StreamingConfig.StreamInDistance">
+            <summary>
+                Gets or sets the distance threshold for transitioning out to streamed-in.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.StreamingSystem.Types.StreamingConfig.StreamOutDistance">
+            <summary>
+                Gets or sets the distance threshold for transitioning out of streamed-in.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.StreamingSystem.Types.StreamingConfig.MaxEntitiesPerTick">
+            <summary>
+                Gets or sets the maximum entities processed per tick.
+                Zero or negative values process all matching entities.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource">
+            <summary>
+                Resource queue used to consume streaming transitions.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.Count">
+            <summary>
+                Gets current queued event count.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.Enqueue(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent@)">
+            <summary>
+                Enqueues a streaming event.
+            </summary>
+            <param name="eventData">Event payload to enqueue.</param>
+        </member>
+        <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.TryDequeue(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent@)">
+            <summary>
+                Attempts to dequeue the next streaming event.
+            </summary>
+            <param name="eventData">Dequeued event payload when available.</param>
+            <returns><c>true</c> when an event was dequeued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.Clear">
+            <summary>
+                Clears all queued events.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.StreamingSystem.Types.StreamingRuntimeState">
+            <summary>
+                Internal runtime resource for streaming iteration state.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.StreamingSystem.Types.StreamingRuntimeState.NextEntityIndex">
+            <summary>
+                Gets or sets the next global streamable index to evaluate.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent">
+            <summary>
+                Event payload describing a streaming state transition.
+            </summary>
+            <param name="TargetEntity">Entity that transitioned.</param>
+            <param name="Transition">Transition kind.</param>
+            <param name="DistanceSquared">Squared distance to reference point at transition time.</param>
+        </member>
+        <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent.#ctor(Bezoro.ECS.Types.Entity,Bezoro.GameSystems.StreamingSystem.Types.StreamingTransition,System.Double)">
+            <summary>
+                Event payload describing a streaming state transition.
+            </summary>
+            <param name="TargetEntity">Entity that transitioned.</param>
+            <param name="Transition">Transition kind.</param>
+            <param name="DistanceSquared">Squared distance to reference point at transition time.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent.TargetEntity">
+            <summary>Entity that transitioned.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent.Transition">
+            <summary>Transition kind.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent.DistanceSquared">
+            <summary>Squared distance to reference point at transition time.</summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent.IsStreamedIn">
+            <summary>
+                Gets whether the transition result is streamed-in.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.StreamingSystem.Types.StreamingTransition">
+            <summary>
+                Streaming transition emitted by <see cref="T:Bezoro.GameSystems.StreamingSystem.Services.StreamingSystem" />.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.StreamingSystem.Types.StreamingTransition.StreamedIn">
+            <summary>The entity entered the configured streaming range.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.StreamingSystem.Types.StreamingTransition.StreamedOut">
+            <summary>The entity left the configured streaming range.</summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.StreamingSystem.Types.StreamState">
+            <summary>
+                Component that tracks an entity's streaming lifecycle state.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.StreamingSystem.Types.StreamState.IsStreamedIn">
+            <summary>
+                Gets or sets whether the entity is currently streamed in.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.TimerSystem.Extensions.TimerWorldExtensions">
+            <summary>
+                Extension helpers for controlling timer entities from gameplay code.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Extensions.TimerWorldExtensions.StartTimer(Bezoro.ECS.Services.World,Bezoro.ECS.Types.Entity)">
+            <summary>
+                Transitions a timer from stopped to running and requests a started callback.
+            </summary>
+            <param name="world">World containing the timer entity.</param>
+            <param name="timerEntity">Target timer entity.</param>
+            <returns><c>true</c> when the transition was applied.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Extensions.TimerWorldExtensions.PauseTimer(Bezoro.ECS.Services.World,Bezoro.ECS.Types.Entity)">
+            <summary>
+                Transitions a timer from running to paused and requests a paused callback.
+            </summary>
+            <param name="world">World containing the timer entity.</param>
+            <param name="timerEntity">Target timer entity.</param>
+            <returns><c>true</c> when the transition was applied.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Extensions.TimerWorldExtensions.StopTimer(Bezoro.ECS.Services.World,Bezoro.ECS.Types.Entity)">
+            <summary>
+                Transitions a timer to stopped and requests a stopped callback.
+            </summary>
+            <param name="world">World containing the timer entity.</param>
+            <param name="timerEntity">Target timer entity.</param>
+            <returns><c>true</c> when the transition was applied.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Extensions.TimerWorldExtensions.ResumeTimer(Bezoro.ECS.Services.World,Bezoro.ECS.Types.Entity)">
+            <summary>
+                Transitions a timer from paused to running and requests a resumed callback.
+            </summary>
+            <param name="world">World containing the timer entity.</param>
+            <param name="timerEntity">Target timer entity.</param>
+            <returns><c>true</c> when the transition was applied.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Extensions.TimerWorldExtensions.RestartTimer(Bezoro.ECS.Services.World,Bezoro.ECS.Types.Entity)">
+            <summary>
+                Resets elapsed time to zero, starts running, and requests a restarted callback.
+            </summary>
+            <param name="world">World containing the timer entity.</param>
+            <param name="timerEntity">Target timer entity.</param>
+            <returns><c>true</c> when the transition was applied.</returns>
+        </member>
+        <member name="T:Bezoro.GameSystems.TimerSystem.Services.TimerSystem">
+            <summary>
+                ECS system that advances running timers and emits lifecycle callbacks.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.Started">
+            <summary>
+                Raised when a timer transitions to running from stopped.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.Paused">
+            <summary>
+                Raised when a timer transitions to paused.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.Stopped">
+            <summary>
+                Raised when a timer transitions to stopped.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.Finished">
+            <summary>
+                Raised when a timer reaches its duration.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.Resumed">
+            <summary>
+                Raised when a paused timer resumes running.
+            </summary>
+        </member>
+        <member name="E:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.Restarted">
+            <summary>
+                Raised when a timer is explicitly restarted.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.Stage">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.LoopPhase">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.UpdateSettings">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.OnCreate(Bezoro.ECS.Services.World)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Services.TimerSystem.Update(Bezoro.ECS.Types.SystemContext@)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.GameSystems.TimerSystem.Types.Timer">
+            <summary>
+                Timer component processed by <see cref="T:Bezoro.GameSystems.TimerSystem.Services.TimerSystem" />.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Types.Timer.#ctor(System.Int32,System.Single,System.Single,Bezoro.GameSystems.TimerSystem.Types.TimerState,Bezoro.GameSystems.TimerSystem.Types.TimerMode)">
+            <summary>
+                Initializes a new timer component.
+            </summary>
+            <param name="timerId">Application-level identifier for this timer.</param>
+            <param name="durationSeconds">Total timer duration in seconds.</param>
+            <param name="elapsedSeconds">Initial elapsed time in seconds.</param>
+            <param name="state">Initial runtime state.</param>
+            <param name="mode">Lifecycle behavior after completion.</param>
+            <exception cref="T:System.ArgumentOutOfRangeException">Thrown when duration is not positive and finite, or elapsed time is not finite.</exception>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.Timer.TimerId">
+            <summary>
+                Gets or sets the timer id used by gameplay systems to correlate timer entities.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.Timer.DurationSeconds">
+            <summary>
+                Gets or sets the configured duration in seconds.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.Timer.ElapsedSeconds">
+            <summary>
+                Gets or sets the current elapsed time in seconds.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.Timer.State">
+            <summary>
+                Gets or sets the runtime state.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.Timer.Mode">
+            <summary>
+                Gets or sets completion behavior for this timer.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.Timer.RemainingSeconds">
+            <summary>
+                Gets the remaining time in seconds clamped to zero.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.Timer.Progress">
+            <summary>
+                Gets completion progress from 0 to 1.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource">
+            <summary>
+                Resource queue used to consume timer lifecycle events from ECS systems.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.Count">
+            <summary>
+                Gets current queued event count.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.Enqueue(Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent@)">
+            <summary>
+                Enqueues a lifecycle event.
+            </summary>
+            <param name="eventData">Event payload to enqueue.</param>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.TryDequeue(Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent@)">
+            <summary>
+                Attempts to dequeue the next lifecycle event.
+            </summary>
+            <param name="eventData">Dequeued event payload when available.</param>
+            <returns><c>true</c> when an event was dequeued; otherwise <c>false</c>.</returns>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.Clear">
+            <summary>
+                Clears all queued events.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycle">
+            <summary>
+                Lifecycle transitions published by <see cref="T:Bezoro.GameSystems.TimerSystem.Services.TimerSystem" />.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycle.Started">
+            <summary>The timer entered the running state from stopped.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycle.Paused">
+            <summary>The timer entered the paused state.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycle.Stopped">
+            <summary>The timer entered the stopped state.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycle.Finished">
+            <summary>The timer reached its configured duration.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycle.Resumed">
+            <summary>The timer resumed from the paused state.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycle.Restarted">
+            <summary>The timer was explicitly restarted.</summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent">
+            <summary>
+                Payload describing a timer lifecycle transition.
+            </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent.#ctor(Bezoro.ECS.Types.Entity,Bezoro.ECS.Types.Entity,System.Int32,Bezoro.GameSystems.TimerSystem.Types.TimerLifecycle,Bezoro.GameSystems.TimerSystem.Types.TimerState,System.Single,System.Single)">
+            <summary>
+                Initializes a new lifecycle event payload.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent.TimerEntity">
+            <summary>
+                Gets the timer entity that transitioned.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent.OwnerEntity">
+            <summary>
+                Gets the owner entity if present; otherwise <see cref="F:Bezoro.ECS.Types.Entity.None" />.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent.TimerId">
+            <summary>
+                Gets application-level timer identifier.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent.Lifecycle">
+            <summary>
+                Gets transition type.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent.State">
+            <summary>
+                Gets timer state after transition.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent.ElapsedSeconds">
+            <summary>
+                Gets elapsed time in seconds after transition.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent.DurationSeconds">
+            <summary>
+                Gets configured total duration in seconds.
+            </summary>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent.Progress">
+            <summary>
+                Gets completion progress from 0 to 1.
+            </summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.TimerSystem.Types.TimerMode">
+            <summary>
+                Determines a timer's lifecycle behavior after completion.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerMode.OneShot">
+            <summary>Auto-removed from storage after the completion callback fires.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerMode.Persistent">
+            <summary>Stays in storage after completion for reuse via <c>Restart()</c>.</summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.TimerSystem.Types.TimerOwner">
+            <summary>
+                Associates a timer entity with an owning gameplay entity.
+            </summary>
+            <param name="OwnerEntity">Owner entity for this timer.</param>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Types.TimerOwner.#ctor(Bezoro.ECS.Types.Entity)">
+            <summary>
+                Associates a timer entity with an owning gameplay entity.
+            </summary>
+            <param name="OwnerEntity">Owner entity for this timer.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerOwner.OwnerEntity">
+            <summary>Owner entity for this timer.</summary>
+        </member>
+        <member name="T:Bezoro.GameSystems.TimerSystem.Types.TimerState">
+            <summary>
+                Represents the current state of a timer.
+            </summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerState.Running">
+            <summary>The timer is actively counting down.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerState.Paused">
+            <summary>The timer is paused; elapsed time is preserved.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerState.Stopped">
+            <summary>The timer was cancelled before completion.</summary>
+        </member>
+        <member name="F:Bezoro.GameSystems.TimerSystem.Types.TimerState.Completed">
+            <summary>The timer has reached its duration and fired its callback.</summary>
+        </member>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+                Enables C# 9 init-only setters on older frameworks.
+            </summary>
+        </member>
+    </members>
+</doc>

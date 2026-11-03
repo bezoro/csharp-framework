@@ -1,0 +1,635 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Chess.Study</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Chess.Study.ChessLearningStage">
+            <summary>One teaching phase, with its lesson and generic story prerequisite definition.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLearningStage.#ctor(Bezoro.Progression.ProgressionId,Bezoro.Chess.Study.GuidedLessonDefinition,System.ReadOnlySpan{Bezoro.Progression.StoryPrerequisite})">
+            <summary>Creates a one-completion stage. Progress and unlocking remain owned by <see cref="T:Bezoro.Progression.StoryProgress" />.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLearningStage.Id">
+            <summary>Gets the stable stage ID used by story progress.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLearningStage.Lesson">
+            <summary>Gets the immutable lesson, including its independent teaching kind and play mode.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLearningStage.Progression">
+            <summary>Gets the existing story module's prerequisite definition.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLearningStage.ReinforcedFundamentals">
+            <summary>Gets the earlier fundamental lesson IDs reinforced by this phase.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.ChessLearningCampaign">
+            <summary>
+            Immutable lessons connected to a validated story graph. Owns no player progress, match session, engine or UI.
+            Applications may localize titles and instructions by stable lesson ID and step index.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLearningCampaign.#ctor(System.String,System.Collections.Generic.IEnumerable{Bezoro.Chess.Study.ChessLearningStage})">
+            <summary>
+            Copies and validates the stages and story graph. A boss must reinforce known fundamental lessons that occur
+            in its prerequisite closure; unrelated or later lessons cannot satisfy its teaching prerequisites.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLearningCampaign.Id">
+            <summary>Gets the application-selected campaign identity.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLearningCampaign.Stages">
+            <summary>Gets immutable stages in authored display order.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLearningCampaign.Story">
+            <summary>Gets the existing story module's authoritative unlock graph.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLearningCampaign.GetStage(Bezoro.Progression.ProgressionId)">
+            <summary>Gets a stage by progression ID, or throws when the ID is unknown.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLearningCampaign.GetStage(System.String)">
+            <summary>Gets a stage by lesson ID, or throws when the ID is unknown.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLearningCampaign.CreateFoundations">
+            <summary>
+            Creates an introductory campaign of seventeen cumulative phases. Scripted bosses reinforce earlier mechanics;
+            a separate goal puzzle requires checkmate within three learner moves. English text is a localizable default.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.ChessLesson">
+            <summary>
+            A reusable, validated scripted exercise. Learner moves may branch; every opponent reply is unambiguous.
+            Completion means following an accepted solution, not an inferred engine objective.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLesson.#ctor(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.Collections.Generic.IEnumerable{System.Collections.Generic.IEnumerable{System.String}},System.Int32,System.Int32)">
+            <summary>
+            Validates all solution lines once. Lines begin/end with a learner move, cannot extend another accepted
+            solution, and contain only legal UCI moves. Caller data is copied. Budgets bound authoring/import work.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLesson.LearnerSide">
+            <summary>Gets the learner's side; the learner makes the first move in the exercise.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLesson.StartingPosition">
+            <summary>Gets the starting position.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLesson.StartAttempt">
+            <summary>Creates an independent mutable attempt sharing this immutable solution tree.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.ChessLessonAttempt">
+            <summary>A caller-owned, single-threaded attempt. No engine, clock or per-frame evaluation is needed.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonAttempt.Position">
+            <summary>Gets the current position, after any automatic scripted reply.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonAttempt.IsCompleted">
+            <summary>Gets whether an accepted solution was completed.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonAttempt.MistakeCount">
+            <summary>Gets rejected move attempts since reset. Undo does not erase mistakes.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonAttempt.HintCount">
+            <summary>Gets the available learner hints; completed attempts have none.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLessonAttempt.GetHint(System.Int32)">
+            <summary>Gets one accepted UCI move without allocating.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLessonAttempt.TryPlay(System.String)">
+            <summary>
+            Attempts one learner move. A rejected move leaves the board unchanged; a correct non-final move also
+            applies the scripted opponent reply. Completed attempts reject further input without adding mistakes.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLessonAttempt.Undo">
+            <summary>Rewinds the last learner decision and its scripted reply, retaining the mistake count.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessLessonAttempt.Reset">
+            <summary>Returns to the starting position and clears mistakes.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.LessonMoveResult">
+            <summary>Immediate exercise feedback, including the optional automatic opponent reply.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.LessonMoveResult.Accepted">
+            <summary>Gets whether the learner move was accepted.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.LessonMoveResult.Completed">
+            <summary>Gets whether the exercise is complete after the request.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.LessonMoveResult.LearnerMove">
+            <summary>Gets the accepted learner move, or null on rejection.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.LessonMoveResult.OpponentReply">
+            <summary>Gets the scripted reply applied after the learner move, if any.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.ChessNotation">
+            <summary>Converts legal standard-chess moves between UCI coordinates and English SAN, without an engine.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessNotation.ToSan(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.String)">
+            <summary>Formats a legal move, including disambiguation, captures, promotion, check and mate.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessNotation.ParseSan(Bezoro.Chess.UCI.Protocol.API.Types.Fen,System.String)">
+            <summary>
+            Resolves SAN to a legal UCI move. Accepts zeroes in castling and an omitted check suffix;
+            a supplied check or mate suffix must be correct. Ambiguous, illegal and overspecified moves are rejected.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.ChessStudy">
+            <summary>
+            A caller-owned, single-threaded analysis tree. Undo retains continuations; playing another move creates a variation.
+            It starts no engine, clock, task or event loop. Study navigation never changes a live match.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.#ctor(System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.Fen},System.Int32)">
+            <summary>Creates a study with an explicit storage limit (including the root).</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessStudy.Root">
+            <summary>Gets the starting position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessStudy.Current">
+            <summary>Gets the selected position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessStudy.NodeCount">
+            <summary>Gets the stored node count, including the root.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessStudy.Tags">
+            <summary>Gets game metadata. Use SetTag to change it.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessStudy.Result">
+            <summary>Gets the recorded PGN result, independently of study variations. Defaults to unfinished.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.Play(System.String)">
+            <summary>Plays a legal move or selects its existing continuation. Failure leaves the tree and cursor unchanged.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.PlaySan(System.String)">
+            <summary>Resolves and plays a legal SAN move.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.Undo">
+            <summary>Returns to the parent while preserving every continuation. Returns false at the root.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.Redo(System.Int32)">
+            <summary>Follows a stored continuation. Returns false if the selected variation does not exist.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.GoTo(Bezoro.Chess.Study.StudyNode)">
+            <summary>Selects a position owned by this study in constant time.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.SetComment(Bezoro.Chess.Study.StudyNode,System.String)">
+            <summary>Attaches a comment. Export uses semicolon comments when its text contains braces.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.SetLeadingComment(Bezoro.Chess.Study.StudyNode,System.String)">
+            <summary>Attaches an introduction to an alternative's first move, preserving its scope during PGN interchange.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.AddAnnotation(Bezoro.Chess.Study.StudyNode,System.Byte)">
+            <summary>Adds one distinct numeric annotation glyph to a move (root annotations are not allowed).</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.SetTag(System.String,System.String)">
+            <summary>Sets a valid PGN tag. FEN and SetUp are generated from the actual root and cannot be overridden.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessStudy.GetCurrentMoves">
+            <summary>Copies the selected root-to-cursor move history for an explicit engine review request.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonCategory">
+            <summary>The subject of an authored teaching phase.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonCategory.Rules">
+            <summary>Piece movement and other basic rules.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonCategory.Opening">
+            <summary>Opening play.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonCategory.Strategy">
+            <summary>Positional decisions.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonCategory.Tactics">
+            <summary>Forcing tactical ideas.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonCategory.Challenge">
+            <summary>An authored challenge.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonDifficulty">
+            <summary>The authored difficulty, independent of progression or unlocking.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonDifficulty.Beginner">
+            <summary>Introductory material.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonDifficulty.Normal">
+            <summary>Standard material.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonDifficulty.Advanced">
+            <summary>Advanced material.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonKind">
+            <summary>Whether a phase teaches a fundamental or reinforces earlier fundamentals through a boss challenge.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonKind.Fundamental">
+            <summary>A phase that introduces or practises a fundamental.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonKind.Boss">
+            <summary>A phase requiring an authored sequence that reinforces earlier fundamentals.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonMode">
+            <summary>Whether teaching requires authored moves or allows the learner to solve a goal.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonMode.Scripted">
+            <summary>Accept only the authored learner move, with an optional scripted reply.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonMode.GoalPuzzle">
+            <summary>Accept legal learner moves and verify the goal against confirmed local positions.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.ChessPuzzleDefinition">
+            <summary>An authored checkmate goal with a budget measured in learner moves, excluding setup history.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.ChessPuzzleDefinition.#ctor(System.Int32,System.String)">
+            <summary>Creates a checkmate-within-N-learner-moves goal.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessPuzzleDefinition.MaxLearnerMoves">
+            <summary>Gets the maximum number of moves made by the learner after setup.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessPuzzleDefinition.Instruction">
+            <summary>Gets the authored instruction shown throughout the puzzle.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonObjective">
+            <summary>A locally verified outcome of the learner's authored move.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonObjective.None">
+            <summary>Require only the authored move.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonObjective.MovePiece">
+            <summary>Apply the authored piece move.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonObjective.Capture">
+            <summary>Capture an opposing piece.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonObjective.GiveCheck">
+            <summary>Give check to the opponent.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonObjective.EscapeCheck">
+            <summary>Make a legal move from a checked position, including countercheck.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonObjective.Checkmate">
+            <summary>Checkmate the opposing king.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonObjective.Promote">
+            <summary>Promote a pawn.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonObjective.Castle">
+            <summary>Castle.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonStep">
+            <summary>One immutable explanation or learner decision, with an optional scripted opponent reply.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonStep.#ctor(System.String,System.String,System.String,System.String,System.String,Bezoro.Chess.Study.GuidedLessonObjective)">
+            <summary>Creates an authored step. Empty moves describe explanation-only steps.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonStep.Instruction">
+            <summary>Gets the learner instruction.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonStep.BeforeMoveExplanation">
+            <summary>Gets the explanation shown before the learner's move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonStep.ExpectedPlayerMove">
+            <summary>Gets the required UCI move, or an empty string for an explanation-only step.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonStep.OpponentReply">
+            <summary>Gets the optional scripted UCI reply.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonStep.AfterMoveExplanation">
+            <summary>Gets feedback shown after the accepted decision.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonStep.Objective">
+            <summary>Gets the rule outcome required after applying the learner move.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonDefinition">
+            <summary>
+            Immutable authoring data for a discrete teaching phase. Validation reports all authoring errors;
+            no engine, storage, unlocking, UI or asynchronous operations are owned by this definition.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonDefinition.#ctor(System.String,System.String,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup},System.Collections.Generic.IEnumerable{Bezoro.Chess.Study.GuidedLessonStep},System.String,Bezoro.Chess.Study.GuidedLessonCategory,Bezoro.Chess.Study.GuidedLessonDifficulty,System.Int32,Bezoro.Chess.Study.GuidedLessonKind,System.Collections.Generic.IEnumerable{System.String},Bezoro.Chess.Study.GuidedLessonMode,Bezoro.Chess.Study.ChessPuzzleDefinition)">
+            <summary>Copies the steps and fundamental IDs. An absent setup is reported by validation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Id">
+            <summary>Gets the phase ID used by catalogs and external progression systems.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Title">
+            <summary>Gets its displayed title.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Description">
+            <summary>Gets its description.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Category">
+            <summary>Gets its subject.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Difficulty">
+            <summary>Gets its difficulty.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Order">
+            <summary>Gets its authored ordering key.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Kind">
+            <summary>Gets whether the phase teaches or reinforces fundamentals.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Mode">
+            <summary>Gets whether moves are scripted or selected freely to solve a goal.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Puzzle">
+            <summary>Gets the goal definition when the mode is <see cref="F:Bezoro.Chess.Study.GuidedLessonMode.GoalPuzzle"/>.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Fundamentals">
+            <summary>Gets the IDs of the fundamentals taught or reinforced; these do not imply unlock rules.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.InitialSetup">
+            <summary>Gets the starting position and any pre-existing move history.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Steps">
+            <summary>Gets the copied ordered teaching steps.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonDefinition.Fingerprint">
+            <summary>Gets the SHA256 identity of the teaching content and authored position/history; runtime clock snapshots are excluded.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonDefinition.GetPositionBeforeStep(System.Int32)">
+            <summary>Replays preceding scripted steps for an authoring preview. Invalid data throws without changing the definition.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.ChessLessonCompletion">
+            <summary>A completed, locally verified attempt. Only the guided player can issue this receipt.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonCompletion.LessonId">
+            <summary>Gets the completed authored phase ID.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonCompletion.DefinitionFingerprint">
+            <summary>Gets the exact teaching-definition fingerprint accepted by the player.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonCompletion.AttemptId">
+            <summary>Gets the unique attempt receipt, retained until reset or a new lesson starts.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.ChessLessonCompletion.MistakeCount">
+            <summary>Gets the number of rejected moves made while this attempt awaited learner input.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonPosition">
+            <summary>An immutable position and history reported by an external match adapter.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPosition.#ctor(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup,Bezoro.Chess.UCI.Protocol.API.Types.Fen)">
+            <summary>Creates a confirmation snapshot. The player verifies the position against the reported history.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonPosition.History">
+            <summary>Gets the reported base position and played moves.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonPosition.Position">
+            <summary>Gets the reported current position.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonMoves">
+            <summary>Move matching shared by guided authoring and players.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonMoves.IsExpected(System.String,System.String,System.Boolean)">
+            <summary>Matches normalized UCI moves, optionally accepting a pending promotion choice with the same travel.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonPhase">
+            <summary>The discrete phases of a teaching attempt. Values are stable for serialized UI adapters.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonPhase.Inactive">
+            <summary>No lesson owns learner input.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonPhase.LoadingSetup">
+            <summary>The host is loading the authored setup.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonPhase.ShowingExplanation">
+            <summary>An explanation awaits explicit continuation.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonPhase.ReadyForPlayerMove">
+            <summary>The learner may request an allowed move.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonPhase.WaitingForMoveResult">
+            <summary>An accepted request awaits an actual position/history confirmation.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonPhase.WaitingForOpponentReply">
+            <summary>The host must apply a scripted or engine-controlled opponent move.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonPhase.Completed">
+            <summary>The authored lesson was completed.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Study.GuidedLessonPhase.Failed">
+            <summary>The objective or external operation failed.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonMoveRequest">
+            <summary>Whether the match host may submit a learner move.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonMoveRequest.#ctor(System.Boolean,System.String)">
+            <summary>Whether the match host may submit a learner move.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonStepResult">
+            <summary>Progression after a confirmed move or explanation.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonStepResult.#ctor(System.Boolean,System.Boolean,System.String,System.String,System.Boolean)">
+            <summary>Progression after a confirmed move or explanation.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonStepResult.HasOpponentReply">
+            <summary>Gets whether the host must apply the exact scripted reply.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonProjection">
+            <summary>Read-only teaching output and authoritative input constraints for presentation adapters.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.Phase">
+            <summary>Gets the current attempt phase.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.Title">
+            <summary>Gets the displayed lesson title.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.Instruction">
+            <summary>Gets the current teaching instruction.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.Feedback">
+            <summary>Gets current feedback.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.CurrentStepIndex">
+            <summary>Gets the zero-based teaching step, or -1 without a lesson.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.StepCount">
+            <summary>Gets the scripted step count, or one for a goal puzzle.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.IsActive">
+            <summary>Gets whether a lesson owns learner input.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.AcceptsMoveRequests">
+            <summary>Gets whether input is free play or currently allowed by the lesson.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.RequiredMove">
+            <summary>Gets the exact authored move for a scripted learner step, otherwise null. UI arrows use these parsed squares.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.LearnerMoves">
+            <summary>Gets the number of confirmed learner moves since the authored puzzle setup.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.MaxLearnerMoves">
+            <summary>Gets the puzzle budget, or zero for scripted lessons.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.AllowedPromotionPieces">
+            <summary>Gets the authoritative pending promotion choices, as normalized q/r/b/n, otherwise an empty list.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonProjection.AcceptsUndoRequests">
+            <summary>Gets whether undo is free play or can rewind one completed puzzle decision. Scripted phases use restart.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonProjection.GetUndoPlyCount(System.Int32)">
+            <summary>Preserves free-play requests; puzzles rewind the learner decision and its reply without crossing the setup.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonProjection.GetAllowedMoves(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>Intersects host legal moves with the player's local-rule constraints. Inactive lessons preserve free play.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonPlayer">
+            <summary>
+            Caller-owned, single-threaded teaching state. The host performs I/O, then supplies immutable position/history
+            snapshots; only shared local rules can confirm moves, objectives, puzzle budgets and completion receipts.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonPlayer.Phase">
+            <summary>Gets the current teaching phase.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonPlayer.CurrentStepIndex">
+            <summary>Gets the current zero-based step, or -1 without a lesson.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonPlayer.MistakeCount">
+            <summary>Gets rejected requests made while awaiting learner input. Blocked phases do not count as mistakes.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonPlayer.Completion">
+            <summary>Gets the receipt of this completed attempt, cleared by reset or a new attempt.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.AcceptsPromotion(System.Char)">
+            <summary>Checks a pending promotion choice against the same authoritative constraint used by presentation.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.BeginLoading(Bezoro.Chess.Study.GuidedLessonDefinition,System.String@,System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>Validates and owns a copied definition while the host loads its setup.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.Start(Bezoro.Chess.Study.GuidedLessonDefinition,System.String@)">
+            <summary>Starts a locally owned attempt when no external setup load is required.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.CompleteSetupLoading">
+            <summary>Acknowledges setup I/O; stale acknowledgements outside LoadingSetup do nothing.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.Reset">
+            <summary>Releases lesson ownership and any completion receipt.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.Fail(System.String)">
+            <summary>Records an external-operation failure without claiming objective completion.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.EvaluateMoveRequest(System.String,System.Int32)">
+            <summary>Accepts only the current exact scripted move or a legal puzzle move; no board state changes here.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.ObserveAcceptedMove(Bezoro.Chess.Study.GuidedLessonPosition)">
+            <summary>Ignores clock/search/noop or unrelated updates until history confirms the accepted learner move.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.CompleteAcceptedMove(Bezoro.Chess.Study.GuidedLessonPosition)">
+            <summary>Confirms an explicitly completed learner operation. Invalid or unapplied outcomes fail without advancing.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.CompleteOpponentReply(Bezoro.Chess.Study.GuidedLessonPosition)">
+            <summary>Confirms the actual scripted or engine-controlled reply before advancing.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.ContinueExplanationStep">
+            <summary>Advances an explanation-only scripted step; other phases remain unchanged.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.ObserveUndo(Bezoro.Chess.Study.GuidedLessonPosition)">
+            <summary>Rewinds a goal puzzle to an actual earlier confirmed-history prefix, recomputing the learner budget.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonPlayer.Project">
+            <summary>Projects the current phase, teaching text, exact hint and locally verified allowed moves.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonValidationResult">
+            <summary>Aggregated authoring diagnostics, independent of UI or storage.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonValidationResult.Messages">
+            <summary>Gets all validation errors.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.GuidedLessonValidationResult.HasErrors">
+            <summary>Gets whether authoring errors prevent starting a lesson.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonValidator">
+            <summary>Validates teaching data and its complete scripted move sequence using the shared local chess rules.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonValidator.Validate(Bezoro.Chess.Study.GuidedLessonDefinition,System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>
+            Validates a definition. A serialization adapter may supply earlier setup-conversion errors;
+            those replace the missing-setup diagnostic and are prefixed as lesson setup errors here.
+            Objectives are checked when confirming actual moves, not inferred from engine metadata during authoring.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.GuidedLessonCatalog">
+            <summary>Catalog validation and authored ordering; unlocking belongs to the caller's progression system.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonCatalog.Validate(System.Collections.Generic.IEnumerable{Bezoro.Chess.Study.GuidedLessonDefinition})">
+            <summary>Validates entries and case-insensitive trimmed IDs, retaining all diagnostics.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonCatalog.ValidateIdentities(System.Collections.Generic.IEnumerable{Bezoro.Chess.Study.GuidedLessonDefinition})">
+            <summary>Checks null entries and unique IDs when adapters already validated their individual serialized entries.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.GuidedLessonCatalog.Compare(System.Int32,System.String,System.Int32,System.String)">
+            <summary>Compares authored order, then IDs, with missing entries after valid entries.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.Pgn">
+            <summary>Imports and exports one standard-chess PGN game with tags, SAN, comments, NAGs and nested variations.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.Pgn.Parse(System.String,Bezoro.Chess.Study.PgnReadLimits)">
+            <summary>
+            Imports and validates the entire game locally. Illegal moves, inconsistent results, malformed input and
+            budget overruns throw FormatException; no partially imported study is returned. The cursor ends at the root.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.Pgn.Write(Bezoro.Chess.Study.ChessStudy)">
+            <summary>Exports the entire tree without changing its cursor. Missing roster tags receive PGN unknown values.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.PgnReadLimits">
+            <summary>Explicit budgets for importing one untrusted PGN game.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.PgnReadLimits.#ctor(System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Creates validated input, storage, nesting and individual token budgets.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.PgnReadLimits.MaxInputCharacters">
+            <summary>Gets the input character budget.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.PgnReadLimits.MaxNodes">
+            <summary>Gets the node budget, including the starting position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.PgnReadLimits.MaxVariationDepth">
+            <summary>Gets the maximum nested recursive annotation variations (parsed iteratively).</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.PgnReadLimits.MaxTokenCharacters">
+            <summary>Gets the maximum characters in one symbol, tag string or comment.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Study.StudyNode">
+            <summary>A position in one study. Shared prefixes are stored once; the first continuation is the main line.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.Parent">
+            <summary>Gets the previous position, or null at the starting position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.Position">
+            <summary>Gets the complete position, ready for immediate navigation without replay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.Move">
+            <summary>Gets the UCI move leading here, or null at the root.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.San">
+            <summary>Gets the canonical SAN move leading here, or null at the root.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.Depth">
+            <summary>Gets the number of moves from the root.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.Comment">
+            <summary>Gets the comment attached to this position.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.LeadingComment">
+            <summary>Gets a comment before this move, including a variation's introductory comment.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.VariationCount">
+            <summary>Gets the number of alternative continuations, including the main line at index zero.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.StudyNode.GetVariation(System.Int32)">
+            <summary>Gets a continuation. No collection or enumerator is allocated.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Study.StudyNode.AnnotationCount">
+            <summary>Gets the number of numeric annotation glyphs attached to the move.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Study.StudyNode.GetAnnotation(System.Int32)">
+            <summary>Gets a PGN numeric annotation glyph (0–255).</summary>
+        </member>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+                Enables C# 9 init-only setters on older frameworks.
+            </summary>
+        </member>
+    </members>
+</doc>

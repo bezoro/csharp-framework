@@ -1,0 +1,308 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Progression</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Progression.BattlePassDefinition">
+            <summary>Shares immutable, ascending cumulative tier thresholds across players.</summary>
+            <remarks>The application identifies the season/catalog revision and decides when experience and claims are accepted.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassDefinition.#ctor(System.ReadOnlySpan{Bezoro.Progression.BattlePassTierDefinition})">
+            <summary>Copies tiers in strictly increasing experience order. An empty pass is allowed.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.BattlePassDefinition.Tiers">
+            <summary>Gets the immutable tiers in their ascending order.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.BattlePassDefinition.Count">
+            <summary>Gets the number of tiers.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassDefinition.GetUnlockedTierCount(System.Int64)">
+            <summary>Counts unlocked tiers using a binary search. Negative experience is rejected.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.BattlePassProgress">
+            <summary>Owns one player's experience, access entitlement, and per-track claim flags for a battle pass.</summary>
+            <remarks>Requires one owner or external synchronization. Experience events and premium purchases must be authorized by the host.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassProgress.#ctor(Bezoro.Progression.BattlePassDefinition)">
+            <summary>Creates a pass with zero experience, no premium access, and no claimed tiers.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.BattlePassProgress.Definition">
+            <summary>Gets the immutable pass definition.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.BattlePassProgress.Experience">
+            <summary>Gets cumulative earned experience.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.BattlePassProgress.HasPremiumAccess">
+            <summary>Gets whether premium rewards can be claimed.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.BattlePassProgress.UnlockedTierCount">
+            <summary>Gets the number of tiers unlocked by current experience.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassProgress.AddExperience(System.Int64)">
+            <summary>Adds a positive amount, saturating at Int64.MaxValue, and returns the amount actually credited.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassProgress.GrantPremiumAccess">
+            <summary>Grants premium access. Returns false if access was already granted.</summary>
+            <remarks>This is an authoritative mutation, not payment validation. Earlier unlocked premium tiers can then be claimed.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassProgress.IsClaimed(System.Int32,Bezoro.Progression.BattlePassTrack)">
+            <summary>Gets whether the selected reward track has already been claimed.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassProgress.TryClaim(System.Int32,Bezoro.Progression.BattlePassTrack,Bezoro.Progression.RewardBatch@)">
+            <summary>Claims a nonempty, unlocked reward batch once. Premium claims additionally require premium access.</summary>
+            <remarks>A false result leaves state unchanged. Persist state and apply returned rewards in one application transaction.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassProgress.CopyClaimStateTo(System.Span{System.Byte})">
+            <summary>Copies one byte per tier: bit zero denotes a free claim, bit one a premium claim.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassProgress.TryRestore(System.Int64,System.Boolean,System.ReadOnlySpan{System.Byte})">
+            <summary>Validates and restores a complete saved state without partial mutation.</summary>
+            <remarks>The host must select the correct season/schema and prevent unauthorized reward-claim rollback.</remarks>
+        </member>
+        <member name="T:Bezoro.Progression.BattlePassTierDefinition">
+            <summary>Defines the cumulative experience threshold and independent free/premium rewards for one tier.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassTierDefinition.#ctor(System.Int64,System.ReadOnlySpan{Bezoro.Progression.RewardGrant},System.ReadOnlySpan{Bezoro.Progression.RewardGrant})">
+            <summary>Copies rewards for a positive cumulative threshold. At least one track must contain a reward.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.BattlePassTierDefinition.RequiredExperience">
+            <summary>Gets the total experience required to unlock this tier.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.BattlePassTierDefinition.FreeRewards">
+            <summary>Gets the reward batch available without premium access.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.BattlePassTierDefinition.PremiumRewards">
+            <summary>Gets the reward batch requiring premium access.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.BattlePassTrack">
+            <summary>Selects the free or premium reward entitlement at a battle-pass tier.</summary>
+        </member>
+        <member name="F:Bezoro.Progression.BattlePassTrack.Free">
+            <summary>Requires only enough earned experience.</summary>
+        </member>
+        <member name="F:Bezoro.Progression.BattlePassTrack.Premium">
+            <summary>Requires enough experience and premium access.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.ProgressionId">
+            <summary>Identifies application-owned progression content. Zero is reserved for an invalid identifier.</summary>
+            <remarks>Identifiers carry no catalog or player identity; the application owns their meaning and persistence.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.ProgressionId.#ctor(System.UInt32)">
+            <summary>Creates a nonzero content identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.ProgressionId.Value">
+            <summary>Gets the application-defined numeric identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.ProgressionId.IsValid">
+            <summary>Gets whether this value is a nondefault identifier.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.QuestCatalog">
+            <summary>Shares immutable quest definitions and a counter index across player progress instances.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.QuestCatalog.#ctor(System.ReadOnlySpan{Bezoro.Progression.QuestDefinition})">
+            <summary>Copies quest references in input order and rejects null or duplicate definitions.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.QuestCatalog.Count">
+            <summary>Gets the number of quests.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.QuestCatalog.ObjectiveCount">
+            <summary>Gets the number of objective counters in each player's state.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.QuestCatalog.Definitions">
+            <summary>Gets the definitions in stable input order.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.QuestCatalog.GetDefinition(Bezoro.Progression.ProgressionId)">
+            <summary>Gets a quest definition, or throws for an unknown identifier.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.QuestDefinition">
+            <summary>An immutable quest whose objectives must all be completed before its rewards can be claimed.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.QuestDefinition.#ctor(Bezoro.Progression.ProgressionId,System.ReadOnlySpan{Bezoro.Progression.QuestObjective},System.ReadOnlySpan{Bezoro.Progression.RewardGrant})">
+            <summary>Copies a nonempty set of unique counters and an optional reward batch.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.QuestDefinition.Id">
+            <summary>Gets the application-defined quest identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.QuestDefinition.Objectives">
+            <summary>Gets all required objectives in definition order.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.QuestDefinition.Rewards">
+            <summary>Gets the entitlements produced by a successful claim.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.QuestObjective">
+            <summary>Requires a positive amount of one application-defined event counter.</summary>
+            <remarks>Use different counter identifiers for different filters, such as wins, ranked wins, or completed lessons.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.QuestObjective.#ctor(Bezoro.Progression.ProgressionId,System.Int64)">
+            <summary>Creates an objective for a valid counter and a positive target.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.QuestObjective.Counter">
+            <summary>Gets the event counter to observe.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.QuestObjective.Target">
+            <summary>Gets the positive amount needed for completion.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.QuestProgress">
+            <summary>Owns one player's quest counters and claim state for a shared catalog.</summary>
+            <remarks>Requires one owner or external synchronization. Feed authoritative events once; this class does not deduplicate event deliveries.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.QuestProgress.#ctor(Bezoro.Progression.QuestCatalog)">
+            <summary>Creates inactive quests with zero counters.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.QuestProgress.Catalog">
+            <summary>Gets the immutable catalog defining this state.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.QuestProgress.GetStatus(Bezoro.Progression.ProgressionId)">
+            <summary>Gets a quest's current lifecycle state.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.QuestProgress.TryActivate(Bezoro.Progression.ProgressionId)">
+            <summary>Activates an inactive quest. Returns false when it has already been activated.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.QuestProgress.GetObjectiveProgress(Bezoro.Progression.ProgressionId,System.Int32)">
+            <summary>Gets the bounded counter value of an objective by its index within a quest.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.QuestProgress.Record(Bezoro.Progression.ProgressionId,System.Int64)">
+            <summary>Records a positive event amount and returns the number of newly completed quests.</summary>
+            <remarks>Visits only objectives indexed for this counter. Progress saturates at each target, including when the amount is Int64.MaxValue.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.QuestProgress.TryClaim(Bezoro.Progression.ProgressionId,Bezoro.Progression.RewardBatch@)">
+            <summary>Changes a completed quest to claimed and returns its reward entitlements exactly once in this state.</summary>
+            <remarks>Persist this state and apply the returned rewards in the same application transaction for durable exactly-once delivery.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.QuestProgress.CopyStateTo(System.Span{Bezoro.Progression.QuestStatus},System.Span{System.Int64})">
+            <summary>Copies the complete state into caller-owned storage in catalog and objective order.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.QuestProgress.TryRestore(System.ReadOnlySpan{Bezoro.Progression.QuestStatus},System.ReadOnlySpan{System.Int64})">
+            <summary>Validates an entire saved state before replacing it. Invalid lengths, counters, or lifecycle combinations return false without mutation.</summary>
+            <remarks>The application must select the matching catalog/schema and authorize restoration, which may otherwise roll back claimed rewards.</remarks>
+        </member>
+        <member name="T:Bezoro.Progression.QuestStatus">
+            <summary>Describes a quest's one-way lifecycle within one progress instance.</summary>
+        </member>
+        <member name="F:Bezoro.Progression.QuestStatus.Inactive">
+            <summary>The quest does not receive event counters.</summary>
+        </member>
+        <member name="F:Bezoro.Progression.QuestStatus.Active">
+            <summary>The quest receives matching counters until all objectives are complete.</summary>
+        </member>
+        <member name="F:Bezoro.Progression.QuestStatus.Completed">
+            <summary>All objectives are complete and rewards remain unclaimed.</summary>
+        </member>
+        <member name="F:Bezoro.Progression.QuestStatus.Claimed">
+            <summary>The reward entitlements have already been claimed.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.RewardBatch">
+            <summary>A read-only batch borrowed from an immutable content definition.</summary>
+            <remarks>The definition owns the storage. Retaining this value keeps that storage alive; no copy is made on claim.</remarks>
+        </member>
+        <member name="P:Bezoro.Progression.RewardBatch.Count">
+            <summary>Gets the number of entitlements in the batch.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.RewardBatch.Rewards">
+            <summary>Gets the immutable entitlements. The default batch is empty.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.RewardBatch.Item(System.Int32)">
+            <summary>Gets an entitlement by index.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.RewardGrant">
+            <summary>Describes a positive quantity of an application-defined reward.</summary>
+            <remarks>This value describes an entitlement; it does not itself grant currency, items, cosmetics, or access.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.RewardGrant.#ctor(Bezoro.Progression.ProgressionId,System.Int64)">
+            <summary>Creates an entitlement for a nondefault reward identifier and a positive quantity.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.RewardGrant.Reward">
+            <summary>Gets the application-defined reward identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.RewardGrant.Quantity">
+            <summary>Gets the positive entitled quantity.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.StoryCatalog">
+            <summary>Shares an immutable, acyclic story graph across players.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.StoryCatalog.#ctor(System.ReadOnlySpan{Bezoro.Progression.StoryStageDefinition})">
+            <summary>Copies stages and validates unique identifiers, existing dependencies, reachable star requirements, and absence of cycles.</summary>
+            <remarks>Input order does not need to be topological. Validation is iterative to support deep campaigns without stack recursion.</remarks>
+        </member>
+        <member name="P:Bezoro.Progression.StoryCatalog.Count">
+            <summary>Gets the number of stages.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryCatalog.Stages">
+            <summary>Gets immutable stages in input order.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.StoryCatalog.GetDefinition(Bezoro.Progression.ProgressionId)">
+            <summary>Gets a stage definition, or throws for an unknown identifier.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.StoryPrerequisite">
+            <summary>Requires an earlier stage to have earned at least the selected number of stars.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.StoryPrerequisite.#ctor(Bezoro.Progression.ProgressionId,System.Byte)">
+            <summary>Creates a requirement for a valid stage identifier and a positive star count.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryPrerequisite.Stage">
+            <summary>Gets the prerequisite stage identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryPrerequisite.RequiredStars">
+            <summary>Gets the minimum stars needed in that stage.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.StoryProgress">
+            <summary>Owns one byte of best-score state per story stage.</summary>
+            <remarks>Requires one owner or external synchronization. Unlocks are evaluated on demand; no update loop or cached traversal is retained.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.StoryProgress.#ctor(Bezoro.Progression.StoryCatalog)">
+            <summary>Creates an unplayed story for a shared immutable catalog.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryProgress.Catalog">
+            <summary>Gets the immutable stage graph.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.StoryProgress.GetBestStars(Bezoro.Progression.ProgressionId)">
+            <summary>Gets the best earned score, or zero if the stage has not been completed.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.StoryProgress.IsUnlocked(Bezoro.Progression.ProgressionId)">
+            <summary>Gets whether all stage prerequisites are currently satisfied.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.StoryProgress.TryComplete(Bezoro.Progression.ProgressionId,System.Byte,Bezoro.Progression.StoryStageCompletion@)">
+            <summary>Improves an unlocked stage's best score. Returns false for locked stages or scores no better than the saved best.</summary>
+            <remarks>The host validates gameplay before calling. A successful first completion can produce application-owned rewards in the same transaction.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.StoryProgress.CopyStateTo(System.Span{System.Byte})">
+            <summary>Copies best scores in catalog order into caller-owned storage.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.StoryProgress.TryRestore(System.ReadOnlySpan{System.Byte})">
+            <summary>Validates the complete graph state and then replaces scores. A completed stage must have its prerequisites satisfied in the saved state.</summary>
+            <remarks>The host selects the matching catalog/schema and authorizes restoration.</remarks>
+        </member>
+        <member name="T:Bezoro.Progression.StoryStageCompletion">
+            <summary>Describes an accepted improvement to a stage's best score.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryStageCompletion.Stage">
+            <summary>Gets the improved stage.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryStageCompletion.PreviousStars">
+            <summary>Gets the former best score; zero means the stage was never completed.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryStageCompletion.Stars">
+            <summary>Gets the new best score.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryStageCompletion.IsFirstCompletion">
+            <summary>Gets whether this accepted improvement is the first completion.</summary>
+        </member>
+        <member name="T:Bezoro.Progression.StoryStageDefinition">
+            <summary>Defines a stage and all prerequisites needed to unlock it.</summary>
+            <remarks>Gameplay, lesson text, FEN positions, and success criteria belong to application-owned content keyed by this stage identifier.</remarks>
+        </member>
+        <member name="M:Bezoro.Progression.StoryStageDefinition.#ctor(Bezoro.Progression.ProgressionId,System.Byte,System.ReadOnlySpan{Bezoro.Progression.StoryPrerequisite})">
+            <summary>Copies unique prerequisites. Stages without prerequisites are initially unlocked.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryStageDefinition.Id">
+            <summary>Gets the application-defined stage identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryStageDefinition.MaximumStars">
+            <summary>Gets the greatest accepted completion score.</summary>
+        </member>
+        <member name="P:Bezoro.Progression.StoryStageDefinition.Prerequisites">
+            <summary>Gets all requirements needed to unlock this stage.</summary>
+        </member>
+    </members>
+</doc>

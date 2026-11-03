@@ -1,0 +1,247 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Commerce</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Commerce.CommerceAccount">
+            <summary>Owns balances, permanent cosmetic entitlements, equipment and a bounded transaction ledger.</summary>
+            <remarks>
+            Requires one owner or external serialization. Successful business operations are atomic in memory; rejected operations do not mutate state.
+            Persist the complete snapshot and transaction receipt together before acknowledging network requests. This class does not authenticate callers,
+            authorize rewards, process real money or provide distributed transactions. Only the authoritative host may grant currency or ownership.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccount.#ctor(Bezoro.Commerce.StoreCatalog,System.String,System.Int32)">
+            <summary>Creates an empty account with a finite successful-transaction limit. Storage grows with actual operations.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccount.#ctor(Bezoro.Commerce.StoreCatalog,Bezoro.Commerce.CommerceAccountSnapshot,System.Int32)">
+            <summary>Restores trusted persisted state, rejecting duplicate entries, unknown skins, invalid receipts and unowned equipment.</summary>
+            <remarks>Keep retired skin definitions in the catalog while accounts retain their ownership.</remarks>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccount.Catalog">
+            <summary>Gets the immutable catalog shared with other accounts.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccount.AccountId">
+            <summary>Gets the account identity.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccount.ReceiptCapacity">
+            <summary>Gets the maximum successful-transaction count; receipts are never silently evicted.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccount.ReceiptCount">
+            <summary>Gets the retained successful-transaction count.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccount.OwnedSkinCount">
+            <summary>Gets the number of owned skins.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccount.EquippedSkinId">
+            <summary>Gets the optional equipped skin identifier, independent of the active 2D or 3D renderer.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccount.GetBalance(System.String)">
+            <summary>Gets a currency balance, or zero when that currency has never been credited.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccount.OwnsSkin(System.String)">
+            <summary>Checks permanent ownership without allocating.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccount.CreditCurrency(System.String,System.String,System.Int64)">
+            <summary>Credits positive currency units once for an account-scoped transaction identifier.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccount.GrantSkin(System.String,System.String)">
+            <summary>Grants a catalog skin once for an account-scoped transaction identifier; ownership is permanent.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccount.Purchase(System.String,System.String,System.DateTimeOffset)">
+            <summary>Purchases one permanent skin with a full, atomic deduction at authoritative time.</summary>
+            <remarks>Identical successful retries return their original receipt even after the offer expires. Rejected requests reserve no transaction key.</remarks>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccount.TryEquipSkin(System.String)">
+            <summary>Equips an owned skin without changing ownership or loading assets; false leaves equipment unchanged.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccount.TryGetReceipt(System.String,Bezoro.Commerce.CommerceReceipt@)">
+            <summary>Looks up a successful transaction receipt.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccount.CreateSnapshot">
+            <summary>Copies the complete state for durable persistence. This explicit operation allocates.</summary>
+        </member>
+        <member name="T:Bezoro.Commerce.WalletBalance">
+            <summary>An immutable, nonnegative balance in one abstract in-game currency.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.WalletBalance.#ctor(System.String,System.Int64)">
+            <summary>Creates a balance for trusted snapshot persistence.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.WalletBalance.CurrencyId">
+            <summary>Gets the currency identifier; null for the default value.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.WalletBalance.Amount">
+            <summary>Gets the nonnegative integral amount.</summary>
+        </member>
+        <member name="T:Bezoro.Commerce.CommerceAccountSnapshot">
+            <summary>A copied immutable account snapshot, including the durable transaction ledger.</summary>
+            <remarks>Creation copies inputs; the account constructor validates their contents against its catalog before restoration.</remarks>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceAccountSnapshot.#ctor(System.String,System.ReadOnlySpan{Bezoro.Commerce.WalletBalance},System.ReadOnlySpan{System.String},System.ReadOnlySpan{Bezoro.Commerce.CommerceReceipt},System.String)">
+            <summary>Copies trusted persistence data. The account identity must be nonempty.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccountSnapshot.AccountId">
+            <summary>Gets the account identity.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccountSnapshot.Balances">
+            <summary>Gets the copied balances.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccountSnapshot.OwnedSkins">
+            <summary>Gets the copied owned skin identifiers.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccountSnapshot.Receipts">
+            <summary>Gets the copied successful transaction ledger.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceAccountSnapshot.EquippedSkinId">
+            <summary>Gets the optional equipped skin identifier.</summary>
+        </member>
+        <member name="T:Bezoro.Commerce.CommerceOperation">
+            <summary>Identifies a successful account operation.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceOperation.CreditCurrency">
+            <summary>Currency was granted by the authoritative host.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceOperation.GrantSkin">
+            <summary>A cosmetic was granted by the authoritative host.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceOperation.Purchase">
+            <summary>An offer was purchased with in-game currency.</summary>
+        </member>
+        <member name="T:Bezoro.Commerce.CommerceReceipt">
+            <summary>An immutable successful operation, retained to prevent duplicate spending or granting.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.CommerceReceipt.#ctor(System.String,Bezoro.Commerce.CommerceOperation,System.String,System.Int64,System.Int64)">
+            <summary>Rehydrates a receipt from trusted persistence. Target is the currency, skin or offer identifier for its operation.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceReceipt.TransactionId">
+            <summary>Gets the account-scoped idempotency key; null for the default value.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceReceipt.Operation">
+            <summary>Gets the operation kind.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceReceipt.TargetId">
+            <summary>Gets the operation's currency, skin or offer identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceReceipt.Amount">
+            <summary>Gets the credited amount or purchase cost; zero for a direct skin grant.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceReceipt.BalanceAfter">
+            <summary>Gets the affected currency balance immediately after the operation; zero for a direct skin grant.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceReceipt.IsValid">
+            <summary>Gets whether this value was initialized through its constructor.</summary>
+        </member>
+        <member name="T:Bezoro.Commerce.CommerceTransactionStatus">
+            <summary>Describes a commerce operation without using exceptions for expected business failures.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceTransactionStatus.Uninitialized">
+            <summary>The result is the uninitialized default value.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceTransactionStatus.Applied">
+            <summary>The operation was applied.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceTransactionStatus.AlreadyApplied">
+            <summary>The same transaction was already applied; the original receipt is returned.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceTransactionStatus.ConflictingTransaction">
+            <summary>The transaction identifier was used for a different request.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceTransactionStatus.InsufficientFunds">
+            <summary>The account cannot afford the complete purchase.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceTransactionStatus.AlreadyOwned">
+            <summary>The account already owns this skin.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceTransactionStatus.UnknownProduct">
+            <summary>The requested skin or offer does not exist.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceTransactionStatus.OfferUnavailable">
+            <summary>The offer is outside its time window.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceTransactionStatus.ReceiptCapacityReached">
+            <summary>The durable duplicate ledger has reached its configured limit.</summary>
+        </member>
+        <member name="F:Bezoro.Commerce.CommerceTransactionStatus.BalanceOverflow">
+            <summary>The currency credit would exceed a signed 64-bit balance.</summary>
+        </member>
+        <member name="T:Bezoro.Commerce.CommerceTransactionResult">
+            <summary>The immutable result of a purchase or grant.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceTransactionResult.Status">
+            <summary>Gets the operation outcome.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceTransactionResult.Receipt">
+            <summary>Gets the successful operation's receipt, including on an identical retry.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.CommerceTransactionResult.Succeeded">
+            <summary>Gets whether the requested operation was applied previously or by this call.</summary>
+        </member>
+        <member name="T:Bezoro.Commerce.SkinDefinition">
+            <summary>An immutable cosmetic asset set; asset identifiers are resolved by the host's rendering system.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.SkinDefinition.#ctor(System.String,System.String,System.String)">
+            <summary>Creates a skin with at least one supported presentation. An asset can reference a complete chess piece set.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.SkinDefinition.SkinId">
+            <summary>Gets the stable, case-sensitive skin identifier; null for the default value.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.SkinDefinition.Asset2D">
+            <summary>Gets an optional identifier for the two-dimensional asset set.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.SkinDefinition.Asset3D">
+            <summary>Gets an optional identifier for the three-dimensional asset set.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.SkinDefinition.IsValid">
+            <summary>Gets whether this value was initialized through its constructor.</summary>
+        </member>
+        <member name="T:Bezoro.Commerce.StoreCatalog">
+            <summary>A copied, immutable catalog of cosmetics and offers, safe for concurrent reads.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.StoreCatalog.#ctor(System.ReadOnlySpan{Bezoro.Commerce.SkinDefinition},System.ReadOnlySpan{Bezoro.Commerce.StoreOffer})">
+            <summary>Copies definitions and rejects default values, duplicate identifiers and offers for unknown skins.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.StoreCatalog.Skins">
+            <summary>Gets the immutable skin definitions in input order.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.StoreCatalog.Offers">
+            <summary>Gets the immutable offers in input order.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.StoreCatalog.TryGetSkin(System.String,Bezoro.Commerce.SkinDefinition@)">
+            <summary>Looks up a skin without allocating; unknown identifiers return false.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.StoreCatalog.TryGetOffer(System.String,Bezoro.Commerce.StoreOffer@)">
+            <summary>Looks up an offer without allocating; unknown identifiers return false.</summary>
+        </member>
+        <member name="T:Bezoro.Commerce.StoreOffer">
+            <summary>An immutable, single-currency offer for permanent ownership of one cosmetic.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.StoreOffer.#ctor(System.String,System.String,System.String,System.Int64,System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset})">
+            <summary>Creates an offer. Start is inclusive, end is exclusive; omitted bounds mean no time restriction.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.StoreOffer.OfferId">
+            <summary>Gets the stable offer identifier; null for the default value.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.StoreOffer.SkinId">
+            <summary>Gets the cosmetic granted by this offer.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.StoreOffer.CurrencyId">
+            <summary>Gets the abstract in-game currency used to pay for this offer.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.StoreOffer.Price">
+            <summary>Gets the nonnegative cost in integral currency units.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.StoreOffer.StartsAt">
+            <summary>Gets the optional inclusive start.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.StoreOffer.EndsAt">
+            <summary>Gets the optional exclusive end.</summary>
+        </member>
+        <member name="P:Bezoro.Commerce.StoreOffer.IsValid">
+            <summary>Gets whether this value was initialized through its constructor.</summary>
+        </member>
+        <member name="M:Bezoro.Commerce.StoreOffer.IsAvailableAt(System.DateTimeOffset)">
+            <summary>Checks availability using the caller's authoritative time, without reading a clock.</summary>
+        </member>
+    </members>
+</doc>

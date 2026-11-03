@@ -1,0 +1,303 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Behaviors</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Behaviors.Behavior`1">
+            <summary>Implements lifecycle, exclusive child ownership, and bounded composition for behavior adapters.</summary>
+            <remarks>
+            The owner serializes all access. Definitions can be shared; mutable runtime instances have one parent.
+            Derived implementations must keep their configured child graph immutable after construction.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.#ctor(Bezoro.Behaviors.BehaviorCompositionLimits)">
+            <summary>Creates a leaf with no configured child runtimes.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.#ctor(Bezoro.Behaviors.Behavior{`0}[],Bezoro.Behaviors.BehaviorCompositionLimits)">
+            <summary>Copies the child references after validating their graph and configured limits.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.Behavior`1.Status">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.Behaviors.Behavior`1.IsBudgetSuspended">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.Behaviors.Behavior`1.CompositionDepth">
+            <summary>Gets the depth of this immutable runtime composition, including this component.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.Behavior`1.ComponentCount">
+            <summary>Gets the number of runtime components, including this component.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.Behavior`1.Children">
+            <summary>Gets the configured children. They can be inspected but are controlled by this parent.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.Start(`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.Tick(`0@,Bezoro.BehaviorTrees.BehaviorBudget@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.Stop(`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.OnStart(`0@)">
+            <summary>Initializes this component. Derived types can start only their direct configured children.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.OnTick(`0@,Bezoro.BehaviorTrees.BehaviorBudget@)">
+            <summary>Advances this component while preserving the shared work budget.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.OnStop(`0@)">
+            <summary>Releases component-specific activity. Remaining started children are stopped automatically.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.IsChildScopeLive(System.Int32)">
+            <summary>Tests whether the owning occurrence still accepts results from a configured child.</summary>
+            <remarks>Override when a state/action scope can be revoked before its child reaches a physical Stop callback.</remarks>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.StartChild(Bezoro.Behaviors.Behavior{`0},`0@)">
+            <summary>Starts a direct child and records it before invoking user code.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.TickChild(Bezoro.Behaviors.Behavior{`0},`0@,Bezoro.BehaviorTrees.BehaviorBudget@)">
+            <summary>Advances a direct child that this parent started.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.StopChild(Bezoro.Behaviors.Behavior{`0},`0@)">
+            <summary>Stops a direct started child, invalidating its parent tracking before callbacks.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.BeginSignalOperation">
+            <summary>Begins a synchronous signal operation. The entire composition must be externally serialized.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.EndSignalOperation">
+            <summary>Ends a signal operation.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.Behavior`1.CanAcceptSignals">
+            <summary>Gets whether this component and every owning ancestor still accept execution results.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.FaultCleanup(`0@)">
+            <summary>Stops owned activity after a failing signal operation and marks this component faulted.</summary>
+        </member>
+        <member name="T:Bezoro.Behaviors.BehaviorCompositionLimits">
+            <summary>Bounds composition before a runtime adopts any child.</summary>
+        </member>
+        <member name="F:Bezoro.Behaviors.BehaviorCompositionLimits.SupportedDepth">
+            <summary>Gets the supported nesting ceiling, which bounds managed adapter recursion.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.BehaviorCompositionLimits.#ctor(System.Int32,System.Int32)">
+            <summary>Creates explicit nesting and component-count limits.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.BehaviorCompositionLimits.MaximumDepth">
+            <summary>Gets the maximum nested runtime depth. A default value selects 32.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.BehaviorCompositionLimits.MaximumComponents">
+            <summary>Gets the maximum number of composed runtime objects. A default value selects 4096.</summary>
+        </member>
+        <member name="T:Bezoro.Behaviors.IBehavior`1">
+            <summary>Runs one explicitly owned behavior with caller-supplied context and work budget.</summary>
+            <typeparam name="TContext">The application's mutable context type.</typeparam>
+        </member>
+        <member name="P:Bezoro.Behaviors.IBehavior`1.Status">
+            <summary>Gets the current lifecycle status. Terminal results remain latched until stopped.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.IBehavior`1.IsBudgetSuspended">
+            <summary>Gets whether the last Tick deferred unfinished evaluation specifically because its shared allowance was exhausted.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.IBehavior`1.Start(`0@)">
+            <summary>Starts an inactive behavior. Starting does not perform a tick.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.IBehavior`1.Tick(`0@,Bezoro.BehaviorTrees.BehaviorBudget@)">
+            <summary>Advances a started behavior using the same budget across its nested components.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.IBehavior`1.Stop(`0@)">
+            <summary>Stops a behavior and its started descendants. Stopping an inactive behavior is a no-op.</summary>
+        </member>
+        <member name="T:Bezoro.Behaviors.StateBehaviorBinding`1">
+            <summary>Runs an owned child while a particular state activation is present.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.StateBehaviorBinding`1.#ctor(Bezoro.StateMachines.StateId,Bezoro.Behaviors.Behavior{`0},System.Nullable{Bezoro.StateMachines.SignalId},System.Nullable{Bezoro.StateMachines.SignalId})">
+            <summary>Creates a state binding with optional one-shot completion signals.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StateBehaviorBinding`1.State">
+            <summary>Gets the state that owns this child activation.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StateBehaviorBinding`1.Child">
+            <summary>Gets the exclusively owned child runtime.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StateBehaviorBinding`1.SuccessSignal">
+            <summary>Gets the signal emitted once when the child succeeds, or null to retain the terminal result until exit.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StateBehaviorBinding`1.FailureSignal">
+            <summary>Gets the signal emitted once when the child fails, or null to retain the terminal result until exit.</summary>
+        </member>
+        <member name="T:Bezoro.Behaviors.StatechartBehavior`1">
+            <summary>Runs bound child behaviors only while their chart states are active.</summary>
+            <remarks>
+            Signals are explicit. Child completion signals are optional, bounded, activation-tagged, and delivered once.
+            No final-state mapping means the machine remains Running. A mapped failure takes precedence over success.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Behaviors.StatechartBehavior`1.#ctor(Bezoro.Statecharts.StatechartDefinition,Bezoro.Statecharts.IStatechartHandler{`0},System.ReadOnlySpan{Bezoro.Behaviors.StateBehaviorBinding{`0}},System.ReadOnlySpan{Bezoro.StateMachines.StateId},System.ReadOnlySpan{Bezoro.StateMachines.StateId},Bezoro.Behaviors.BehaviorCompositionLimits,System.Int32)">
+            <summary>Creates a bounded statechart adapter and validates every child and terminal mapping.</summary>
+            <param name="definition">The shared chart definition.</param>
+            <param name="handler">Optional guards and lifecycle effects.</param>
+            <param name="bindings">Child runtimes bound to unique state occurrences.</param>
+            <param name="successStates">States that complete the machine successfully.</param>
+            <param name="failureStates">States that complete the machine with failure, taking precedence over success.</param>
+            <param name="limits">Limits on nested runtime ownership.</param>
+            <param name="maximumCompletionsPerTick">Maximum completion signals delivered in one Tick, also limited by its shared budget.</param>
+        </member>
+        <member name="P:Bezoro.Behaviors.StatechartBehavior`1.Definition">
+            <summary>Gets the shared immutable chart definition.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StatechartBehavior`1.ActiveStates">
+            <summary>Gets the borrowed active state view, valid until the next lifecycle or signal operation.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StatechartBehavior`1.Bindings">
+            <summary>Gets the child bindings, ordered by state ID.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StatechartBehavior`1.MaximumCompletionsPerTick">
+            <summary>Gets the maximum number of child-completion signals delivered per Tick.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StatechartBehavior`1.PendingCompletionCount">
+            <summary>Gets the number of queued child completions, including stale entries awaiting bounded removal.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StatechartBehavior`1.CompletionCapacity">
+            <summary>Gets the reserved completion rows. No rows are allocated when no binding emits a completion signal.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.StatechartBehavior`1.IsActive(Bezoro.StateMachines.StateId)">
+            <summary>Tests whether a state is active.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.StatechartBehavior`1.IsActive(Bezoro.Statecharts.StateActivation)">
+            <summary>Tests whether a state activation is still live.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.StatechartBehavior`1.GetActivation(Bezoro.StateMachines.StateId)">
+            <summary>Gets the token for an active state.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.StatechartBehavior`1.Dispatch(Bezoro.StateMachines.SignalId,`0@)">
+            <summary>Delivers one host signal synchronously. The whole composition must be idle and externally serialized.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.StatechartBehavior`1.TryDispatch(Bezoro.Statecharts.StateActivation,Bezoro.StateMachines.SignalId,`0@)">
+            <summary>Delivers a signal only while its originating activation is still live and this component is Running.</summary>
+            <returns>False for an old, foreign, default, stopped, or terminal activation.</returns>
+        </member>
+        <member name="M:Bezoro.Behaviors.StatechartBehavior`1.OnStart(`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.StatechartBehavior`1.OnTick(`0@,Bezoro.BehaviorTrees.BehaviorBudget@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.StatechartBehavior`1.OnStop(`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.StatechartBehavior`1.IsChildScopeLive(System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.Behaviors.StateMachineBehavior`1">
+            <summary>Adapts the lightweight flat transition definition to optional owned state behaviors.</summary>
+            <remarks>
+            The flat definition stays independent of composition. This adapter stores only its bindings and one active child.
+            Signals are explicit; an empty final-state mapping leaves the machine Running indefinitely.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Behaviors.StateMachineBehavior`1.#ctor(Bezoro.StateMachines.StateMachineDefinition,System.ReadOnlySpan{Bezoro.Behaviors.StateBehaviorBinding{`0}},System.ReadOnlySpan{Bezoro.StateMachines.StateId},System.ReadOnlySpan{Bezoro.StateMachines.StateId},Bezoro.Behaviors.BehaviorCompositionLimits)">
+            <summary>Creates a flat machine adapter with optional child bindings and terminal states.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StateMachineBehavior`1.Definition">
+            <summary>Gets the shared immutable flat definition.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StateMachineBehavior`1.CurrentState">
+            <summary>Gets the current numeric state. An inactive adapter retains its last state for inspection.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StateMachineBehavior`1.ActivationVersion">
+            <summary>Gets this instance's monotonically increasing state-entry version, including self reentry.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StateMachineBehavior`1.IsStateActive">
+            <summary>Gets whether the current state entry is live. Exit invalidates it before child cancellation callbacks.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.StateMachineBehavior`1.Bindings">
+            <summary>Gets the configured child bindings ordered by state ID.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.StateMachineBehavior`1.Dispatch(Bezoro.StateMachines.SignalId,`0@)">
+            <summary>Delivers one explicit signal. Every matched transition, including self transitions, exits and reenters its state.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.StateMachineBehavior`1.TryDispatch(System.UInt64,Bezoro.StateMachines.SignalId,`0@)">
+            <summary>Delivers a signal only when its originating state-entry version is still current in this instance.</summary>
+            <remarks>Versions are instance-local, so the caller must retain the originating adapter reference as well.</remarks>
+        </member>
+        <member name="M:Bezoro.Behaviors.StateMachineBehavior`1.OnStart(`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.StateMachineBehavior`1.OnTick(`0@,Bezoro.BehaviorTrees.BehaviorBudget@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.StateMachineBehavior`1.OnStop(`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.StateMachineBehavior`1.IsChildScopeLive(System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.Behaviors.TreeBehavior`1">
+            <summary>Adapts a behavior tree and its optional child-runtime bindings to the composition lifecycle.</summary>
+            <remarks>
+            Bound actions delegate their complete lifecycle to the child; unbound actions use the host handler.
+            A child suspended by an exhausted budget receives the next quantum before the parent's next reevaluation.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehavior`1.#ctor(Bezoro.BehaviorTrees.BehaviorTreeDefinition,Bezoro.BehaviorTrees.IBehaviorTreeHandler{`0},System.ReadOnlySpan{Bezoro.Behaviors.TreeBehaviorBinding{`0}},Bezoro.Behaviors.BehaviorCompositionLimits)">
+            <summary>Creates an adapter, validating all bindings and ownership before adopting any child.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.TreeBehavior`1.Definition">
+            <summary>Gets the shared immutable tree definition.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.TreeBehavior`1.Bindings">
+            <summary>Gets the bindings ordered by compiled node occurrence.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehavior`1.IsActive(Bezoro.BehaviorTrees.BehaviorActivation)">
+            <summary>Tests whether an action token still belongs to this tree's active execution.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehavior`1.OnStart(`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehavior`1.OnTick(`0@,Bezoro.BehaviorTrees.BehaviorBudget@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehavior`1.OnStop(`0@)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehavior`1.IsChildScopeLive(System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="T:Bezoro.Behaviors.TreeBehaviorBinding`1">
+            <summary>Binds a child runtime to one action occurrence in a compiled behavior tree.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehaviorBinding`1.#ctor(System.Int32,Bezoro.Behaviors.Behavior{`0})">
+            <summary>Creates a binding. Node IDs identify compiled occurrences, not shared action identifiers.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.TreeBehaviorBinding`1.NodeId">
+            <summary>Gets the action occurrence's compiled node ID.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.TreeBehaviorBinding`1.Child">
+            <summary>Gets the exclusively owned child runtime.</summary>
+        </member>
+        <member name="T:Bezoro.Behaviors.TreeBehaviorBuilder`1">
+            <summary>Binds owned child runtimes to named compiled actions without calculating preorder offsets.</summary>
+            <remarks>
+            Bind validates construction handles before changing the builder. Build adopts the children only after complete validation.
+            A successful Build consumes this builder because mutable children can have only one owner.
+            The runtime stores compact bindings and does not retain this builder, its compilation, handles, or expression map.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehaviorBuilder`1.#ctor(Bezoro.BehaviorTrees.BehaviorTreeCompilation,Bezoro.BehaviorTrees.IBehaviorTreeHandler{`0})">
+            <summary>Chooses the compiled tree and optional handler for its unbound actions and predicates.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehaviorBuilder`1.Bind(Bezoro.BehaviorTrees.BehaviorActionHandle,Bezoro.Behaviors.Behavior{`0})">
+            <summary>Binds one action occurrence to a child runtime, without adopting the child until Build.</summary>
+            <exception cref="T:System.ArgumentException">The action is default, foreign, already bound, or the child is already bound in this builder.</exception>
+            <exception cref="T:System.ArgumentNullException">The child is null.</exception>
+            <exception cref="T:System.InvalidOperationException">Build already succeeded.</exception>
+        </member>
+        <member name="M:Bezoro.Behaviors.TreeBehaviorBuilder`1.Build(Bezoro.Behaviors.BehaviorCompositionLimits)">
+            <summary>Validates composition limits and ownership, then creates the runtime and consumes this builder.</summary>
+            <remarks>A failed Build leaves the builder unconsumed and does not adopt any child.</remarks>
+            <exception cref="T:System.InvalidOperationException">Build already succeeded.</exception>
+        </member>
+    </members>
+</doc>

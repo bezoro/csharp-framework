@@ -1,0 +1,190 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Chess.Presentation</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Chess.Presentation.ChessBoardOrientation">
+            <summary>Which player's pieces appear nearest the viewer.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessBoardOrientation.White">
+            <summary>White is nearest; the bottom-left cell is a1.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessBoardOrientation.Black">
+            <summary>Black is nearest; the bottom-left cell is h8.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Presentation.ChessBoardCoordinates">
+            <summary>Maps board squares to an engine-independent display grid with its origin at bottom-left.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Presentation.ChessBoardCoordinates.FromDisplayCell(System.Int32,System.Int32,Bezoro.Chess.Presentation.ChessBoardOrientation)">
+            <summary>Converts a display cell to an algebraic board square. Both indexes range from zero to seven.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Presentation.ChessBoardCoordinates.GetColumn(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare,Bezoro.Chess.Presentation.ChessBoardOrientation)">
+            <summary>Gets the display column for a square.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Presentation.ChessBoardCoordinates.GetRow(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare,Bezoro.Chess.Presentation.ChessBoardOrientation)">
+            <summary>Gets the display row for a square, increasing upwards from the bottom edge.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Presentation.ChessBoardPresentation">
+            <summary>
+            Immutable renderer-independent board data. Build after a match or selection change, then share the same value
+            with 2D and 3D renderers. Creation and square queries allocate no managed objects for valid match snapshots.
+            The projection does not search legal moves, start an engine, advance clocks or retain the match owner.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessBoardPresentation.PositionKey">
+            <summary>Stable source position key; compare it when deciding whether to animate a newly played move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessBoardPresentation.SelectedSquare">
+            <summary>Currently selected friendly piece, or no value when the selection is unavailable.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessBoardPresentation.LastMove">
+            <summary>Last move remaining in the supplied history. Undo automatically restores the preceding move.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Presentation.ChessBoardPresentation.FromMatch(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState@,System.Nullable{Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare})">
+            <summary>
+            Projects a valid match snapshot. Selection is accepted only for an active friendly piece while play is ongoing;
+            a pending promotion instead selects its source. Legal destinations come from the snapshot's existing legal moves.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Presentation.ChessBoardPresentation.GetPieceSymbol(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare)">
+            <summary>Returns the FEN piece symbol on a square, or the null character for an empty square.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Presentation.ChessBoardPresentation.GetHighlights(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare)">
+            <summary>Returns every annotation on a square, including overlaps.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Presentation.ChessHighlightPalette">
+            <summary>Immutable configurable RGBA overlay colors shared by 2D and 3D renderers.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessHighlightPalette.Default">
+            <summary>The default palette. Colors include opacity for use as overlays.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Presentation.ChessHighlightPalette.#ctor(System.Nullable{Bezoro.Core.Types.Color},System.Nullable{Bezoro.Core.Types.Color},System.Nullable{Bezoro.Core.Types.Color},System.Nullable{Bezoro.Core.Types.Color},System.Nullable{Bezoro.Core.Types.Color},System.Nullable{Bezoro.Core.Types.Color},System.Nullable{Bezoro.Core.Types.Color},System.Nullable{Bezoro.Core.Types.Color},System.Nullable{Bezoro.Core.Types.Color})">
+            <summary>Creates a palette; omitted colors use the defaults.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessHighlightPalette.Selected">
+            <summary>Selected-piece overlay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessHighlightPalette.LegalMove">
+            <summary>Quiet legal-destination overlay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessHighlightPalette.LegalCapture">
+            <summary>Capturing legal-destination overlay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessHighlightPalette.LastMove">
+            <summary>Last primary move overlay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessHighlightPalette.Capture">
+            <summary>Last capture victim overlay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessHighlightPalette.CastlingRook">
+            <summary>Last castling rook motion overlay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessHighlightPalette.Promotion">
+            <summary>Pending or completed promotion overlay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessHighlightPalette.Check">
+            <summary>Checked-king overlay.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessHighlightPalette.Checkmate">
+            <summary>Checkmated-king overlay.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Presentation.ChessHighlightPalette.GetOverlay(Bezoro.Chess.Presentation.ChessSquareHighlights)">
+            <summary>
+            Resolves a single overlay using this priority: mate, check, promotion, selection, legal capture,
+            legal quiet move, capture, castling rook, last move. Renderers may instead combine the individual colors.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Chess.Presentation.ChessMoveVisual">
+            <summary>Piece motion and special-move geometry for highlighting or animating a completed move.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessMoveVisual.From">
+            <summary>Primary piece source.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessMoveVisual.To">
+            <summary>Primary piece destination.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessMoveVisual.MovingPiece">
+            <summary>Original FEN symbol, preserving the moving piece's color.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessMoveVisual.CapturedSquare">
+            <summary>Actual victim square before capture; differs from the destination for en passant.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessMoveVisual.CapturedPiece">
+            <summary>Captured piece's original FEN symbol.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessMoveVisual.CastlingRookFrom">
+            <summary>Rook source during castling.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessMoveVisual.CastlingRookTo">
+            <summary>Rook destination during castling.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessMoveVisual.PromotionPiece">
+            <summary>Promoted FEN symbol preserving color, or no value for a nonpromotion.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Presentation.ChessBoardVisualMode">
+            <summary>The currently displayed board renderer.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessBoardVisualMode.TwoDimensional">
+            <summary>A flat board using sprites or another 2D representation.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessBoardVisualMode.ThreeDimensional">
+            <summary>A board using 3D piece models.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Presentation.ChessPieceSkin">
+            <summary>
+            Immutable metadata for a coherent piece set in both renderers. Asset keys identify a complete sprite or model set;
+            actual assets, asynchronous loading, pooling and release remain the rendering application's responsibility.
+            This descriptor is not proof of ownership or a store entitlement.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Chess.Presentation.ChessPieceSkin.#ctor(System.String,System.String,System.String)">
+            <summary>Creates a skin with stable catalog and renderer-specific asset keys.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessPieceSkin.Id">
+            <summary>Stable cosmetic catalog identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessPieceSkin.TwoDimensionalAssetKey">
+            <summary>Asset key for a set containing all twelve 2D piece appearances.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Presentation.ChessPieceSkin.ThreeDimensionalAssetKey">
+            <summary>Asset key for a set containing all twelve 3D piece appearances.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.Presentation.ChessPieceSkin.GetAssetKey(Bezoro.Chess.Presentation.ChessBoardVisualMode)">
+            <summary>Returns the asset-set key for the requested renderer.</summary>
+        </member>
+        <member name="T:Bezoro.Chess.Presentation.ChessSquareHighlights">
+            <summary>Independent visual annotations that may overlap on a board square.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessSquareHighlights.None">
+            <summary>No annotation.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessSquareHighlights.Selected">
+            <summary>The currently selected friendly piece.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessSquareHighlights.LegalMove">
+            <summary>A legal quiet destination for the selected piece.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessSquareHighlights.LegalCapture">
+            <summary>A legal capturing destination, including en passant.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessSquareHighlights.LastMove">
+            <summary>The source or destination of the last played move.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessSquareHighlights.Capture">
+            <summary>The square occupied by the last captured piece before its capture.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessSquareHighlights.CastlingRook">
+            <summary>The source or destination of the rook during the last castle.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessSquareHighlights.Promotion">
+            <summary>A promotion destination, pending or completed by the last move.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessSquareHighlights.Check">
+            <summary>The king belonging to the side currently in check.</summary>
+        </member>
+        <member name="F:Bezoro.Chess.Presentation.ChessSquareHighlights.Checkmate">
+            <summary>The king belonging to the checkmated side.</summary>
+        </member>
+    </members>
+</doc>

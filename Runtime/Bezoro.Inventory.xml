@@ -1,0 +1,155 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Inventory</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Inventory.ItemCatalog">
+            <summary>Owns a copied, immutable set of item definitions.</summary>
+            <remarks>Share one catalog across inventories that exchange items. The catalog can be read concurrently.</remarks>
+        </member>
+        <member name="M:Bezoro.Inventory.ItemCatalog.#ctor(System.ReadOnlySpan{Bezoro.Inventory.ItemDefinition})">
+            <summary>Copies definitions in input order. Empty catalogs are allowed; duplicate or default definitions are rejected.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.ItemCatalog.Count">
+            <summary>Gets the number of definitions.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.ItemCatalog.Definitions">
+            <summary>Gets a read-only view of the copied definitions in input order.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.ItemCatalog.TryGetDefinition(Bezoro.Inventory.ItemId,Bezoro.Inventory.ItemDefinition@)">
+            <summary>Looks up a definition, returning false and the default definition for an unknown or default identifier.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.ItemCatalog.GetDefinition(Bezoro.Inventory.ItemId)">
+            <summary>Gets a definition or throws <see cref="T:System.ArgumentException" /> for an unknown or default identifier.</summary>
+        </member>
+        <member name="T:Bezoro.Inventory.ItemDefinition">
+            <summary>Defines the maximum quantity of one item in a slot.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.ItemDefinition.#ctor(Bezoro.Inventory.ItemId,System.Int32)">
+            <summary>Creates a definition for a valid identifier and a positive per-slot limit.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.ItemDefinition.Item">
+            <summary>Gets the item identifier.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.ItemDefinition.MaximumStackSize">
+            <summary>Gets the positive per-slot quantity limit.</summary>
+        </member>
+        <member name="T:Bezoro.Inventory.ItemId">
+            <summary>Identifies an application-defined item. Zero is reserved for an empty stack.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.ItemId.#ctor(System.UInt32)">
+            <summary>Creates an item identifier from a positive application-defined value.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.ItemId.Value">
+            <summary>Gets the application-defined value; the default identifier has value zero.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.ItemId.IsValid">
+            <summary>Gets whether this identifier can identify an item.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.ItemId.Equals(Bezoro.Inventory.ItemId)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Inventory.ItemId.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Inventory.ItemId.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Inventory.ItemId.op_Equality(Bezoro.Inventory.ItemId,Bezoro.Inventory.ItemId)">
+            <summary>Compares two item identifiers.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.ItemId.op_Inequality(Bezoro.Inventory.ItemId,Bezoro.Inventory.ItemId)">
+            <summary>Compares two item identifiers.</summary>
+        </member>
+        <member name="T:Bezoro.Inventory.ItemStack">
+            <summary>A quantity of one item. The default value is the canonical empty stack.</summary>
+            <remarks>A stack has no catalog ownership. Insertion validates its identifier and quantity against the destination catalog.</remarks>
+        </member>
+        <member name="M:Bezoro.Inventory.ItemStack.#ctor(Bezoro.Inventory.ItemId,System.Int32)">
+            <summary>Creates a nonempty stack. Use the default value for an empty stack.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.ItemStack.Item">
+            <summary>Gets the item identifier, or the default identifier for an empty stack.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.ItemStack.Quantity">
+            <summary>Gets the positive quantity, or zero for an empty stack.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.ItemStack.IsEmpty">
+            <summary>Gets whether the stack is empty.</summary>
+        </member>
+        <member name="T:Bezoro.Inventory.SlotInventory">
+            <summary>Stores item stacks in a fixed number of slots.</summary>
+            <remarks>
+            Successful mutations retain catalog limits. Capacity failures return false without modifying any slot.
+            Mutable inventories require one owning thread or external serialization, including across transfers.
+            Normal data operations invoke no application callbacks and allocate no managed storage after construction; exceptions allocate as usual.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.#ctor(Bezoro.Inventory.ItemCatalog,System.Int32)">
+            <summary>Creates an empty inventory with fixed capacity. Zero slots are allowed.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.SlotInventory.Catalog">
+            <summary>Gets the immutable catalog shared by compatible inventories.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.SlotInventory.Capacity">
+            <summary>Gets the fixed number of slots.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.SlotInventory.OccupiedSlotCount">
+            <summary>Gets the number of nonempty slots.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.SlotInventory.Slots">
+            <summary>Gets a borrowed view of all slots. Mutations change this view; copy it to retain a snapshot.</summary>
+        </member>
+        <member name="P:Bezoro.Inventory.SlotInventory.Item(System.Int32)">
+            <summary>Gets a value snapshot of one slot.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.GetQuantity(Bezoro.Inventory.ItemId)">
+            <summary>Counts one catalog item's total quantity across every slot.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.GetAvailableCapacity(Bezoro.Inventory.ItemId)">
+            <summary>Counts the quantity of an item that could fit in partial stacks and empty slots.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.TryAdd(Bezoro.Inventory.ItemId,System.Int64)">
+            <summary>Adds an aggregate positive quantity, filling matching partial stacks before empty slots in ascending index order.</summary>
+            <returns>False when the complete quantity does not fit. No partial insertion occurs.</returns>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.TryAdd(Bezoro.Inventory.ItemStack)">
+            <summary>Adds a stack's quantity across available slots. An empty stack succeeds without changing storage.</summary>
+            <remarks>The aggregate can split across slots even if the supplied stack exceeds the catalog's per-slot limit.</remarks>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.TryRemove(Bezoro.Inventory.ItemId,System.Int64)">
+            <summary>Removes a positive aggregate quantity from matching slots in ascending index order.</summary>
+            <returns>False when the inventory does not hold the complete quantity. No partial removal occurs.</returns>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.TryInsertAt(System.Int32,Bezoro.Inventory.ItemStack)">
+            <summary>Inserts a complete stack into one empty or matching slot. An empty stack is a no-op.</summary>
+            <returns>False when the slot contains another item or the complete quantity exceeds its stack limit.</returns>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.TryTakeAt(System.Int32,System.Int32,Bezoro.Inventory.ItemStack@)">
+            <summary>Takes a positive quantity from one slot, returning an empty output if the complete quantity is unavailable.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.TryTransferTo(Bezoro.Inventory.SlotInventory,Bezoro.Inventory.ItemId,System.Int64)">
+            <summary>Transfers a positive aggregate quantity atomically between inventories sharing this catalog instance.</summary>
+            <returns>False when the source quantity or complete destination capacity is insufficient.</returns>
+            <remarks>
+            Both inventories must be externally serialized for the duration of the call.
+            A transfer to the same inventory succeeds without mutation only if the requested quantity exists.
+            Different catalog instances throw even when their definitions happen to match.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.TryRestore(System.ReadOnlySpan{Bezoro.Inventory.ItemStack})">
+            <summary>Replaces all slots from a complete snapshot after validating its length, item identifiers, and per-slot limits.</summary>
+            <returns>False for a malformed snapshot, leaving the inventory unchanged.</returns>
+            <remarks>The input may alias the current borrowed slot view. A snapshot carries no catalog identity; the application owns its schema.</remarks>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.Clear">
+            <summary>Empties every slot while retaining storage.</summary>
+        </member>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+                Enables C# 9 init-only setters on older frameworks.
+            </summary>
+        </member>
+    </members>
+</doc>

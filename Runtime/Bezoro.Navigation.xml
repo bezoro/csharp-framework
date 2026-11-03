@@ -1,0 +1,164 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Navigation</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.Navigation.GridMovement">
+            <summary>Specifies the edges available between neighboring cells.</summary>
+        </member>
+        <member name="F:Bezoro.Navigation.GridMovement.FourWay">
+            <summary>Moves horizontally or vertically at a base cost of 1000.</summary>
+        </member>
+        <member name="F:Bezoro.Navigation.GridMovement.EightWay">
+            <summary>Also permits diagonal steps at a base cost of 1414.</summary>
+        </member>
+        <member name="T:Bezoro.Navigation.GridPathfinder">
+            <summary>
+            Owns reusable A* working storage. Searches allocate no managed memory after construction.
+            A map can be shared across workers; each concurrent worker must own a separate pathfinder.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Navigation.GridPathfinder.#ctor(System.Int32)">
+            <summary>Allocates working storage for maps containing at most <paramref name="capacity"/> cells.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPathfinder.Capacity">
+            <summary>Gets the maximum supported map area.</summary>
+        </member>
+        <member name="M:Bezoro.Navigation.GridPathfinder.FindPath(Bezoro.Navigation.NavigationGrid,Bezoro.Navigation.GridPoint,Bezoro.Navigation.GridPoint,System.Span{Bezoro.Navigation.GridPoint},Bezoro.Navigation.GridPathOptions,System.Threading.CancellationToken)">
+            <summary>Finds the least-cost route and copies both endpoints into a sufficiently large destination.</summary>
+            <remarks>
+            Orthogonal steps cost 1000 times the destination cell's weight; diagonals cost 1414 times that weight.
+            Failure outcomes leave the destination unchanged. Cancellation is checked during search and route sizing;
+            the final bounded route copy completes once publication begins.
+            Concurrent or reentrant use of this instance throws <see cref="T:System.InvalidOperationException"/>.
+            </remarks>
+        </member>
+        <member name="T:Bezoro.Navigation.GridPathOptions">
+            <summary>Controls topology and the maximum number of nodes whose outgoing edges are expanded.</summary>
+            <remarks>The default value selects four-way movement, forbids corner cutting, and has no practical expansion limit.</remarks>
+        </member>
+        <member name="M:Bezoro.Navigation.GridPathOptions.#ctor(Bezoro.Navigation.GridMovement,System.Boolean,System.Int32)">
+            <summary>Creates search options. A zero expansion budget still permits the trivial start-equals-goal path.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPathOptions.Movement">
+            <summary>Gets the movement topology.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPathOptions.AllowCornerCutting">
+            <summary>Gets whether diagonal steps may pass between blocked orthogonal neighbors.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPathOptions.MaxExpandedNodes">
+            <summary>Gets the maximum number of nodes whose outgoing edges may be examined.</summary>
+        </member>
+        <member name="T:Bezoro.Navigation.GridPathResult">
+            <summary>An immutable result containing route size, weighted cost, and observed search work.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPathResult.Status">
+            <summary>Gets the search outcome.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPathResult.HasPath">
+            <summary>Gets whether a route exists, including when the destination was too small.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPathResult.RequiredPathLength">
+            <summary>Gets the complete point count, including both endpoints, or zero when no route was determined.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPathResult.WrittenLength">
+            <summary>Gets the number of points written, which is zero unless the complete route was copied.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPathResult.TotalCost">
+            <summary>Gets the weighted cost, excluding the start cell, or null when no route was determined.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPathResult.ExpandedNodes">
+            <summary>Gets the count of nodes whose outgoing edges were examined. The goal is not expanded.</summary>
+        </member>
+        <member name="T:Bezoro.Navigation.GridPathStatus">
+            <summary>Describes whether a route was found and copied to the caller's destination.</summary>
+        </member>
+        <member name="F:Bezoro.Navigation.GridPathStatus.Unreachable">
+            <summary>No path exists, or at least one endpoint is blocked.</summary>
+        </member>
+        <member name="F:Bezoro.Navigation.GridPathStatus.Found">
+            <summary>The complete route was written to the destination.</summary>
+        </member>
+        <member name="F:Bezoro.Navigation.GridPathStatus.DestinationTooSmall">
+            <summary>A route was found, but the destination could not hold it. The destination was unchanged.</summary>
+        </member>
+        <member name="F:Bezoro.Navigation.GridPathStatus.Canceled">
+            <summary>Cancellation was observed before route publication. The destination was unchanged.</summary>
+        </member>
+        <member name="F:Bezoro.Navigation.GridPathStatus.ExpansionLimitReached">
+            <summary>The expansion budget was exhausted before a route was found. The destination was unchanged.</summary>
+        </member>
+        <member name="T:Bezoro.Navigation.GridPoint">
+            <summary>An integer coordinate in a navigation grid.</summary>
+        </member>
+        <member name="M:Bezoro.Navigation.GridPoint.#ctor(System.Int32,System.Int32)">
+            <summary>Creates a coordinate. Grid APIs validate whether it lies within their bounds.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPoint.X">
+            <summary>Gets the horizontal coordinate.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.GridPoint.Y">
+            <summary>Gets the vertical coordinate.</summary>
+        </member>
+        <member name="M:Bezoro.Navigation.GridPoint.Equals(Bezoro.Navigation.GridPoint)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Navigation.GridPoint.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Navigation.GridPoint.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Navigation.GridPoint.ToString">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Navigation.GridPoint.op_Equality(Bezoro.Navigation.GridPoint,Bezoro.Navigation.GridPoint)">
+            <summary>Compares coordinates by value.</summary>
+        </member>
+        <member name="M:Bezoro.Navigation.GridPoint.op_Inequality(Bezoro.Navigation.GridPoint,Bezoro.Navigation.GridPoint)">
+            <summary>Compares coordinates by value.</summary>
+        </member>
+        <member name="T:Bezoro.Navigation.NavigationGrid">
+            <summary>
+            An immutable row-major grid. Zero blocks a cell; positive costs weight entering it.
+            The constructor copies caller data, allowing the resulting map to be shared by independent searches.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Navigation.NavigationGrid.#ctor(System.Int32,System.Int32,System.ReadOnlySpan{System.UInt16})">
+            <summary>Copies exactly <paramref name="width"/> times <paramref name="height"/> row-major costs.</summary>
+        </member>
+        <member name="M:Bezoro.Navigation.NavigationGrid.#ctor(System.Int32,System.Int32,System.UInt16)">
+            <summary>Creates a uniform grid. A zero cost creates a completely blocked grid.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.NavigationGrid.Width">
+            <summary>Gets the number of columns.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.NavigationGrid.Height">
+            <summary>Gets the number of rows.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.NavigationGrid.CellCount">
+            <summary>Gets the number of cells.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.NavigationGrid.MinimumTraversalCost">
+            <summary>Gets the smallest positive cost, or zero when every cell is blocked.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.NavigationGrid.Costs">
+            <summary>Gets a read-only view of row-major traversal costs.</summary>
+        </member>
+        <member name="P:Bezoro.Navigation.NavigationGrid.Item(System.Int32,System.Int32)">
+            <summary>Gets the traversal cost at a valid coordinate.</summary>
+        </member>
+        <member name="M:Bezoro.Navigation.NavigationGrid.Contains(Bezoro.Navigation.GridPoint)">
+            <summary>Returns whether the coordinate lies inside the grid.</summary>
+        </member>
+        <member name="M:Bezoro.Navigation.NavigationGrid.IsWalkable(Bezoro.Navigation.GridPoint)">
+            <summary>Returns whether a coordinate is inside the grid and has a positive cost.</summary>
+        </member>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+                Enables C# 9 init-only setters on older frameworks.
+            </summary>
+        </member>
+    </members>
+</doc>

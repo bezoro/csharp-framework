@@ -1,0 +1,1017 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.Logging</name>
+    </assembly>
+    <members>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+                Enables C# 9 init-only setters on older frameworks.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Logger">
+            <summary>
+                Provides a clean, flexible logging utility with optional complexity.
+            </summary>
+        </member>
+        <member name="E:Bezoro.Logging.Logger.OnLog">
+            <summary>
+                Event invoked when a log message is processed.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Logger.MinimumLevel">
+            <summary>
+                Minimum log level to process. Logs below this level are ignored.
+                Default: <see cref="F:Bezoro.Logging.Types.LogLevel.Info" />.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.IsEnabled(Bezoro.Logging.Types.LogLevel,System.Nullable{Bezoro.Logging.Types.LogCategory})">
+            <summary>Reports whether a listener would receive this level and category under the current filters.</summary>
+            <remarks>Use before constructing expensive arguments. This is a snapshot; listeners and settings can change.</remarks>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.BeginTimer(System.String,System.Nullable{Bezoro.Logging.Types.LogCategory},System.Object)">
+            <summary>
+                Begins a performance timer that logs the operation duration when disposed if the
+                Bezoro.Logging assembly is compiled with <c>DEBUG</c>.
+            </summary>
+            <param name="operationName">The name of the operation being timed.</param>
+            <param name="category">Optional log category.</param>
+            <param name="contextObject">Optional context object.</param>
+            <returns>
+                A scoped timer that records and logs elapsed time when the Bezoro.Logging assembly is compiled with <c>DEBUG</c>;
+                otherwise, its disposal performs no work.
+            </returns>
+            <example>
+                <code>
+            using (Logger.BeginTimer("LoadLevel", LogCategory.Loading))
+            {
+                // ... operation code ...
+            }
+            // Output includes: ℹ️ [⏳] LoadLevel completed in 123.45ms
+            </code>
+            </example>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.Log(System.Object,Bezoro.Logging.Types.LogLevel,System.Nullable{Bezoro.Logging.Types.LogCategory},System.Object,System.Boolean,System.String,System.String)">
+            <summary>
+                Logs a message with optional complexity.
+            </summary>
+            <param name="message">The message to log (string, number, object, FormattableString, etc.).</param>
+            <param name="level">The severity level (default: Info).</param>
+            <param name="category">Optional log category.</param>
+            <param name="contextObject">Optional context object (e.g., Unity Object for console highlighting).</param>
+            <param name="captureCallerInfo">Whether to automatically capture caller information.</param>
+            <param name="memberName">
+                Automatically populated with the calling member name via <see cref="T:System.Runtime.CompilerServices.CallerMemberNameAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+            <param name="filePath">
+                Automatically populated with the source file path via <see cref="T:System.Runtime.CompilerServices.CallerFilePathAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.Log(System.Exception,System.String,System.Nullable{Bezoro.Logging.Types.LogCategory},System.Object,System.Boolean,System.String,System.String)">
+            <summary>
+                Logs an exception with automatic detail extraction.
+            </summary>
+            <param name="exception">The exception to log.</param>
+            <param name="customMessage">Optional custom message to prepend to the exception message for additional context.</param>
+            <param name="category">Optional log category.</param>
+            <param name="contextObject">Optional context object (e.g., Unity Object for console highlighting).</param>
+            <param name="captureCallerInfo">Whether to automatically capture caller information (default: true).</param>
+            <param name="memberName">
+                Automatically populated with the calling member name via <see cref="T:System.Runtime.CompilerServices.CallerMemberNameAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+            <param name="filePath">
+                Automatically populated with the source file path via <see cref="T:System.Runtime.CompilerServices.CallerFilePathAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.LogError(System.Object,System.Nullable{Bezoro.Logging.Types.LogCategory},System.Object,System.Boolean,System.String,System.String)">
+            <summary>
+                Logs an error message with optional complexity.
+            </summary>
+            <param name="message">The message to log (string, number, object, FormattableString, etc.).</param>
+            <param name="category">Optional log category.</param>
+            <param name="contextObject">Optional context object (e.g., Unity Object for console highlighting).</param>
+            <param name="captureCallerInfo">Whether to automatically capture caller information.</param>
+            <param name="memberName">
+                Automatically populated with the calling member name via <see cref="T:System.Runtime.CompilerServices.CallerMemberNameAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+            <param name="filePath">
+                Automatically populated with the source file path via <see cref="T:System.Runtime.CompilerServices.CallerFilePathAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.LogException(System.Exception,System.String,System.Nullable{Bezoro.Logging.Types.LogCategory},System.Object,System.Boolean,System.String,System.String)">
+            <summary>
+                Logs an exception with automatic detail extraction.
+            </summary>
+            <param name="exception">The exception to log.</param>
+            <param name="customMessage">Optional custom message to prepend to the exception message for additional context.</param>
+            <param name="category">Optional log category.</param>
+            <param name="contextObject">Optional context object (e.g., Unity Object for console highlighting).</param>
+            <param name="captureCallerInfo">Whether to automatically capture caller information (default: true).</param>
+            <param name="memberName">
+                Automatically populated with the calling member name via <see cref="T:System.Runtime.CompilerServices.CallerMemberNameAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+            <param name="filePath">
+                Automatically populated with the source file path via <see cref="T:System.Runtime.CompilerServices.CallerFilePathAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.LogSuccess(System.Object,System.Nullable{Bezoro.Logging.Types.LogCategory},System.Object,System.Boolean,System.String,System.String)">
+            <summary>
+                Logs a success message with optional complexity.
+            </summary>
+            <param name="message">The message to log (string, number, object, FormattableString, etc.).</param>
+            <param name="category">Optional log category.</param>
+            <param name="contextObject">Optional context object (e.g., Unity Object for console highlighting).</param>
+            <param name="captureCallerInfo">Whether to automatically capture caller information.</param>
+            <param name="memberName">
+                Automatically populated with the calling member name via <see cref="T:System.Runtime.CompilerServices.CallerMemberNameAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+            <param name="filePath">
+                Automatically populated with the source file path via <see cref="T:System.Runtime.CompilerServices.CallerFilePathAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.LogWarning(System.Object,System.Nullable{Bezoro.Logging.Types.LogCategory},System.Object,System.Boolean,System.String,System.String)">
+            <summary>
+                Logs a warning message with optional complexity.
+            </summary>
+            <param name="message">The message to log (string, number, object, FormattableString, etc.).</param>
+            <param name="category">Optional log category.</param>
+            <param name="contextObject">Optional context object (e.g., Unity Object for console highlighting).</param>
+            <param name="captureCallerInfo">Whether to automatically capture caller information.</param>
+            <param name="memberName">
+                Automatically populated with the calling member name via <see cref="T:System.Runtime.CompilerServices.CallerMemberNameAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+            <param name="filePath">
+                Automatically populated with the source file path via <see cref="T:System.Runtime.CompilerServices.CallerFilePathAttribute" />.
+                Do not provide this parameter manually.
+            </param>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.ExtractTypeNameFromFilePath(System.String)">
+            <summary>
+                Extracts the type name from a file path (e.g., "GameManager" from "path/to/GameManager.cs").
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.FormatMessage(System.Object)">
+            <summary>
+                Formats a message object into a string representation.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.FormatMessage(System.FormattableString)">
+            <summary>
+                Formats a formattable string message with proper collection handling.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Logger.BuildAndInvokePayload(Bezoro.Logging.Internal.LogInput@)">
+            <summary>
+                Builds the log payload and invokes the OnLog event.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.FileLocationConfig">
+            <summary>
+                Configuration for file location metadata.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.FileLocationConfig.Disabled">
+            <summary>
+                Disabled file location configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.FileLocationConfig.FilenameOnly">
+            <summary>
+                Creates an enabled file location configuration (filename only).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.FileLocationConfig.FullPath">
+            <summary>
+                Creates an enabled file location configuration (full path).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.FileLocationConfig.Enabled">
+            <summary>
+                Whether file location is enabled.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.FileLocationConfig.ShowFullPath">
+            <summary>
+                Whether to show full path or just filename.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.FrameCountConfig">
+            <summary>
+                Configuration for frame count metadata.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.FrameCountConfig.Create(System.Func{System.Int32})">
+            <summary>
+                Creates an enabled frame count configuration with the specified provider.
+            </summary>
+            <param name="provider">Function that returns the current frame count (e.g., () => Time.frameCount in Unity).</param>
+        </member>
+        <member name="P:Bezoro.Logging.Types.FrameCountConfig.Disabled">
+            <summary>
+                Disabled frame count configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.FrameCountConfig.Enabled">
+            <summary>
+                Whether frame count is enabled.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.FrameCountConfig.Provider">
+            <summary>
+                Provider function that returns the current frame count.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.GroupingConfig">
+            <summary>
+                Configuration for log grouping.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.GroupingConfig.Create(Bezoro.Logging.Types.LoggerSettings.ContextGrouping,System.Boolean,System.Int32)">
+            <summary>
+                Creates a grouping configuration with the specified strategy.
+            </summary>
+            <param name="groupBy">The grouping strategy.</param>
+            <param name="includeInOutput">Whether to include grouping info in the formatted message.</param>
+            <param name="timeWindowMs">Time window for TimeWindow grouping.</param>
+        </member>
+        <member name="P:Bezoro.Logging.Types.GroupingConfig.None">
+            <summary>
+                No grouping.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.GroupingConfig.IncludeInOutput">
+            <summary>
+                Whether to include grouping context in the formatted output.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.GroupingConfig.GroupBy">
+            <summary>
+                The grouping strategy to use.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.GroupingConfig.TimeWindowMs">
+            <summary>
+                Time window in milliseconds for TimeWindow grouping (only used when GroupBy is TimeWindow).
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.LogCategory">
+            <summary>
+                Specifies the category of a log message for classification and filtering.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.None">
+            <summary>
+                No specific category assigned.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Default">
+            <summary>
+                Default/general log category.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.System">
+            <summary>
+                System-level log messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Other">
+            <summary>
+                Other uncategorized log messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Debug">
+            <summary>
+                Messages related to debugging.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Test">
+            <summary>
+                Messages related to tests.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Profiling">
+            <summary>
+                Profiling or performance-analysis messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Editor">
+            <summary>
+                Editor-specific messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Analytics">
+            <summary>
+                Analytics and telemetry messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Performance">
+            <summary>
+                Performance marker messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Memory">
+            <summary>
+                Memory-related messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Security">
+            <summary>
+                Security, authorization, or permission-related messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Database">
+            <summary>
+                Database access or query messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.FileIo">
+            <summary>
+                File input/output messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Configuration">
+            <summary>
+                Configuration or settings-related log messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Loading">
+            <summary>
+                Loading processes and progress updates.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.SaveSystem">
+            <summary>
+                Save/load system-related log messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Resources">
+            <summary>
+                Asset and resource management messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.AssetBundle">
+            <summary>
+                Asset bundle-related log category.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.SceneManagement">
+            <summary>
+                Scene management and transitions.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Rendering">
+            <summary>
+                Rendering and visual graphics messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Particles">
+            <summary>
+                Particle system messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Shaders">
+            <summary>
+                Shader and graphics pipeline messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.PostProcessing">
+            <summary>
+                Post-processing and image effect messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Lighting">
+            <summary>
+                Lighting engine or lighting effect messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Gameplay">
+            <summary>
+                Gameplay-specific or mechanics messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Combat">
+            <summary>
+                Combat system messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Inventory">
+            <summary>
+                Inventory system messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Quest">
+            <summary>
+                Quest system messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Dialog">
+            <summary>
+                Dialogue system messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.LevelGeneration">
+            <summary>
+                Procedural or dynamic level generation messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Progression">
+            <summary>
+                Player or system progression-related messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Achievement">
+            <summary>
+                Achievement system messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Economy">
+            <summary>
+                Economy or in-game currency messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Input">
+            <summary>
+                Player or system input messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Ui">
+            <summary>
+                User interface/in-game UI messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Animation">
+            <summary>
+                Animation subsystem messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Physics">
+            <summary>
+                Physics engine or simulation messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Physics2D">
+            <summary>
+                2D physics system messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Ai">
+            <summary>
+                Artificial intelligence or behavior-tree messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Audio">
+            <summary>
+                Audio subsystem messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Network">
+            <summary>
+                Networking, communication, or multiplayer messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Cloud">
+            <summary>
+                Cloud service/messaging messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Authentication">
+            <summary>
+                Authentication and login messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Social">
+            <summary>
+                Online services, friends, or social integration messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Purchasing">
+            <summary>
+                Purchasing, microtransactions, or commerce system messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Localization">
+            <summary>
+                Localization, language, or translation-related messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Camera">
+            <summary>
+                Camera subsystem or visual frustum messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Initialization">
+            <summary>
+                Game/system initialization messages.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Utilities">
+            <summary>
+                Utility and helper methods or modules.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogCategory.Uci">
+            <summary>
+                Universal Chess Interface or other application-specific protocols.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.LogCategoryEmoji">
+            <summary>
+                Provides utility methods to get emoji representations for log categories.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.LogCategoryEmoji.GetEmoji(Bezoro.Logging.Types.LogCategory)">
+            <summary>
+                Gets the emoji representation for a specific log category.
+            </summary>
+            <param name="category">The log category.</param>
+            <returns>
+                Emoji string for the specified category, or <c>❓</c> if the category is not recognized.
+            </returns>
+        </member>
+        <member name="T:Bezoro.Logging.Types.LoggerSettings">
+            <summary>
+                Configuration settings for the Logger.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LoggerSettings._sequenceNumber">
+            <summary>
+                Log sequence counter for tracking log order.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.MutedCategories">
+            <summary>
+                Categories that should be ignored/muted.
+            </summary>
+            <remarks>
+                <para>
+                    Use <see cref="M:System.Collections.Generic.HashSet`1.Add(`0)" /> to add a category to the list.
+                </para>
+                <para>
+                    Use <see cref="M:System.Collections.Generic.HashSet`1.Remove(`0)" /> to remove a category from the list.
+                </para>
+                <para>
+                    Use <see cref="M:System.Collections.Generic.HashSet`1.Clear" /> to clear the list.
+                </para>
+            </remarks>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.Enabled">
+            <summary>
+                Master switch to enable/disable all logging at runtime.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.FileLocation">
+            <summary>
+                File location metadata configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.FrameCount">
+            <summary>
+                Frame count metadata configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.Grouping">
+            <summary>
+                Grouping configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.ErrorStyle">
+            <summary>
+                Visual style for Error level logs.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.ExceptionStyle">
+            <summary>
+                Visual style for Exception level logs.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.InfoStyle">
+            <summary>
+                Visual style for Info level logs.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.SuccessStyle">
+            <summary>
+                Visual style for Success level logs.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.WarningStyle">
+            <summary>
+                Visual style for Warning level logs.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.SequenceNumber">
+            <summary>
+                Sequence number metadata configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.Stage">
+            <summary>
+                Stage metadata configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.ThreadId">
+            <summary>
+                Thread ID metadata configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.Timestamp">
+            <summary>
+                Timestamp metadata configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LoggerSettings.CurrentAsyncContextHierarchy">
+            <summary>
+                Gets the current async context hierarchy.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.LoggerSettings.BeginAsyncContext(System.String)">
+            <summary>
+                Begins a new async context that automatically flows through async/await.
+            </summary>
+            <param name="contextName">The name for this async context.</param>
+            <returns>A disposable that restores the previous context when disposed.</returns>
+        </member>
+        <member name="M:Bezoro.Logging.Types.LoggerSettings.GetStyle(Bezoro.Logging.Types.LogLevel)">
+            <summary>
+                Gets the style for a specific log level.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.LoggerSettings.GetNextSequenceNumber">
+            <summary>
+                Gets the next sequence number for log ordering.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.LoggerSettings.ContextGrouping">
+            <summary>
+                Defines how logs should be grouped/contextualized.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LoggerSettings.ContextGrouping.None">
+            <summary>No automatic grouping.</summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LoggerSettings.ContextGrouping.CallerType">
+            <summary>Group by calling class name.</summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LoggerSettings.ContextGrouping.CallerMethod">
+            <summary>Group by calling method name (ClassName.MethodName).</summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LoggerSettings.ContextGrouping.Category">
+            <summary>Group by log category.</summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LoggerSettings.ContextGrouping.Thread">
+            <summary>Group by thread ID.</summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LoggerSettings.ContextGrouping.Level">
+            <summary>Group by log severity level.</summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LoggerSettings.ContextGrouping.TimeWindow">
+            <summary>Group by time window (logs within TimeWindowMs are grouped together).</summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LoggerSettings.ContextGrouping.AsyncContext">
+            <summary>Group by async context (automatically flows through async/await).</summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.LogLevel">
+            <summary>
+                Defines the severity level for a log message.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogLevel.None">
+            <summary>
+                None
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogLevel.Info">
+            <summary>
+                Informational messages used for general output.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogLevel.Success">
+            <summary>
+                Successful operations. These have lower severity than warnings.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogLevel.Warning">
+            <summary>
+                Warnings that indicate a potential issue or non-critical problem.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogLevel.Error">
+            <summary>
+                Errors indicating a problem that has occurred but does not stop execution.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogLevel.Exception">
+            <summary>
+                Exceptions representing severe errors or unexpected failures.
+            </summary>
+        </member>
+        <member name="F:Bezoro.Logging.Types.LogLevel.Divider">
+            <summary>
+                Divider
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.LogLevelEmoji">
+            <summary>
+                Provides utility methods to get emoji representations for log levels.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.LogLevelEmoji.GetEmoji(Bezoro.Logging.Types.LogLevel)">
+            <summary>
+                Gets the emoji representation for a specific log level.
+            </summary>
+            <param name="level">The log level.</param>
+            <returns>
+                Emoji string for the specified level, or <c>❓</c> if the level is not recognized.
+            </returns>
+        </member>
+        <member name="T:Bezoro.Logging.Types.LogPayload">
+            <summary>
+                Contains all data for a single log event.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.LogPayload.#ctor(Bezoro.Logging.Types.LogLevel,System.String,System.String,System.String)">
+            <summary>Creates a payload with its required display values, callable from C# 9 consumers.</summary>
+            <param name="level">Defined severity or divider level.</param>
+            <param name="message">Unformatted message text.</param>
+            <param name="formattedMessage">Message ready for the destination sink.</param>
+            <param name="severityEmoji">Display marker for the level.</param>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.Timestamp">
+            <summary>
+                UTC timestamp when the log was created.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.Exception">
+            <summary>
+                Exception instance (only for exceptions).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.AsyncContextDepth">
+            <summary>
+                Async context nesting depth (0 = no context, 1 = root, 2+ = nested).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.AsyncContextHierarchy">
+            <summary>
+                Async context hierarchy (e.g., ["GameLoop", "Player-123", "AI"]).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.Category">
+            <summary>
+                Optional category for the log message.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.Level">
+            <summary>
+                The severity level of the log.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.Style">
+            <summary>
+                Visual style hints for rendering (color, bold, etc.).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.ContextObject">
+            <summary>
+                Optional context object (e.g., Unity Object for console highlighting).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.FormattedMessage">
+            <summary>
+                Fully formatted log message ready for output.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.Message">
+            <summary>
+                The raw message content.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.SeverityEmoji">
+            <summary>
+                Emoji representing the severity level.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.AsyncContext">
+            <summary>
+                Async context hierarchy joined with <c> &gt; </c> separators.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.CallerInfo">
+            <summary>
+                Caller information in format "TypeName.MethodName()" (if captured).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.CategoryEmoji">
+            <summary>
+                Emoji representing the category (if category is specified).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.ExceptionType">
+            <summary>
+                Exception type name (only for exceptions).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.GroupingContext">
+            <summary>
+                Automatic grouping context computed from <see cref="P:Bezoro.Logging.Types.LoggerSettings.Grouping" />.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.InnerExceptionMessage">
+            <summary>
+                Inner exception message (if present).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.InnerExceptionType">
+            <summary>
+                Inner exception type name (if present).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.StackTrace">
+            <summary>
+                Full stack trace (only for exceptions).
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogPayload.Stage">
+            <summary>
+                Optional stage label included in the formatted output.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.LogStyle">
+            <summary>
+                Defines visual styling for log output.
+            </summary>
+            <remarks>
+                Initializes a new instance of the <see cref="T:Bezoro.Logging.Types.LogStyle" /> class with the specified visual styling options.
+            </remarks>
+            <param name="color">The console color to use for this log style.</param>
+            <param name="bold">Whether to render the text in bold. Default is <c>false</c>.</param>
+            <param name="italic">Whether to render the text in italic. Default is <c>false</c>.</param>
+        </member>
+        <member name="M:Bezoro.Logging.Types.LogStyle.#ctor(System.ConsoleColor,System.Boolean,System.Boolean)">
+            <summary>
+                Defines visual styling for log output.
+            </summary>
+            <remarks>
+                Initializes a new instance of the <see cref="T:Bezoro.Logging.Types.LogStyle" /> class with the specified visual styling options.
+            </remarks>
+            <param name="color">The console color to use for this log style.</param>
+            <param name="bold">Whether to render the text in bold. Default is <c>false</c>.</param>
+            <param name="italic">Whether to render the text in italic. Default is <c>false</c>.</param>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogStyle.Bold">
+            <summary>
+                Whether to render the text in bold.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogStyle.Italic">
+            <summary>
+                Whether to render the text in italic.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.LogStyle.Color">
+            <summary>
+                The color hint for this log style.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.SequenceNumberConfig">
+            <summary>
+                Configuration for sequence number metadata.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.SequenceNumberConfig.Off">
+            <summary>
+                Disabled sequence number configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.SequenceNumberConfig.On">
+            <summary>
+                Enabled sequence number configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.SequenceNumberConfig.Enabled">
+            <summary>
+                Whether sequence number is enabled.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.StageConfig">
+            <summary>
+                Configuration for stage metadata.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.StageConfig.Create(System.Func{System.String},System.Func{System.String,System.String,System.String})">
+            <summary>
+                Creates an enabled stage configuration with the specified provider.
+            </summary>
+            <param name="provider">Function that returns the current stage label (e.g., "Entering Play Mode").</param>
+            <param name="dividerProvider">Function that returns the divider line for stage changes.</param>
+        </member>
+        <member name="P:Bezoro.Logging.Types.StageConfig.Disabled">
+            <summary>
+                Disabled stage configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.StageConfig.Enabled">
+            <summary>
+                Whether stage metadata is enabled.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.StageConfig.DividerProvider">
+            <summary>
+                Divider line provider to emit when the stage changes.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.StageConfig.Provider">
+            <summary>
+                Provider function that returns the current stage label.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.StageConfig.DefaultDividerProvider(System.String,System.String)">
+            <summary>
+                Default divider line emitted on stage changes.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.ThreadIdConfig">
+            <summary>
+                Configuration for thread ID metadata.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.ThreadIdConfig.Off">
+            <summary>
+                Disabled thread ID configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.ThreadIdConfig.On">
+            <summary>
+                Enabled thread ID configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.ThreadIdConfig.Enabled">
+            <summary>
+                Whether thread ID is enabled.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Types.TimestampConfig">
+            <summary>
+                Configuration for timestamp metadata.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Types.TimestampConfig.Create(System.String)">
+            <summary>
+                Creates an enabled timestamp configuration with custom format.
+            </summary>
+            <param name="format">Custom DateTime format string.</param>
+        </member>
+        <member name="P:Bezoro.Logging.Types.TimestampConfig.Default">
+            <summary>
+                Creates an enabled timestamp configuration with default format.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.TimestampConfig.Disabled">
+            <summary>
+                Disabled timestamp configuration.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.TimestampConfig.Enabled">
+            <summary>
+                Whether timestamp is enabled.
+            </summary>
+        </member>
+        <member name="P:Bezoro.Logging.Types.TimestampConfig.Format">
+            <summary>
+                The timestamp format string (default: "HH:mm:ss.fff").
+            </summary>
+        </member>
+        <member name="T:Bezoro.Logging.Utilities.PerformanceTimer">
+            <summary>
+                Measures an operation and logs its elapsed time when disposed if the Bezoro.Logging assembly
+                is compiled with <c>DEBUG</c>. Otherwise, the timer stores no state and disposal performs no work.
+            </summary>
+        </member>
+        <member name="M:Bezoro.Logging.Utilities.PerformanceTimer.#ctor(System.String,System.Nullable{Bezoro.Logging.Types.LogCategory},System.Object)">
+            <summary>
+                Initializes a new instance of the <see cref="T:Bezoro.Logging.Utilities.PerformanceTimer" /> struct and starts timing
+                when the Bezoro.Logging assembly is compiled with <c>DEBUG</c>.
+            </summary>
+            <param name="operationName">The name of the operation being timed.</param>
+            <param name="category">Optional log category for the completion message.</param>
+            <param name="contextObject">Optional context object to associate with the log entry.</param>
+        </member>
+        <member name="M:Bezoro.Logging.Utilities.PerformanceTimer.Dispose">
+            <summary>
+                Stops the timer and logs the elapsed time when the Bezoro.Logging assembly is compiled with
+                <c>DEBUG</c>. Otherwise, performs no work.
+            </summary>
+        </member>
+    </members>
+</doc>

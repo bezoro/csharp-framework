@@ -1,0 +1,198 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Bezoro.StateMachines</name>
+    </assembly>
+    <members>
+        <member name="T:Bezoro.StateMachines.SignalHandle">
+            <summary>References a signal registered with one construction builder.</summary>
+            <remarks>Resolve the handle through its builder to obtain a compact runtime <see cref="T:Bezoro.StateMachines.SignalId" />. The default handle is invalid.</remarks>
+        </member>
+        <member name="T:Bezoro.StateMachines.SignalId">
+            <summary>Identifies a zero-based input signal within a particular machine definition.</summary>
+            <remarks>The default value identifies signal zero. Identifiers do not establish membership in a definition.</remarks>
+        </member>
+        <member name="M:Bezoro.StateMachines.SignalId.#ctor(System.Int32)">
+            <summary>Creates a signal identifier from a nonnegative integer.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.SignalId.Value">
+            <summary>Gets the zero-based integer.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.SignalId.Equals(Bezoro.StateMachines.SignalId)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.SignalId.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.SignalId.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.SignalId.ToString">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.SignalId.op_Equality(Bezoro.StateMachines.SignalId,Bezoro.StateMachines.SignalId)">
+            <summary>Compares identifiers.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.SignalId.op_Inequality(Bezoro.StateMachines.SignalId,Bezoro.StateMachines.SignalId)">
+            <summary>Compares identifiers.</summary>
+        </member>
+        <member name="T:Bezoro.StateMachines.StateHandle">
+            <summary>References a state registered with one construction builder.</summary>
+            <remarks>Resolve the handle through its builder to obtain a compact runtime <see cref="T:Bezoro.StateMachines.StateId" />. The default handle is invalid.</remarks>
+        </member>
+        <member name="T:Bezoro.StateMachines.StateId">
+            <summary>Identifies a zero-based state within a particular machine definition.</summary>
+            <remarks>The default value identifies state zero. Identifiers do not establish membership in a definition.</remarks>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateId.#ctor(System.Int32)">
+            <summary>Creates a state identifier from a nonnegative integer.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateId.Value">
+            <summary>Gets the zero-based integer.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateId.Equals(Bezoro.StateMachines.StateId)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.StateId.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.StateId.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.StateId.ToString">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.StateId.op_Equality(Bezoro.StateMachines.StateId,Bezoro.StateMachines.StateId)">
+            <summary>Compares identifiers.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateId.op_Inequality(Bezoro.StateMachines.StateId,Bezoro.StateMachines.StateId)">
+            <summary>Compares identifiers.</summary>
+        </member>
+        <member name="T:Bezoro.StateMachines.StateMachineBuilder">
+            <summary>Declares states and signals without assigning numeric identifiers or counts by hand.</summary>
+            <remarks>
+            The builder owns construction handles. Each Build returns an independent immutable snapshot.
+            Later declarations do not change earlier definitions. Builders are not synchronized or retained by definitions.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.State">
+            <summary>Registers a state. Retain the returned handle in a variable describing its meaning.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.Signal">
+            <summary>Registers an input signal.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.StartIn(Bezoro.StateMachines.StateHandle)">
+            <summary>Selects the initial state. A subsequent call replaces the selection for future builds.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.Transition(Bezoro.StateMachines.StateHandle,Bezoro.StateMachines.SignalHandle,Bezoro.StateMachines.StateHandle)">
+            <summary>Declares that an input in the source state goes to the target state, including explicit self transitions.</summary>
+            <exception cref="T:System.ArgumentException">A handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.Resolve(Bezoro.StateMachines.StateHandle)">
+            <summary>Resolves one of this builder's state handles to its stable runtime identifier.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.Resolve(Bezoro.StateMachines.SignalHandle)">
+            <summary>Resolves one of this builder's signal handles to its stable runtime identifier.</summary>
+            <exception cref="T:System.ArgumentException">The handle is default or belongs to another builder.</exception>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineBuilder.Build">
+            <summary>Compiles a snapshot, rejecting missing initial state and duplicate source/signal pairs.</summary>
+            <exception cref="T:System.InvalidOperationException">StartIn has not selected an initial state.</exception>
+        </member>
+        <member name="T:Bezoro.StateMachines.StateMachineDefinition">
+            <summary>Compiles an immutable sparse transition table for pure state evaluation.</summary>
+            <remarks>
+            Construction copies and sorts transitions. Queries allocate no storage and use O(log transition-count) lookup.
+            Definitions can be shared between threads. Each caller owns its current state and applies returned changes explicitly.
+            </remarks>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineDefinition.#ctor(System.Int32,System.Int32,System.ReadOnlySpan{Bezoro.StateMachines.StateTransition},Bezoro.StateMachines.StateId)">
+            <summary>Creates a machine with zero-based state and signal ranges and an explicit initial state.</summary>
+            <param name="stateCount">Number of states, greater than zero.</param>
+            <param name="signalCount">Number of signals, which may be zero for a machine accepting no input.</param>
+            <param name="transitions">Transitions to copy. Each source/signal pair must be unique.</param>
+            <param name="initialState">Initial state; defaults to state zero.</param>
+            <exception cref="T:System.ArgumentOutOfRangeException">A count or initial state is outside its accepted range.</exception>
+            <exception cref="T:System.ArgumentException">A transition refers outside the declared ranges, or a source/signal pair is duplicated.</exception>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateMachineDefinition.StateCount">
+            <summary>Gets the number of states. Valid state IDs are in [0, StateCount).</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateMachineDefinition.SignalCount">
+            <summary>Gets the number of signals. Valid signal IDs are in [0, SignalCount).</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateMachineDefinition.InitialState">
+            <summary>Gets the application's initial state. Evaluation does not implicitly reset callers to it.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateMachineDefinition.TransitionCount">
+            <summary>Gets the number of explicit transitions.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateMachineDefinition.Transitions">
+            <summary>Gets the immutable transitions ordered by source state and then by signal.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineDefinition.Step(Bezoro.StateMachines.StateId,Bezoro.StateMachines.SignalId)">
+            <summary>Evaluates one signal, preserving the supplied state when no transition matches.</summary>
+            <exception cref="T:System.ArgumentOutOfRangeException">The state or signal is outside this definition's declared range.</exception>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateMachineDefinition.TryGetTransition(Bezoro.StateMachines.StateId,Bezoro.StateMachines.SignalId,Bezoro.StateMachines.StateTransition@)">
+            <summary>Finds a transition. On a miss, the output is default and must not be interpreted as a matched transition.</summary>
+            <exception cref="T:System.ArgumentOutOfRangeException">The state or signal is outside this definition's declared range.</exception>
+        </member>
+        <member name="T:Bezoro.StateMachines.StateStep">
+            <summary>Describes the result of evaluating one signal without mutating an agent or definition.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateStep.PreviousState">
+            <summary>Gets the state supplied by the caller.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateStep.CurrentState">
+            <summary>Gets the target state, or the supplied state when no transition matches.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateStep.Signal">
+            <summary>Gets the evaluated signal.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateStep.HasTransition">
+            <summary>Gets whether a transition matched, including an explicit self transition.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateStep.HasStateChanged">
+            <summary>Gets whether the target differs from the previous state. Self transitions return false.</summary>
+        </member>
+        <member name="T:Bezoro.StateMachines.StateTransition">
+            <summary>Maps one source-state and signal pair to a target state.</summary>
+            <remarks>The definition validates membership and rejects duplicate source/signal pairs.</remarks>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateTransition.#ctor(Bezoro.StateMachines.StateId,Bezoro.StateMachines.SignalId,Bezoro.StateMachines.StateId)">
+            <summary>Creates a transition, including a self transition when source and target are equal.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateTransition.Source">
+            <summary>Gets the source state.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateTransition.Signal">
+            <summary>Gets the input signal.</summary>
+        </member>
+        <member name="P:Bezoro.StateMachines.StateTransition.Target">
+            <summary>Gets the target state.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateTransition.Equals(Bezoro.StateMachines.StateTransition)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.StateTransition.Equals(System.Object)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.StateTransition.GetHashCode">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.StateMachines.StateTransition.op_Equality(Bezoro.StateMachines.StateTransition,Bezoro.StateMachines.StateTransition)">
+            <summary>Compares transitions.</summary>
+        </member>
+        <member name="M:Bezoro.StateMachines.StateTransition.op_Inequality(Bezoro.StateMachines.StateTransition,Bezoro.StateMachines.StateTransition)">
+            <summary>Compares transitions.</summary>
+        </member>
+        <member name="T:System.Runtime.CompilerServices.IsExternalInit">
+            <summary>
+                Enables C# 9 init-only setters on older frameworks.
+            </summary>
+        </member>
+    </members>
+</doc>
