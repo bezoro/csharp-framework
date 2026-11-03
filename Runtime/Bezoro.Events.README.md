@@ -128,12 +128,12 @@ The same pattern applies to Godot: enqueue from producers and flush in `_Process
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/framework/blob/aa0b79b77bc4eb913707aac088c28f3a333d15a4/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/framework/blob/a517911092a882b4d8b6efada0488da063272c56/global.json):
 
 ```bash
 dotnet build src/Bezoro.Events/Bezoro.Events.csproj -c Release
 dotnet test tests/Bezoro.Events.Tests/Bezoro.Events.Tests.csproj -c Release -f net10.0
 ```
 
-See [the Events tests](https://github.com/bezoro/framework/blob/aa0b79b77bc4eb913707aac088c28f3a333d15a4/tests/Bezoro.Events.Tests/README.md) for lifecycle and concurrency coverage.
+See [the Events tests](https://github.com/bezoro/framework/blob/a517911092a882b4d8b6efada0488da063272c56/tests/Bezoro.Events.Tests/README.md) for lifecycle and concurrency coverage.
 
