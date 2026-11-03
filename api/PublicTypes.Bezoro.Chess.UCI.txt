@@ -32,4 +32,5 @@ Bezoro.Chess.UCI.API.Types.UciCoordinatorOptions | public readonly record struct
 Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent | public readonly record struct | stable-shape | API/Types/UciGameEngineSessionEvent.cs
 Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind | public enum | stable-shape | API/Types/UciGameEngineSessionEventKind.cs
 Bezoro.Chess.UCI.API.Types.UciState | public readonly record struct | stable-shape | API/Types/UciState.cs
+Bezoro.Chess.UCI.API.Types.UciUndoResult | public readonly record struct | stable-shape | API/Types/UciUndoResult.cs
 Bezoro.Chess.UCI.API.UciGameEngineSession | public sealed class | stable-shape | API/UciGameEngineSession.cs

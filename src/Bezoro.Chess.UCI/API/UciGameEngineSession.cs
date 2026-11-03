@@ -1360,9 +1360,28 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	/// <param name="ct">Cancellation token.</param>
 	/// <returns>The new state after undoing moves, or the current state if no moves were undone.</returns>
 	public Task<UciState> UndoAsync(int count = 1, CancellationToken ct = default) =>
-		RunCommandAsync(() => UndoCoreAsync(count, ct), ct);
+		RunCommandAsync(() => UndoCoreAsync(count, ct, static (state, _) => state), ct);
 
-	private async Task<UciState> UndoCoreAsync(int count = 1, CancellationToken ct = default)
+	/// <summary>
+	///     Reverts moves and returns their authoritative piece-motion payloads with the resulting state.
+	///     The result is available without waiting for synchronization-context event delivery.
+	/// </summary>
+	/// <remarks>
+	///     Publishes the same events and restores the same clocks as <see cref="UndoAsync" />.
+	///     Cancellation before the commit leaves history unchanged. Cancellation during optional background work
+	///     may be reported after the undo has already committed.
+	/// </remarks>
+	/// <param name="count">Maximum number of plies to undo. Must be positive; defaults to one.</param>
+	/// <param name="ct">Cancellation token, with the same commit semantics as <see cref="UndoAsync" />.</param>
+	/// <returns>
+	///     The completed undo's state and removed moves in chronological order. When history is empty,
+	///     returns the current state and an empty move array without publishing a <see cref="MoveUndone" /> event.
+	/// </returns>
+	public Task<UciUndoResult> UndoWithDetailsAsync(int count = 1, CancellationToken ct = default) =>
+		RunCommandAsync(() => UndoCoreAsync(count, ct, static (state, moves) => new UciUndoResult(state, moves)), ct);
+
+	private async Task<TResult> UndoCoreAsync<TResult>(int count, CancellationToken ct,
+		Func<UciState, ImmutableArray<GameMoveEvent>, TResult> createResult)
 	{
 		ct.ThrowIfCancellationRequested();
 		if (count < 1)
@@ -1377,7 +1396,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		}
 
 		if (currentState.PlayedMoves.Count == 0)
-			return currentState;
+			return createResult(currentState, ImmutableArray<GameMoveEvent>.Empty);
 
 		int movesToRemove = Math.Min(count, currentState.PlayedMoves.Count);
 		int retainedCount = currentState.PlayedMoves.Count - movesToRemove;
@@ -1432,7 +1451,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 			snapshot.LegalMoves,
 			ct
 		).ConfigureAwait(false);
-		return State;
+		return createResult(State, removedMoves);
 	}
 
 	/// <summary>

@@ -87,6 +87,27 @@ var scoredMoves = await session.WaitForClassificationAsync(cancellationToken);
 
 With automatic analysis disabled, the classification wait and stream complete with no scored moves. Use `session.CurrentFen.ClassifyMoveFully(move)` for on-demand local move semantics. Start the configured engines before enabling automatic analysis. Gameplay uses standard FEN and UCI coordinates and does not require the non-standard `d` or `go perft` engine extensions.
 
+## Undo with piece-motion details
+
+Use `UndoAsync` when only the restored state is needed. For rewind animation, await `UndoWithDetailsAsync`
+to receive the removed moves directly. Both commands publish the same events and restore the same clocks and results.
+Event handlers posted to a UI synchronization context may run later; the returned details require no event subscription.
+
+```csharp
+var undo = await session.UndoWithDetailsAsync(count: 1, ct: cancellationToken);
+for (int index = undo.UndoneMoves.Length - 1; index >= 0; index--)
+{
+    var move = undo.UndoneMoves[index];
+    // Rewind move.To to move.From. SecondaryPieceMove contains the castling rook's motion.
+    // CapturedPiece and PromotionPiece retain the original capture and promotion semantics.
+}
+var restoredPosition = undo.State.CurrentFen;
+```
+
+The move array is chronological and empty when there is nothing to undo. A positive count larger than the available
+history removes all available plies. Cancellation follows `UndoAsync`: cancellation before the command commits leaves
+the position unchanged, while cancellation during optional background work can occur after the undo has committed.
+
 ## Engine-backed usage
 ### Search an engine-controlled move
 ```csharp
