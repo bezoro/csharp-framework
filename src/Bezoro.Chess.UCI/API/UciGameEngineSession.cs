@@ -141,6 +141,9 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	/// </summary>
 	public event Action<UciState>? GameOver;
 
+	/// <summary>Raised with the authoritative match identity and terminal state, including across queued delivery.</summary>
+	public event Action<GameFinishedEvent>? GameFinished;
+
 	/// <summary>
 	///     Raised when the match result changes.
 	/// </summary>
@@ -362,6 +365,12 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	///     Gets whether the primary engine has been started. Optional workers start only when requested.
 	/// </summary>
 	public bool IsStarted => _engineClients?.IsStarted ?? false;
+
+	/// <summary>Gets the current match identity synchronously, before any queued event callbacks are delivered.</summary>
+	public Guid CurrentGameId
+	{
+		get { lock (_sync) return _gameId; }
+	}
 
 	/// <summary>
 	///     Gets the current position FEN (after all played moves).
@@ -2564,7 +2573,12 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	private void PublishGameOver(UciState snapshot)
 	{
 		if (snapshot.IsGameOver)
+		{
+			GameFinishedEvent finished;
+			lock (_sync) finished = new(_gameId, snapshot);
 			RaiseStateEvent(GameOver, UciGameEngineSessionEventKind.GameOver, snapshot);
+			RaiseTypedEvent(GameFinished, finished, UciGameEngineSessionEvent.ForGameFinished(finished));
+		}
 	}
 
 	private void PublishSearchStateChanged(UciState snapshot)

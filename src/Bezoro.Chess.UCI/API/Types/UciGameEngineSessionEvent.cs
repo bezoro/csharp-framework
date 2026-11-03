@@ -21,8 +21,13 @@ public readonly record struct UciGameEngineSessionEvent(
 	PrincipalVariation? Evaluation = null,
 	Move? ClassifiedMove = null,
 	Exception? Exception = null,
-	PromotionCanceledEvent? PromotionCanceled = null)
+	PromotionCanceledEvent? PromotionCanceled = null,
+	GameFinishedEvent? GameFinished = null)
 {
+	/// <summary>Creates an identity-bearing terminal match event.</summary>
+	public static UciGameEngineSessionEvent ForGameFinished(GameFinishedEvent payload) =>
+		new(UciGameEngineSessionEventKind.GameFinished, DateTimeOffset.UtcNow, State: payload.State, GameFinished: payload);
+
 	/// <summary>Creates a pending-promotion cancellation event.</summary>
 	public static UciGameEngineSessionEvent ForPromotionCanceled(PromotionCanceledEvent payload) =>
 		new(UciGameEngineSessionEventKind.PromotionCanceled, payload.TimestampUtc, PromotionCanceled: payload);

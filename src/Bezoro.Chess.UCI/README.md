@@ -71,6 +71,8 @@ Current-position searches send the base FEN and complete played history so the e
 
 Queued analysis notifications recheck their generation when the UI context delivers them. Results from a previous position cannot overwrite the Unity view after moving, undoing, loading, ending the match, or disposing the session. Gameplay event history is retained.
 
+`CurrentGameId` reads the authoritative match identity immediately, before queued callbacks run. Loading or starting a match changes it; moves and undo retain it. `GameFinished` carries both the captured identity and terminal `UciState`, and also appears in `EventPublished`. Use that identity to correlate delayed terminal callbacks across matches whose FEN and history happen to be identical. The legacy `GameOver` state event remains available.
+
 Ephemeral `StateChanged` snapshots also check a shared state version, preventing an older worker update from overwriting a newer paused clock or draw offer while the board position stays the same. Typed gameplay events and typed evaluation/classification results keep their own history and generation semantics.
 
 `ClassificationCompleted` reports lifecycle completion. While its classification generation remains current, queued typed and canonical completion notifications survive subsequent evaluations or clock/draw metadata changes and read the latest state when delivered. Loading another position, moving, undoing, ending the game or disposing the session invalidates obsolete completions.
