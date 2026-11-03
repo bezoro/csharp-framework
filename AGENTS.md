@@ -45,3 +45,7 @@ Preserve CI quota by consolidating verification. Working-branch commits and push
 ## Immutable Unity package metadata
 
 Include stable .meta files for every staged asset and directory, including generated XML documentation. Validate missing, malformed and duplicate GUIDs before publication; Unity cannot repair metadata in a Git package cache. Preserve existing GUIDs when rebuilding.
+
+## Redirected process readers
+
+Keep blocking reads from known synchronous process-pipe backends off the shared ThreadPool. `ReadLineAsync` can still block pool workers on Mono. Preserve genuine asynchronous stream paths, bounded backpressure, cancellation and joined shutdown. Stderr user callbacks must remain ordered on the ThreadPool. Do not address writer starvation by increasing global pool minima or protocol timeouts.
