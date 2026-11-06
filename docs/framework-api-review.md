@@ -1,6 +1,6 @@
 # Framework API and runtime review
 
-This review starts at commit [23d613a9](https://github.com/bezoro/framework/commit/23d613a9), covering all 590 tracked C# files in the 18 runtime libraries and the source-generator project. Separate implementation reviews covered each area. FSMs and behavior trees also received an independent consumer, lifecycle and allocation review; Core and ECS changes received independent adversarial checks.
+This review starts at commit [23d613a9](https://github.com/bezoro/csharp-framework/commit/23d613a9), covering all 590 tracked C# files in the 18 runtime libraries and the source-generator project. Separate implementation reviews covered each area. FSMs and behavior trees also received an independent consumer, lifecycle and allocation review; Core and ECS changes received independent adversarial checks.
 
 | Area | C# files at the baseline | Review focus |
 | --- | ---: | --- |

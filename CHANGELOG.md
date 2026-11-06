@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Repository name
+
+- Rename the GitHub repository to `bezoro/csharp-framework` and update installation, documentation and generated package links. Existing Git URLs continue through GitHub's repository redirect.
+
 ### Unity package metadata
 
 - Include stable importer metadata for every runtime XML documentation file. Staging rejects missing, malformed or duplicate asset GUIDs before publishing an immutable Git package, while preserving existing assembly GUIDs.
