@@ -309,12 +309,12 @@ Metadata providers also execute on the logging caller's thread. Use cached frame
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/framework/blob/e728f39595fe381d209cbfc62acf5d6293e0093f/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/global.json):
 
 ```bash
 dotnet build src/Bezoro.Logging/Bezoro.Logging.csproj -c Release
 dotnet test tests/Bezoro.Logging.Tests/Bezoro.Logging.Tests.csproj -c Release -f net10.0
 ```
 
-The test project defines `DEBUG` so conditional log calls are exercised in Release tests. See [the Logging tests](https://github.com/bezoro/framework/blob/e728f39595fe381d209cbfc62acf5d6293e0093f/tests/Bezoro.Logging.Tests/README.md).
+The test project defines `DEBUG` so conditional log calls are exercised in Release tests. See [the Logging tests](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/tests/Bezoro.Logging.Tests/README.md).
 

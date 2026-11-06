@@ -954,6 +954,59 @@
                 Returns the raw FEN string.
             </summary>
         </member>
+        <member name="T:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup">
+            <summary>Authors a FEN position, including incomplete boards that are not yet playable.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.Pieces">
+            <summary>Gets the occupied squares and their standard FEN piece symbols.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.ActiveColor">
+            <summary>Gets or sets the active side, 'w' or 'b'.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.CastlingRights">
+            <summary>Gets or sets the FEN castling rights, such as KQkq or '-'.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.EnPassantTarget">
+            <summary>Gets or sets the en-passant target square or '-'.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.HalfmoveClock">
+            <summary>Gets or sets the number of halfmoves since the last pawn move or capture.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.FullmoveNumber">
+            <summary>Gets or sets the fullmove number, starting at one.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.SetPiece(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare,System.Char)">
+            <summary>Sets a standard FEN piece symbol, or removes a piece when <paramref name="piece" /> is '\0'.</summary>
+            <exception cref="T:System.ArgumentException">The symbol does not represent a chess piece.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.FromFen(Bezoro.Chess.UCI.Protocol.API.Types.Fen)">
+            <summary>Imports a syntactically valid FEN without requiring a playable position.</summary>
+            <exception cref="T:System.ArgumentException">The value is not an initialized, parsed FEN.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.BuildFen">
+            <summary>Builds a syntactically valid FEN without changing authored metadata or requiring playability.</summary>
+            <exception cref="T:System.ArgumentException">Authored metadata cannot be represented by a valid FEN.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.ValidateForPlay">
+            <summary>Checks authored fields and the framework's playable-position constraints without using an engine.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup.CreateMatchSetup(System.String,System.Collections.Generic.IEnumerable{System.String})">
+            <summary>Creates a validated playable setup from this position, or from an explicit history base and moves.</summary>
+            <remarks>When a history base is supplied, it is authoritative; the editable board is not a second history snapshot.</remarks>
+            <exception cref="T:System.ArgumentException">The position, history base, or a played move is invalid.</exception>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionValidationResult">
+            <summary>Separates friendly authoring-field diagnostics from the underlying playable-position rejection.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionValidationResult.FieldErrors">
+            <summary>Gets diagnostics for authored fields such as kings, pawn ranks, metadata, and castling prerequisites.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionValidationResult.PlayabilityError">
+            <summary>Gets the framework playability rejection, or an empty string when the position is accepted.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.FenPositionValidationResult.IsValid">
+            <summary>Gets whether the authored position is playable.</summary>
+        </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation">
             <summary>An immutable position evaluation from side-to-move perspective.</summary>
             <param name="Position">Complete FEN at this point in the played game.</param>
@@ -1481,6 +1534,12 @@
             <summary>
                 Gets the exact advanced restore snapshot, when this setup was created with <see cref="M:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockSetup.FromExactRestore(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockRestore)" />.
             </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockSetup.FromClampedSeconds(System.Double,System.Double,System.Double,System.Boolean,System.Nullable{System.DateTimeOffset})">
+            <summary>Creates a valid clock snapshot from authored seconds, clamping negative values to zero.</summary>
+            <remarks>Negative infinity is clamped to zero. NaN and positive infinity are rejected by <see cref="M:System.TimeSpan.FromSeconds(System.Double)" />.</remarks>
+            <exception cref="T:System.ArgumentException">A value is NaN.</exception>
+            <exception cref="T:System.OverflowException">A positive value exceeds the range of <see cref="T:System.TimeSpan" />.</exception>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockSetup.FromExactRestore(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockRestore)">
             <summary>
@@ -2240,6 +2299,12 @@
             <summary>
                 Gets the timeout adjudication policy.
             </summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl.FromClampedSeconds(System.Double,System.Double,System.Double,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeoutPolicy)">
+            <summary>Creates a valid time control from authored seconds, clamping negative values to zero.</summary>
+            <remarks>Negative infinity is clamped to zero. NaN and positive infinity are rejected by <see cref="M:System.TimeSpan.FromSeconds(System.Double)" />.</remarks>
+            <exception cref="T:System.ArgumentException">A value is NaN, the initial time is not positive, or the timeout policy is invalid.</exception>
+            <exception cref="T:System.OverflowException">A positive value exceeds the range of <see cref="T:System.TimeSpan" />.</exception>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl.Validate">
             <summary>
@@ -3636,6 +3701,11 @@
             <exception cref="T:System.NotSupportedException">
                 Thrown when the engine does not advertise the standard strength-limit options.
             </exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.API.UciEngineClient.ClearStrengthLimitAsync(System.Threading.CancellationToken)">
+            <summary>Disables the standard Elo strength limit when the engine advertises that option.</summary>
+            <param name="ct">Cancellation token for the option update.</param>
+            <remarks>Engines without the standard check option require no update.</remarks>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciEngineClient.GoFireAndForgetAsync(Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters,System.Threading.CancellationToken)">
             <summary>

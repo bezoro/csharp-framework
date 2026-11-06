@@ -108,5 +108,5 @@ Active membership uses O(log A) search. A signal looks up matching transitions f
 
 ## Validation
 
-The [tests](https://github.com/bezoro/framework/blob/e728f39595fe381d209cbfc62acf5d6293e0093f/tests/Bezoro.Statecharts.Tests/README.md) cover locomotion/reaction parallelism, guard snapshots, local/external/internal semantics, lifecycle failure cleanup, identity, memory bounds, zero allocation, and independent concurrent owners. The [benchmarks](https://github.com/bezoro/framework/blob/e728f39595fe381d209cbfc62acf5d6293e0093f/benchmarks/Bezoro.Statecharts.Benchmarks/README.md) define reusable diagnostic workloads. Engine/player validation is separate from managed compilation and tests.
+The [tests](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/tests/Bezoro.Statecharts.Tests/README.md) cover locomotion/reaction parallelism, guard snapshots, local/external/internal semantics, lifecycle failure cleanup, identity, memory bounds, zero allocation, and independent concurrent owners. The [benchmarks](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/benchmarks/Bezoro.Statecharts.Benchmarks/README.md) define reusable diagnostic workloads. Engine/player validation is separate from managed compilation and tests.
 

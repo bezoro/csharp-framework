@@ -28,6 +28,7 @@ Low-level UCI transport, parsing, and engine-client orchestration for chess engi
 | `PlayableMatchClockRestore`  | `Bezoro.Chess.UCI.Protocol.API.Types` | Authored clock snapshot used to restore arbitrary remaining time while loading a match position.          |
 | `PlayableMatchClockSetup`    | `Bezoro.Chess.UCI.Protocol.API.Types` | Authored clock values for match setup loading; active side, move counts, and stage can be derived.       |
 | `PlayableMatchSetup`         | `Bezoro.Chess.UCI.Protocol.API.Types` | Complete authored or saved match state: base FEN, played moves, and optional clock setup.                |
+| `FenPositionSetup`, `FenPositionValidationResult` | `Bezoro.Chess.UCI.Protocol.API.Types` | Editable position authoring, FEN construction/import, field diagnostics, and validated history setup. |
 | `PlayableMatchSave`          | `Bezoro.Chess.UCI.Protocol.API.Types` | Complete local save with available clock history, result, draw offer and pending promotion, preserving undo after reload. |
 | `PlayableMatchResult`        | `Bezoro.Chess.UCI.Protocol.API.Types` | Adjudicated terminal result with winner information when decisive.                                        |
 | `PlayableMatchResultReason`  | `Bezoro.Chess.UCI.Protocol.API.Types` | Terminal reason such as checkmate, stalemate, repetition, fifty-move rule, insufficient material, or timeout. |
@@ -72,7 +73,7 @@ Low-level UCI transport, parsing, and engine-client orchestration for chess engi
 | `IExpectedPointsModel`, `EngineWdlExpectedPointsModel` | Replaceable probability model and engine-self-play default |
 | `MoveReviewAnnotation`, `IMoveReviewAnnotationPolicy` | Application-provided opening and special-label evidence |
 
-See the [review architecture and research](https://github.com/bezoro/framework/blob/e728f39595fe381d209cbfc62acf5d6293e0093f/docs/chess-review.md) for the public Chess.com behavior studied, the implemented thresholds, and the proprietary features that are not reproduced.
+See the [review architecture and research](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/docs/chess-review.md) for the public Chess.com behavior studied, the implemented thresholds, and the proprietary features that are not reproduced.
 
 ## Local play without an engine
 
@@ -371,6 +372,20 @@ if (session.CanUndoMoves())
 }
 ```
 
+Editors can author an incomplete board without implementing FEN compression or chess validation:
+
+```csharp
+var position = FenPositionSetup.FromFen(Fen.Default);
+position.SetPiece(new ChessSquare(0, 1), '\0');
+Fen authoredFen = position.BuildFen();
+FenPositionValidationResult validation = position.ValidateForPlay();
+PlayableMatchSetup playable = position.CreateMatchSetup();
+```
+
+`BuildFen` checks notation syntax and preserves the authored metadata. It does not repair counters or require a playable position. `ValidateForPlay` returns friendly field errors separately from the framework's underlying position rejection. `CreateMatchSetup` rejects invalid positions. Its optional history base is authoritative and validates both that base and every played move, instead of treating the editable board as a second history snapshot.
+
+`PlayableMatchTimeControl.FromClampedSeconds` and `PlayableMatchClockSetup.FromClampedSeconds` normalize authored negative seconds to zero and validate the result. Time-control initial time must remain positive. Negative infinity clamps to zero; NaN is rejected and positive overflow throws. Their regular constructors preserve supplied values for callers that want explicit `Validate` calls without normalization.
+
 For authored tutorial positions, save states, and editor tooling, load a complete setup object instead of passing FEN, moves, and clocks through separate parameters:
 ```csharp
 var setup = new PlayableMatchSetup(
@@ -621,7 +636,7 @@ UCI node counts, nodes per second, tablebase hits, and elapsed milliseconds use 
 
 ### Parallel game review
 
-`UciGameReviewAnalyzer` accepts a pool of distinct, already started dedicated clients. Set `GameReviewOptions.MaxParallelPositions` to opt in; the default remains one. `ThreadsPerEngine`, `HashMegabytesPerEngine`, and `MaxGameMoves` provide explicit CPU, hash-table, and history budgets. Results remain chronological and immutable. Progress carries `PositionIndex` because searches can finish out of order. See [parallel review and resource budgets](https://github.com/bezoro/framework/blob/e728f39595fe381d209cbfc62acf5d6293e0093f/docs/chess-review.md#parallel-review-and-resource-budgets) for ownership, cancellation, and engine configuration.
+`UciGameReviewAnalyzer` accepts a pool of distinct, already started dedicated clients. Set `GameReviewOptions.MaxParallelPositions` to opt in; the default remains one. `ThreadsPerEngine`, `HashMegabytesPerEngine`, and `MaxGameMoves` provide explicit CPU, hash-table, and history budgets. Results remain chronological and immutable. Progress carries `PositionIndex` because searches can finish out of order. See [parallel review and resource budgets](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/docs/chess-review.md#parallel-review-and-resource-budgets) for ownership, cancellation, and engine configuration.
 
 ## API migration
 

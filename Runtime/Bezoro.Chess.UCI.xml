@@ -247,6 +247,22 @@
             <param name="piece">When successful, receives the piece on the square; otherwise, <see langword="null" />.</param>
             <returns><see langword="true" /> when the square exists in this state; otherwise, <see langword="false" />.</returns>
         </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.GameFinishedEvent">
+            <summary>Identifies the match and immutable terminal state captured when the result was published.</summary>
+            <param name="GameId">Authoritative match identity, preserved even when delivery is queued after a new match starts.</param>
+            <param name="State">Terminal state of that match.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.GameFinishedEvent.#ctor(System.Guid,Bezoro.Chess.UCI.API.Types.UciState)">
+            <summary>Identifies the match and immutable terminal state captured when the result was published.</summary>
+            <param name="GameId">Authoritative match identity, preserved even when delivery is queued after a new match starts.</param>
+            <param name="State">Terminal state of that match.</param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameFinishedEvent.GameId">
+            <summary>Authoritative match identity, preserved even when delivery is queued after a new match starts.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.GameFinishedEvent.State">
+            <summary>Terminal state of that match.</summary>
+        </member>
         <member name="T:Bezoro.Chess.UCI.API.Types.GameMoveEvent">
             <summary>
                 Rich immutable move event payload intended for game-engine UI layers.
@@ -965,6 +981,12 @@
                 Compact typed event payload emitted by <see cref="E:Bezoro.Chess.UCI.API.UciGameEngineSession.EventPublished" />.
             </summary>
         </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.GameFinished">
+            <summary>Gets the identity-bearing terminal payload without changing the existing constructor or deconstruction contract.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForGameFinished(Bezoro.Chess.UCI.API.Types.GameFinishedEvent)">
+            <summary>Creates an identity-bearing terminal match event.</summary>
+        </member>
         <member name="M:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEvent.ForPromotionCanceled(Bezoro.Chess.UCI.API.Types.PromotionCanceledEvent)">
             <summary>Creates a pending-promotion cancellation event.</summary>
         </member>
@@ -1114,6 +1136,9 @@
         <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.PromotionCanceled">
             <summary>A pending promotion prompt was canceled before a move was applied.</summary>
         </member>
+        <member name="F:Bezoro.Chess.UCI.API.Types.UciGameEngineSessionEventKind.GameFinished">
+            <summary>A match reached a terminal result, with its authoritative identity captured at publication.</summary>
+        </member>
         <member name="T:Bezoro.Chess.UCI.API.Types.UciState">
             <summary>
                 Represents an immutable snapshot of the UCI Coordinator's state.
@@ -1170,6 +1195,37 @@
         <member name="P:Bezoro.Chess.UCI.API.Types.UciState.TotalLegalMoves">
             <summary>
                 Gets the total number of legal moves available for classification.
+            </summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.API.Types.UciUndoResult">
+            <summary>
+                The completed undo's immutable state and authoritative removed move payloads.
+                Does not depend on delivery of the session's synchronization-context events.
+            </summary>
+            <param name="State">State produced by this undo command, before a later command can change the session.</param>
+            <param name="UndoneMoves">
+                Removed moves in chronological order, sharing the immutable payload array published by
+                <see cref="T:Bezoro.Chess.UCI.API.Types.MoveUndoneEvent" />. Empty when no history was removed. Iterate in reverse order to animate a rewind.
+            </param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.Types.UciUndoResult.#ctor(Bezoro.Chess.UCI.API.Types.UciState,System.Collections.Immutable.ImmutableArray{Bezoro.Chess.UCI.API.Types.GameMoveEvent})">
+            <summary>
+                The completed undo's immutable state and authoritative removed move payloads.
+                Does not depend on delivery of the session's synchronization-context events.
+            </summary>
+            <param name="State">State produced by this undo command, before a later command can change the session.</param>
+            <param name="UndoneMoves">
+                Removed moves in chronological order, sharing the immutable payload array published by
+                <see cref="T:Bezoro.Chess.UCI.API.Types.MoveUndoneEvent" />. Empty when no history was removed. Iterate in reverse order to animate a rewind.
+            </param>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciUndoResult.State">
+            <summary>State produced by this undo command, before a later command can change the session.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.API.Types.UciUndoResult.UndoneMoves">
+            <summary>
+                Removed moves in chronological order, sharing the immutable payload array published by
+                <see cref="T:Bezoro.Chess.UCI.API.Types.MoveUndoneEvent" />. Empty when no history was removed. Iterate in reverse order to animate a rewind.
             </summary>
         </member>
         <member name="T:Bezoro.Chess.UCI.API.UciGameEngineSession">
@@ -1253,6 +1309,9 @@
             <summary>
                 Raised when the visible match reaches a terminal result.
             </summary>
+        </member>
+        <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.GameFinished">
+            <summary>Raised with the authoritative match identity and terminal state, including across queued delivery.</summary>
         </member>
         <member name="E:Bezoro.Chess.UCI.API.UciGameEngineSession.ResultChanged">
             <summary>
@@ -1402,6 +1461,9 @@
                 Gets whether the primary engine has been started. Optional workers start only when requested.
             </summary>
         </member>
+        <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.CurrentGameId">
+            <summary>Gets the current match identity synchronously, before any queued event callbacks are delivered.</summary>
+        </member>
         <member name="P:Bezoro.Chess.UCI.API.UciGameEngineSession.CurrentFen">
             <summary>
                 Gets the current position FEN (after all played moves).
@@ -1507,6 +1569,17 @@
             </summary>
             <param name="name">The option name.</param>
             <param name="value">The option value, or null to use the engine's default.</param>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.SetStrengthLimitAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>Sets Elo-limited play on the playing engine without limiting analysis workers.</summary>
+            <param name="elo">Desired Elo within the playing engine's advertised range.</param>
+            <param name="ct">Cancellation token.</param>
+            <exception cref="T:System.ArgumentOutOfRangeException">The requested Elo is outside the advertised range.</exception>
+            <exception cref="T:System.NotSupportedException">The playing engine does not support standard Elo limiting.</exception>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.ClearStrengthLimitAsync(System.Threading.CancellationToken)">
+            <summary>Disables standard strength limiting on the playing engine, leaving analysis workers unchanged.</summary>
             <param name="ct">Cancellation token.</param>
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.SetDebugAsync(System.Boolean,System.Threading.CancellationToken)">
@@ -1640,6 +1713,16 @@
                 Plays the current side automatically when that side is configured as engine-controlled.
             </summary>
         </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.PlayEngineDefenseAsync(System.Threading.CancellationToken)">
+            <summary>Searches and applies one engine defense regardless of the current side's configured controller.</summary>
+            <param name="ct">Cancellation token for the search and move application.</param>
+            <returns>The state after exactly one legal engine move has been applied.</returns>
+            <remarks>
+            Uses the independent analysis worker and the configured engine-move time budget. Playing-strength limits do not
+            weaken this search. A failed, canceled, incomplete, or illegal engine reply never falls back to a local move.
+            </remarks>
+            <exception cref="T:System.InvalidOperationException">The match cannot accept a move or the engine supplies no complete legal reply.</exception>
+        </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.PlayControlledMoveIfNeededAsync(System.Threading.CancellationToken)">
             <summary>
                 Plays the current side automatically when it is engine-controlled and the match is still playable.
@@ -1682,6 +1765,23 @@
             <param name="count">Number of moves to undo. Defaults to 1.</param>
             <param name="ct">Cancellation token.</param>
             <returns>The new state after undoing moves, or the current state if no moves were undone.</returns>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.UndoWithDetailsAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+                Reverts moves and returns their authoritative piece-motion payloads with the resulting state.
+                The result is available without waiting for synchronization-context event delivery.
+            </summary>
+            <remarks>
+                Publishes the same events and restores the same clocks as <see cref="M:Bezoro.Chess.UCI.API.UciGameEngineSession.UndoAsync(System.Int32,System.Threading.CancellationToken)" />.
+                Cancellation before the commit leaves history unchanged. Cancellation during optional background work
+                may be reported after the undo has already committed.
+            </remarks>
+            <param name="count">Maximum number of plies to undo. Must be positive; defaults to one.</param>
+            <param name="ct">Cancellation token, with the same commit semantics as <see cref="M:Bezoro.Chess.UCI.API.UciGameEngineSession.UndoAsync(System.Int32,System.Threading.CancellationToken)" />.</param>
+            <returns>
+                The completed undo's state and removed moves in chronological order. When history is empty,
+                returns the current state and an empty move array without publishing a <see cref="E:Bezoro.Chess.UCI.API.UciGameEngineSession.MoveUndone" /> event.
+            </returns>
         </member>
         <member name="M:Bezoro.Chess.UCI.API.UciGameEngineSession.OfferDrawAsync(System.Threading.CancellationToken)">
             <summary>
