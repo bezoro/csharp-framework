@@ -4,7 +4,7 @@ Engine-independent collections, grids, object pools, value types, results, and g
 
 ## Data utilities
 
-[Binary span cursors](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/src/Bezoro.Core/Binary/README.md) read and write explicit little-endian fields with bounds checks and no storage growth. [Bit sets](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/src/Bezoro.Core/Collections/README.BitSet.md) store fixed-capacity flags in words; span extensions provide lower/upper bounds and ordered/swap-back removal with reference clearing. [Numeric helpers](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/src/Bezoro.Core/Numerics/README.md) cover signed chunk division, cyclic indices, interpolation, and elapsed-time damping with explicit finite-input policies.
+[Binary span cursors](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Core/Binary/README.md) read and write explicit little-endian fields with bounds checks and no storage growth. [Bit sets](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Core/Collections/README.BitSet.md) store fixed-capacity flags in words; span extensions provide lower/upper bounds and ordered/swap-back removal with reference clearing. [Numeric helpers](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Core/Numerics/README.md) cover signed chunk division, cyclic indices, interpolation, and elapsed-time damping with explicit finite-input policies.
 
 Use the new operations where their contracts fit the game. Binary readers do not validate application schemas, sorted span searches require caller-maintained ordering, and mutable bit sets require external serialization.
 
@@ -84,7 +84,7 @@ These collections require external synchronization for concurrent mutation and a
 
 ## Grids and borrowed views
 
-For fixed-capacity gameplay storage, see [generational slot maps and ring buffers](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/src/Bezoro.Core/Collections/README.md). For replayable procedural generation, shuffling, and weighted selection, see [deterministic random streams](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/src/Bezoro.Core/Random/README.md). Their capacities and state ownership are explicit; they do not introduce global random state or synchronize mutable game data implicitly.
+For fixed-capacity gameplay storage, see [generational slot maps and ring buffers](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Core/Collections/README.md). For replayable procedural generation, shuffling, and weighted selection, see [deterministic random streams](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Core/Random/README.md). Their capacities and state ownership are explicit; they do not introduce global random state or synchronize mutable game data implicitly.
 
 ```csharp
 using Bezoro.Core.Types;
@@ -171,12 +171,12 @@ Format enum values with `ToString()` and then the string extensions. `ColorHex`,
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/global.json):
 
 ```bash
 dotnet build src/Bezoro.Core/Bezoro.Core.csproj -c Release
 dotnet test tests/Bezoro.Core.Tests/Bezoro.Core.Tests.csproj -c Release -f net10.0
 ```
 
-The first command builds both runtime targets. See [the Core tests](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/tests/Bezoro.Core.Tests/README.md) for covered contracts.
+The first command builds both runtime targets. See [the Core tests](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/tests/Bezoro.Core.Tests/README.md) for covered contracts.
 

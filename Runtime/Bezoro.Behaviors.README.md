@@ -85,5 +85,5 @@ Successful Start, Tick, Dispatch, and Stop paths use their existing storage. Con
 
 ## Validation
 
-The [test suite](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/tests/Bezoro.Behaviors.Tests/README.md) covers all composition directions, budget-one continuations, parallel fairness, tokens and one-shot completions, fault cleanup, constructor ownership, reentrancy, and warmed allocation checks. The [benchmarks](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/benchmarks/Bezoro.Behaviors.Benchmarks/README.md) use preallocated graphs and contexts. Managed tests do not establish Unity player, IL2CPP, or Godot export behavior.
+The [test suite](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/tests/Bezoro.Behaviors.Tests/README.md) covers all composition directions, budget-one continuations, parallel fairness, tokens and one-shot completions, fault cleanup, constructor ownership, reentrancy, and warmed allocation checks. The [benchmarks](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/benchmarks/Bezoro.Behaviors.Benchmarks/README.md) use preallocated graphs and contexts. Managed tests do not establish Unity player, IL2CPP, or Godot export behavior.
 

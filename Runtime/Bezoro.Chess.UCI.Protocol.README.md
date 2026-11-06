@@ -73,7 +73,7 @@ Low-level UCI transport, parsing, and engine-client orchestration for chess engi
 | `IExpectedPointsModel`, `EngineWdlExpectedPointsModel` | Replaceable probability model and engine-self-play default |
 | `MoveReviewAnnotation`, `IMoveReviewAnnotationPolicy` | Application-provided opening and special-label evidence |
 
-See the [review architecture and research](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/docs/chess-review.md) for the public Chess.com behavior studied, the implemented thresholds, and the proprietary features that are not reproduced.
+See the [review architecture and research](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/docs/chess-review.md) for the public Chess.com behavior studied, the implemented thresholds, and the proprietary features that are not reproduced.
 
 ## Local play without an engine
 
@@ -636,7 +636,7 @@ UCI node counts, nodes per second, tablebase hits, and elapsed milliseconds use 
 
 ### Parallel game review
 
-`UciGameReviewAnalyzer` accepts a pool of distinct, already started dedicated clients. Set `GameReviewOptions.MaxParallelPositions` to opt in; the default remains one. `ThreadsPerEngine`, `HashMegabytesPerEngine`, and `MaxGameMoves` provide explicit CPU, hash-table, and history budgets. Results remain chronological and immutable. Progress carries `PositionIndex` because searches can finish out of order. See [parallel review and resource budgets](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/docs/chess-review.md#parallel-review-and-resource-budgets) for ownership, cancellation, and engine configuration.
+`UciGameReviewAnalyzer` accepts a pool of distinct, already started dedicated clients. Set `GameReviewOptions.MaxParallelPositions` to opt in; the default remains one. `ThreadsPerEngine`, `HashMegabytesPerEngine`, and `MaxGameMoves` provide explicit CPU, hash-table, and history budgets. Results remain chronological and immutable. Progress carries `PositionIndex` because searches can finish out of order. See [parallel review and resource budgets](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/docs/chess-review.md#parallel-review-and-resource-budgets) for ownership, cancellation, and engine configuration.
 
 ## API migration
 

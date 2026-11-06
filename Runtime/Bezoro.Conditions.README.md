@@ -93,5 +93,5 @@ The library creates no worker, task, timer or global predicate-result cache. Hos
 
 ## Validation
 
-[Tests](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/tests/Bezoro.Conditions.Tests/README.md) cover truth tables, exact predicate visit order, bounded/deep compilation, borrowed scratch, exceptions, concurrent definitions and warm allocation checks. [Benchmarks](https://github.com/bezoro/csharp-framework/blob/23fe934e2d88f2db7662caaaf6bb6c61cac84fbc/benchmarks/Bezoro.Conditions.Benchmarks/README.md) use precompiled definitions and reusable scratch.
+[Tests](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/tests/Bezoro.Conditions.Tests/README.md) cover truth tables, exact predicate visit order, bounded/deep compilation, borrowed scratch, exceptions, concurrent definitions and warm allocation checks. [Benchmarks](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/benchmarks/Bezoro.Conditions.Benchmarks/README.md) use precompiled definitions and reusable scratch.
 
