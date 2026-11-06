@@ -325,10 +325,11 @@ public sealed class GuidedLessonPlayer
     private GuidedLessonStepResult EvaluatePuzzlePosition()
     {
         var position = _confirmed!.Value.Position;
-        if (position.GetLegalMoves().Length == 0)
+        var result = GuidedLessonValidator.EvaluatePuzzle(_confirmed.Value.History);
+        if (result.IsTerminal)
         {
-            if (position.ActiveColor != _learnerSide && position.IsInCheck()) return Complete();
-            Fail(position.IsInCheck() ? "The learner was checkmated." : "The puzzle ended in stalemate.");
+            if (result.Reason == PlayableMatchResultReason.Checkmate && result.Winner == _learnerSide) return Complete();
+            Fail(result.IsDraw ? "The puzzle ended in a draw." : "The learner was checkmated.");
             return Pending();
         }
         if (_learnerMoves >= _lesson!.Puzzle!.MaxLearnerMoves)

@@ -8,6 +8,7 @@
         <InternalsVisibleTo Include="Bezoro.Chess.UCI.Protocol.Benchmarks" />
         <InternalsVisibleTo Include="Bezoro.Chess.UCI" />
         <InternalsVisibleTo Include="Bezoro.Chess.UCI.Tests" />
+        <InternalsVisibleTo Include="Bezoro.Chess.Study" />
         <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
     </ItemGroup>
 

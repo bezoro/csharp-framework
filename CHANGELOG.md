@@ -6,6 +6,10 @@
 
 - Rename the GitHub repository to `bezoro/csharp-framework` and update installation, documentation and generated package links. Existing Git URLs continue through GitHub's repository redirect.
 
+### Guided chess puzzles
+
+- Use the live rules to reject already finished puzzle setups and histories continuing past mandatory results. Automatic draws now fail an attempt without requesting an engine reply; checkmate keeps precedence and claimable draws remain optional in study.
+
 ### Chess undo results
 
 - Add `UciGameEngineSession.UndoWithDetailsAsync` and `UciUndoResult` so game UIs can await the restored state and authoritative removed move payloads without correlating posted events. Existing `UndoAsync`, events, clocks and history semantics remain unchanged; both APIs share the same undo implementation and immutable move array.

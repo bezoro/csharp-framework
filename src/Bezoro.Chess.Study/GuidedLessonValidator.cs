@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Bezoro.Chess.UCI.Protocol.API.Common.Extensions;
 using Bezoro.Chess.UCI.Protocol.API.Types;
+using Bezoro.Chess.UCI.Protocol.Internal;
 
 namespace Bezoro.Chess.Study;
 
@@ -59,8 +60,16 @@ public static class GuidedLessonValidator
             if (lesson.Puzzle is null) messages.Add("Lesson puzzle goal is required.");
             else if (lesson.Puzzle.MaxLearnerMoves < 1) messages.Add("Lesson puzzle move budget must be positive.");
             if (lesson.Steps.Count != 0) messages.Add("Goal puzzles cannot also contain scripted steps.");
-            if (hasPosition && position.GetLegalMoves().Length == 0)
-                messages.Add("Lesson puzzle must start in a non-terminal position.");
+            if (hasPosition)
+            {
+                try
+                {
+                    if (EvaluatePuzzle(lesson.InitialSetup!.Value).IsTerminal)
+                        messages.Add("Lesson puzzle must start in a non-terminal position.");
+                }
+                catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or OverflowException)
+                { messages.Add("Lesson initial setup: " + exception.Message); }
+            }
             return new(messages);
         }
         if (lesson.Puzzle is not null) messages.Add("Scripted lessons cannot also define a puzzle goal.");
@@ -68,6 +77,17 @@ public static class GuidedLessonValidator
         for (int i = 0; i < lesson.Steps.Count; i++)
             hasPosition = ValidateStep(lesson.Steps[i], i + 1, hasPosition, ref position, messages);
         return new(messages);
+    }
+
+    // Puzzles share live-game mandatory results. Claimable draws remain optional in study.
+    internal static PlayableMatchResult EvaluatePuzzle(PlayableMatchSetup setup)
+    {
+        var repetitions = new Dictionary<string, int>(StringComparer.Ordinal);
+        var position = PlayableMatchHistoryValidator.ValidateAndResolve(setup,
+            PlayableMatchClaimableDrawPolicy.ClaimRequired, repetitionCounts: repetitions);
+        int count = repetitions[LocalPositionRules.BuildRepetitionKey(position)];
+        return PlayableMatchAdjudication.Evaluate(position, position.GetLegalMoves().Length,
+            null, null, count, PlayableMatchClaimableDrawPolicy.ClaimRequired).Result;
     }
 
     private static bool ValidateStep(GuidedLessonStep? step, int number, bool hasPosition, ref Fen position, List<string> messages)

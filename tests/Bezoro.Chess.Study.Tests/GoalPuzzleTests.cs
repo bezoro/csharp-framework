@@ -10,6 +10,77 @@ public sealed class GoalPuzzleTests
     private static readonly Fen MateThree = Fen.Parse("7k/8/8/5K2/8/8/Q7/8 w - - 0 1")!.Value;
 
     [Theory]
+    [InlineData("7k/8/8/8/8/8/8/K7 w - - 0 1")]
+    [InlineData("7k/8/8/5K2/8/8/Q7/8 w - - 150 1")]
+    public void AutomaticDrawsCannotStartACheckmatePuzzle(string fen)
+    {
+        var player = new GuidedLessonPlayer();
+        Assert.False(player.Start(Puzzle(new(Fen.Parse(fen)!.Value), 3), out string error));
+        Assert.NotEmpty(error);
+        Assert.Equal(GuidedLessonPhase.Inactive, player.Phase);
+    }
+
+    [Fact]
+    public void AutomaticDrawAfterALearnerMoveFailsInsteadOfRequestingAnEngineReply()
+    {
+        var start = Fen.Parse("7k/8/8/5K2/8/8/Q7/8 w - - 149 1")!.Value;
+        var player = new GuidedLessonPlayer();
+        Assert.True(player.Start(Puzzle(new(start), 3), out _));
+        Assert.True(player.EvaluateMoveRequest("a2a7").CanSubmitMove);
+        var result = player.CompleteAcceptedMove(Position(start, "a2a7"));
+        Assert.False(result.NeedsOpponentMove);
+        Assert.Equal(GuidedLessonPhase.Failed, player.Phase);
+        Assert.Null(player.Completion);
+    }
+
+    [Theory]
+    [InlineData(2, true)]
+    [InlineData(4, false)]
+    public void RepetitionUsesMandatoryResultsRatherThanOptionalDrawClaims(int cycles, bool canStart)
+    {
+        var moves = Enumerable.Repeat(new[] { "a2a3", "h8g8", "a3a2", "g8h8" }, cycles).SelectMany(cycle => cycle).ToArray();
+        var player = new GuidedLessonPlayer();
+        Assert.Equal(canStart, player.Start(Puzzle(new(MateThree, moves), 20), out _));
+    }
+
+    [Fact]
+    public void AHistoryContinuingBeyondAnAutomaticDrawCannotStartAPuzzle()
+    {
+        var start = Fen.Parse("7k/8/8/5K2/8/8/Q7/8 w - - 149 1")!.Value;
+        var player = new GuidedLessonPlayer();
+        Assert.False(player.Start(Puzzle(new(start, new[] { "a2a7", "h8g8" }), 3), out _));
+        Assert.Equal(GuidedLessonPhase.Inactive, player.Phase);
+    }
+
+    [Fact]
+    public void FivefoldRepetitionAfterAnOpponentReplyFailsAndUndoResumesTheDecision()
+    {
+        var moves = Enumerable.Repeat(new[] { "a2a3", "h8g8", "a3a2", "g8h8" }, 3)
+            .SelectMany(cycle => cycle).Concat(new[] { "a2a3", "h8g8" }).ToArray();
+        var player = new GuidedLessonPlayer();
+        Assert.True(player.Start(Puzzle(new(MateThree, moves), 3), out _));
+        Assert.True(player.EvaluateMoveRequest("a3a2").CanSubmitMove);
+        Assert.True(player.CompleteAcceptedMove(Position(MateThree, [.. moves, "a3a2"])).NeedsOpponentMove);
+        var result = player.CompleteOpponentReply(Position(MateThree, [.. moves, "a3a2", "g8h8"]));
+        Assert.False(result.NeedsOpponentMove);
+        Assert.Equal(GuidedLessonPhase.Failed, player.Phase);
+        Assert.Null(player.Completion);
+        Assert.True(player.ObserveUndo(Position(MateThree, moves)));
+        Assert.Equal(GuidedLessonPhase.ReadyForPlayerMove, player.Phase);
+    }
+
+    [Fact]
+    public void CheckmateTakesPrecedenceOverTheSeventyFiveMoveDraw()
+    {
+        var start = Fen.Parse("7k/8/5KQ1/8/8/8/8/8 w - - 149 1")!.Value;
+        var player = new GuidedLessonPlayer();
+        Assert.True(player.Start(Puzzle(new(start), 1), out _));
+        Assert.True(player.EvaluateMoveRequest("g6g7").CanSubmitMove);
+        Assert.True(player.CompleteAcceptedMove(Position(start, "g6g7")).IsLessonComplete);
+        Assert.NotNull(player.Completion);
+    }
+
+    [Theory]
     [InlineData("7k/8/5KQ1/8/8/8/8/8 w - - 0 1", "g6g7")]
     [InlineData("8/8/8/8/8/5kq1/8/7K b - - 0 1", "g3g2")]
     public void AGoalAcceptsLegalSolutionsForEitherSideAndIssuesProofOnlyAtMate(string fen, string solution)
