@@ -78,7 +78,7 @@ try {
     }
 }
 catch { }
-$documentationBase = "https://github.com/bezoro/framework/blob/$documentationRevision/"
+$documentationBase = "https://github.com/bezoro/csharp-framework/blob/$documentationRevision/"
 
 function Copy-RuntimeReadme([string]$SourcePath, [string]$DestinationPath) {
     # Reparse an explicit file URI so fragments remain anchors instead of literal path characters.

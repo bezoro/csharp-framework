@@ -114,8 +114,8 @@ public sealed class UnityPackageScriptTests
 
         result.ExitCode.Should().Be(0, result.Error);
         string readme = File.ReadAllText(Path.Combine(fixture.Path, "artifacts/package/Runtime/Bezoro.One.README.md"));
-        readme.Should().Contain("https://github.com/bezoro/framework/blob/main/src/Bezoro.One/Details/README.md#usage");
-        readme.Should().Contain("https://github.com/bezoro/framework/blob/main/src/Bezoro.One/Details/My%20Notes.md#topic \"Notes\"");
+        readme.Should().Contain("https://github.com/bezoro/csharp-framework/blob/main/src/Bezoro.One/Details/README.md#usage");
+        readme.Should().Contain("https://github.com/bezoro/csharp-framework/blob/main/src/Bezoro.One/Details/My%20Notes.md#topic \"Notes\"");
         readme.Should().Contain("[Local](#local)").And.Contain("[External](https://example.com/guide)");
     }
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Repository name
+
+- Rename the GitHub repository to `bezoro/csharp-framework` and update installation, documentation and generated package links. Existing Git URLs continue through GitHub's repository redirect.
+
 ### Chess undo results
 
 - Add `UciGameEngineSession.UndoWithDetailsAsync` and `UciUndoResult` so game UIs can await the restored state and authoritative removed move payloads without correlating posted events. Existing `UndoAsync`, events, clocks and history semantics remain unchanged; both APIs share the same undo implementation and immutable move array.

@@ -44,8 +44,10 @@ For a Unity chess product, see [the integration and coverage review](docs/unity-
 In Unity Package Manager, choose **Install package from git URL**:
 
 ```text
-https://github.com/bezoro/framework.git#upm
+https://github.com/bezoro/csharp-framework.git#upm
 ```
+
+GitHub redirects the former `bezoro/framework` Git URL, so existing package references continue to resolve. Use the URL above for new installations.
 
 Use the .NET Standard 2.1 API compatibility profile. Unity's compiler does not compile this repository's source. After updates enter `main`, the workflow builds the DLLs, validates both platforms, includes runtime dependencies, and publishes the generated UPM branch. See [package installation and platform limits](unity-package/README.md).
 
