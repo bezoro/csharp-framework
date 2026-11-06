@@ -141,6 +141,9 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	/// </summary>
 	public event Action<UciState>? GameOver;
 
+	/// <summary>Raised with the authoritative match identity and terminal state, including across queued delivery.</summary>
+	public event Action<GameFinishedEvent>? GameFinished;
+
 	/// <summary>
 	///     Raised when the match result changes.
 	/// </summary>
@@ -362,6 +365,12 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	///     Gets whether the primary engine has been started. Optional workers start only when requested.
 	/// </summary>
 	public bool IsStarted => _engineClients?.IsStarted ?? false;
+
+	/// <summary>Gets the current match identity synchronously, before any queued event callbacks are delivered.</summary>
+	public Guid CurrentGameId
+	{
+		get { lock (_sync) return _gameId; }
+	}
 
 	/// <summary>
 	///     Gets the current position FEN (after all played moves).
@@ -643,6 +652,19 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 			Engines.Ponder.IsStarted ? Engines.Ponder.SetOptionAsync(name, value, ct) : Task.CompletedTask,
 			Engines.Classifier.IsStarted ? Engines.Classifier.SetOptionAsync(name, value, ct) : Task.CompletedTask
 		);
+
+	/// <summary>Sets Elo-limited play on the playing engine without limiting analysis workers.</summary>
+	/// <param name="elo">Desired Elo within the playing engine's advertised range.</param>
+	/// <param name="ct">Cancellation token.</param>
+	/// <exception cref="ArgumentOutOfRangeException">The requested Elo is outside the advertised range.</exception>
+	/// <exception cref="NotSupportedException">The playing engine does not support standard Elo limiting.</exception>
+	public Task SetStrengthLimitAsync(int elo, CancellationToken ct = default) =>
+		RunCommandAsync(() => Engines.Snapshot.SetStrengthLimitAsync(elo, ct), ct);
+
+	/// <summary>Disables standard strength limiting on the playing engine, leaving analysis workers unchanged.</summary>
+	/// <param name="ct">Cancellation token.</param>
+	public Task ClearStrengthLimitAsync(CancellationToken ct = default) =>
+		RunCommandAsync(() => Engines.Snapshot.ClearStrengthLimitAsync(ct), ct);
 
 	/// <summary>
 	///     Sends the standard UCI <c>debug on/off</c> command to the currently started engines.
@@ -1159,15 +1181,14 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 
 	private async Task<EngineMoveResult> PlayControlledMoveCoreAsync(CancellationToken ct = default)
 	{
-		if (State.Result.IsTerminal) throw new InvalidOperationException("The match has already ended.");
-		EnsureTurnHasTimeRemaining();
+		EnsureEngineMoveCanStart();
 		if (GetController(CurrentFen.ActiveColor) != MatchSideControllerKind.Engine)
 			throw new InvalidOperationException("The current side is not configured for engine control.");
 
 		try
 		{
 			var result = await SearchAsync(new() { MoveTimeMs = _options.EngineMoveTimeMs }, ct).ConfigureAwait(false);
-			await MakeMoveCoreAsync(result.BestMove, GameMoveActor.Engine, ct).ConfigureAwait(false);
+			await ApplyEngineReplyCoreAsync(result, ct).ConfigureAwait(false);
 			return new(result.BestMove.ToLowerInvariant(), result);
 		}
 		catch (InvalidOperationException) when (
@@ -1178,6 +1199,47 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 			await MakeMoveCoreAsync(fallbackMove, GameMoveActor.Engine, ct).ConfigureAwait(false);
 			return new(fallbackMove, default);
 		}
+	}
+
+	/// <summary>Searches and applies one engine defense regardless of the current side's configured controller.</summary>
+	/// <param name="ct">Cancellation token for the search and move application.</param>
+	/// <returns>The state after exactly one legal engine move has been applied.</returns>
+	/// <remarks>
+	/// Uses the independent analysis worker and the configured engine-move time budget. Playing-strength limits do not
+	/// weaken this search. A failed, canceled, incomplete, or illegal engine reply never falls back to a local move.
+	/// </remarks>
+	/// <exception cref="InvalidOperationException">The match cannot accept a move or the engine supplies no complete legal reply.</exception>
+	public Task<UciState> PlayEngineDefenseAsync(CancellationToken ct = default) =>
+		RunCommandAsync(async () =>
+		{
+			EnsureEngineMoveCanStart();
+			if (!IsStarted) throw new InvalidOperationException("Start the primary engine before requesting engine defense.");
+			if (!Engines.Classifier.IsStarted) await Engines.Classifier.StartAsync(ct).ConfigureAwait(false);
+			await Engines.Classifier.ClearStrengthLimitAsync(ct).ConfigureAwait(false);
+			var state = State;
+			var reply = await Engines.Classifier.SearchAsync(state.BaseFen, state.PlayedMoves,
+				new() { MoveTimeMs = _options.EngineMoveTimeMs }, ct).ConfigureAwait(false);
+			return await ApplyEngineReplyCoreAsync(reply, ct).ConfigureAwait(false);
+		}, ct);
+
+	private void EnsureEngineMoveCanStart()
+	{
+		if (State.Result.IsTerminal) throw new InvalidOperationException("The match has already ended.");
+		EnsureTurnHasTimeRemaining();
+		if (_pendingPromotion.HasValue) throw new InvalidOperationException("Resolve the pending promotion before requesting an engine move.");
+	}
+
+	private async Task<UciState> ApplyEngineReplyCoreAsync(SearchResult reply, CancellationToken ct)
+	{
+		ct.ThrowIfCancellationRequested();
+		var before = State;
+		string move = reply.BestMove?.Trim().ToLowerInvariant() ?? string.Empty;
+		if (!before.LegalMoves.Contains(move))
+			throw new InvalidOperationException("The engine did not return a complete legal move for the current position.");
+		var after = await MakeMoveCoreAsync(move, GameMoveActor.Engine, ct).ConfigureAwait(false);
+		if (after.PlayedMoves.Count != before.PlayedMoves.Count + 1 || after.PlayedMoves[^1] != move)
+			throw new InvalidOperationException("The engine reply was not applied as exactly one move.");
+		return after;
 	}
 
 	/// <summary>
@@ -1360,9 +1422,28 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	/// <param name="ct">Cancellation token.</param>
 	/// <returns>The new state after undoing moves, or the current state if no moves were undone.</returns>
 	public Task<UciState> UndoAsync(int count = 1, CancellationToken ct = default) =>
-		RunCommandAsync(() => UndoCoreAsync(count, ct), ct);
+		RunCommandAsync(() => UndoCoreAsync(count, ct, static (state, _) => state), ct);
 
-	private async Task<UciState> UndoCoreAsync(int count = 1, CancellationToken ct = default)
+	/// <summary>
+	///     Reverts moves and returns their authoritative piece-motion payloads with the resulting state.
+	///     The result is available without waiting for synchronization-context event delivery.
+	/// </summary>
+	/// <remarks>
+	///     Publishes the same events and restores the same clocks as <see cref="UndoAsync" />.
+	///     Cancellation before the commit leaves history unchanged. Cancellation during optional background work
+	///     may be reported after the undo has already committed.
+	/// </remarks>
+	/// <param name="count">Maximum number of plies to undo. Must be positive; defaults to one.</param>
+	/// <param name="ct">Cancellation token, with the same commit semantics as <see cref="UndoAsync" />.</param>
+	/// <returns>
+	///     The completed undo's state and removed moves in chronological order. When history is empty,
+	///     returns the current state and an empty move array without publishing a <see cref="MoveUndone" /> event.
+	/// </returns>
+	public Task<UciUndoResult> UndoWithDetailsAsync(int count = 1, CancellationToken ct = default) =>
+		RunCommandAsync(() => UndoCoreAsync(count, ct, static (state, moves) => new UciUndoResult(state, moves)), ct);
+
+	private async Task<TResult> UndoCoreAsync<TResult>(int count, CancellationToken ct,
+		Func<UciState, ImmutableArray<GameMoveEvent>, TResult> createResult)
 	{
 		ct.ThrowIfCancellationRequested();
 		if (count < 1)
@@ -1377,7 +1458,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		}
 
 		if (currentState.PlayedMoves.Count == 0)
-			return currentState;
+			return createResult(currentState, ImmutableArray<GameMoveEvent>.Empty);
 
 		int movesToRemove = Math.Min(count, currentState.PlayedMoves.Count);
 		int retainedCount = currentState.PlayedMoves.Count - movesToRemove;
@@ -1432,7 +1513,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 			snapshot.LegalMoves,
 			ct
 		).ConfigureAwait(false);
-		return State;
+		return createResult(State, removedMoves);
 	}
 
 	/// <summary>
@@ -2492,7 +2573,12 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	private void PublishGameOver(UciState snapshot)
 	{
 		if (snapshot.IsGameOver)
+		{
+			GameFinishedEvent finished;
+			lock (_sync) finished = new(_gameId, snapshot);
 			RaiseStateEvent(GameOver, UciGameEngineSessionEventKind.GameOver, snapshot);
+			RaiseTypedEvent(GameFinished, finished, UciGameEngineSessionEvent.ForGameFinished(finished));
+		}
 	}
 
 	private void PublishSearchStateChanged(UciState snapshot)

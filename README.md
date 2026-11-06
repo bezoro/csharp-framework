@@ -44,10 +44,14 @@ For a Unity chess product, see [the integration and coverage review](docs/unity-
 In Unity Package Manager, choose **Install package from git URL**:
 
 ```text
-https://github.com/bezoro/framework.git#upm
+https://github.com/bezoro/csharp-framework.git#upm
 ```
 
+GitHub redirects the former `bezoro/framework` Git URL, so existing package references continue to resolve. Use the URL above for new installations.
+
 Use the .NET Standard 2.1 API compatibility profile. Unity's compiler does not compile this repository's source. After updates enter `main`, the workflow builds the DLLs, validates both platforms, includes runtime dependencies, and publishes the generated UPM branch. See [package installation and platform limits](unity-package/README.md).
+
+Chess learning and local progression use [Study](src/Bezoro.Chess.Study/README.md) and [Chess.Progression](src/Bezoro.Chess.Progression/README.md). These modules own guided moves, goal puzzles, campaign prerequisites, training Elo, quest rewards and cosmetic ownership. Engine adapters supply lifecycle and I/O; artwork, prefabs, materials and designer interfaces remain in the consuming game.
 
 ## Local chess without Stockfish
 
@@ -112,6 +116,8 @@ pwsh -NoProfile -File scripts/Export-PublicApi.ps1 -Check
 
 Install PowerShell 7 for build-script tests. Chess integration tests use the bundled Windows Stockfish by default. On Linux/macOS, set `BEZORO_STOCKFISH_PATH` to an absolute path to a compatible engine binary. Stockfish is not part of the published Unity package.
 
-Pushes to working branches do not start GitHub Actions. Updates to `main`, including merges, automatically validate and publish. Run local checks during development, and dispatch **Validate and publish Unity package** only when a consolidated pre-merge check is useful. Leave `publish_upm` disabled for validation; `validation_platform` can target Windows or Linux when diagnosing a platform-specific failure. Main integration and publication always validate both platforms. A manual publication requires `main` with `publish_upm` enabled; publication is rejected on other branches.
+Pushes to working branches do not start GitHub Actions. Updates to `main`, including merges, automatically validate and publish. Run local checks during development, and dispatch **Validate and publish Unity package** only when a consolidated pre-merge check is useful. Leave both publication flags disabled for validation; `validation_platform` can target Windows or Linux when diagnosing a platform-specific failure. Official publication requires `main` with `publish_upm` enabled.
+
+For pre-merge Chess Crush integration, `publish_candidate` publishes the selected source revision to the dedicated `upm-candidate/chesscrush` distribution branch. It requires both platforms and every test suite, shares the official staging/metadata checks and canonical version resolver, and leaves `main` and `upm` unchanged. Use the resulting complete Git commit in the game's Package Manager URL. Candidate and official flags are mutually exclusive. A published candidate is still a pre-merge build; validate its actual import and execution in Unity before accepting the consumer.
 
 See [contribution guidelines](CONTRIBUTING.md), [change notes](CHANGELOG.md), and the [review report](docs/framework-review.md). Runtime compatibility must also be verified in the intended Unity/Godot player build; a successful .NET build does not establish IL2CPP, trimming, WebGL, or console support.

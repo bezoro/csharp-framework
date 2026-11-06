@@ -61,11 +61,17 @@ Loaded positions now use the same basic validation as game review: both kings, l
 
 `IsStarted` describes the primary engine. `IsHealthy` includes the primary engine and each running optional worker. Configuration commands target only currently started engines; a worker started later uses its own defaults and the configured coordinator search settings. Stopping does not contact workers that were never started. A failed on-demand worker startup leaves the primary engine available; failed automatic-analysis startup rolls back the engines started by that startup sequence.
 
+Use `SetStrengthLimitAsync(elo)` and `ClearStrengthLimitAsync()` to configure the playing engine. The framework validates advertised Elo support and bounds. These typed operations leave the analysis workers unchanged; generic `SetOptionAsync` still broadcasts to started workers.
+
+Goal puzzles can await `PlayEngineDefenseAsync()` for one engine defense even when the side is configured as Manual. It starts the independent analysis worker on demand, clears its standard Elo limit, and uses `EngineMoveTimeMs`. The command gate remains held through search and application, with normal clocks, cancellation, promotion, and gameplay events. A complete legal reply must become exactly one applied engine ply. Search failures and invalid or canceled replies never use the controlled-move local fallback. The returned `UciState` is the applied position, ready for the lesson to evaluate.
+
 `new UciCoordinatorOptions()` uses the documented defaults. Sessions validate resource budgets and enum policies at construction; `default(UciCoordinatorOptions)` is an uninitialized, invalid configuration.
 
 Current-position searches send the base FEN and complete played history so the engine retains repetition context. Terminal results cancel automatic classification and pondering, and discard obsolete search hints.
 
 Queued analysis notifications recheck their generation when the UI context delivers them. Results from a previous position cannot overwrite the Unity view after moving, undoing, loading, ending the match, or disposing the session. Gameplay event history is retained.
+
+`CurrentGameId` reads the authoritative match identity immediately, before queued callbacks run. Loading or starting a match changes it; moves and undo retain it. `GameFinished` carries both the captured identity and terminal `UciState`, and also appears in `EventPublished`. Use that identity to correlate delayed terminal callbacks across matches whose FEN and history happen to be identical. The legacy `GameOver` state event remains available.
 
 Ephemeral `StateChanged` snapshots also check a shared state version, preventing an older worker update from overwriting a newer paused clock or draw offer while the board position stays the same. Typed gameplay events and typed evaluation/classification results keep their own history and generation semantics.
 
@@ -86,6 +92,27 @@ var scoredMoves = await session.WaitForClassificationAsync(cancellationToken);
 ```
 
 With automatic analysis disabled, the classification wait and stream complete with no scored moves. Use `session.CurrentFen.ClassifyMoveFully(move)` for on-demand local move semantics. Start the configured engines before enabling automatic analysis. Gameplay uses standard FEN and UCI coordinates and does not require the non-standard `d` or `go perft` engine extensions.
+
+## Undo with piece-motion details
+
+Use `UndoAsync` when only the restored state is needed. For rewind animation, await `UndoWithDetailsAsync`
+to receive the removed moves directly. Both commands publish the same events and restore the same clocks and results.
+Event handlers posted to a UI synchronization context may run later; the returned details require no event subscription.
+
+```csharp
+var undo = await session.UndoWithDetailsAsync(count: 1, ct: cancellationToken);
+for (int index = undo.UndoneMoves.Length - 1; index >= 0; index--)
+{
+    var move = undo.UndoneMoves[index];
+    // Rewind move.To to move.From. SecondaryPieceMove contains the castling rook's motion.
+    // CapturedPiece and PromotionPiece retain the original capture and promotion semantics.
+}
+var restoredPosition = undo.State.CurrentFen;
+```
+
+The move array is chronological and empty when there is nothing to undo. A positive count larger than the available
+history removes all available plies. Cancellation follows `UndoAsync`: cancellation before the command commits leaves
+the position unchanged, while cancellation during optional background work can occur after the undo has committed.
 
 ## Engine-backed usage
 ### Search an engine-controlled move

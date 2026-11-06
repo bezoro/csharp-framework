@@ -20,7 +20,7 @@ Set `BEZORO_PACKAGE_VERSION` or pass `-PackageVersion` to `scripts/Build-UnityPa
 In Unity, open `Window > Package Manager`, choose `Install package from git URL`, and use:
 
 ```text
-https://github.com/bezoro/framework.git#upm
+https://github.com/bezoro/csharp-framework.git#upm
 ```
 
 ## Update behavior

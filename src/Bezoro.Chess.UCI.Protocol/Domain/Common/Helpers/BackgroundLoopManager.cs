@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
@@ -206,29 +207,29 @@ internal sealed class BackgroundLoopManager(
 	{
 		var readToken = _readLoopCts!.Token;
 
-		_readLoopTask = Task.Run(
-			async () =>
-			{
-				try
-				{
-					await RunReadLoopAsync(stdout, writer, readToken).ConfigureAwait(false);
-					ChannelFactory.TryComplete(writer);
-				}
-				catch (OperationCanceledException)
-				{
-					// Expected when cancellation is requested; complete the channel gracefully
-					ChannelFactory.TryComplete(writer);
-				}
-				catch (Exception ex)
-				{
-					reportError(ex, "Read loop faulted.");
-					ChannelFactory.TryComplete(writer, ex);
-				}
-			},
-			CancellationToken.None
-		);
-
+		_readLoopTask = RunAsync();
 		Observe(_readLoopTask);
+
+		async Task RunAsync()
+		{
+			try
+			{
+				await StartReader(stdout,
+					() => RunSynchronousReadLoop(stdout, writer, readToken),
+					() => RunReadLoopAsync(stdout, writer, readToken)).ConfigureAwait(false);
+				ChannelFactory.TryComplete(writer);
+			}
+			catch (OperationCanceledException)
+			{
+				// Expected when cancellation is requested; complete the channel gracefully
+				ChannelFactory.TryComplete(writer);
+			}
+			catch (Exception ex)
+			{
+				await Task.Run(() => reportError(ex, "Read loop faulted.")).ConfigureAwait(false);
+				ChannelFactory.TryComplete(writer, ex);
+			}
+		}
 	}
 
 	/// <summary>
@@ -238,22 +239,33 @@ internal sealed class BackgroundLoopManager(
 	{
 		if (stderr == null) return;
 
-		_stderrLoopTask = Task.Run(
-			async () =>
-			{
-				try
-				{
-					await RunStderrLoopAsync(stderr).ConfigureAwait(false);
-				}
-				catch (Exception ex)
-				{
-					reportError(ex, "Stderr loop faulted.");
-				}
-			},
-			CancellationToken.None
-		);
-
+		_stderrLoopTask = RunAsync();
 		Observe(_stderrLoopTask);
+
+		async Task RunAsync()
+		{
+			try
+			{
+				await StartReader(stderr,
+					() => RunSynchronousStderrLoop(stderr),
+					() => RunStderrLoopAsync(stderr)).ConfigureAwait(false);
+			}
+			catch (Exception ex)
+			{
+				await Task.Run(() => reportError(ex, "Stderr loop faulted.")).ConfigureAwait(false);
+			}
+		}
+	}
+
+	private static Task StartReader(StreamReader reader, Action synchronousRead, Func<Task> asynchronousRead)
+	{
+		// Mono and other synchronous pipe backends emulate ReadLineAsync with blocking
+		// pool work. Keep those reads on owned threads so idle engines cannot starve
+		// command writers. Genuine async/custom streams retain their async I/O path.
+		return reader.BaseStream is FileStream { IsAsync: false } or PipeStream { IsAsync: false }
+			? Task.Factory.StartNew(synchronousRead, CancellationToken.None,
+				TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach, TaskScheduler.Default)
+			: Task.Run(asynchronousRead);
 	}
 
 	/// <summary>
@@ -316,6 +328,12 @@ internal sealed class BackgroundLoopManager(
 		{
 			return null;
 		}
+	}
+
+	private static string? TryReadLine(StreamReader reader)
+	{
+		try { return reader.ReadLine(); }
+		catch (ObjectDisposedException) { return null; }
 	}
 
 	/// <summary>
@@ -418,6 +436,22 @@ internal sealed class BackgroundLoopManager(
 		}
 	}
 
+	private void RunSynchronousReadLoop(StreamReader stdout, ChannelWriter<string> writer, CancellationToken readToken)
+	{
+		while (!readToken.IsCancellationRequested)
+		{
+			string? line = TryReadLine(stdout);
+			if (line is null) break;
+			if (line.Length == 0) continue;
+			metrics.IncrementLinesRead();
+			if (writer.TryWrite(line)) continue;
+
+#pragma warning disable VSTHRD002 // Only the owned blocking pipe reader waits; pool/UI threads remain free.
+			HandleBackpressureAsync(writer, line, readToken).GetAwaiter().GetResult();
+#pragma warning restore VSTHRD002
+		}
+	}
+
 	/// <summary>
 	///     Runs the stderr loop, reading lines and invoking the handler.
 	/// </summary>
@@ -430,15 +464,30 @@ internal sealed class BackgroundLoopManager(
 
 			if (line.Length == 0) continue;
 
-			try
-			{
-				stderrReceived?.Invoke(line);
-			}
-			catch
-			{
-				// User-provided handler exceptions must not crash the loop.
-			}
+			InvokeStderrHandler(line);
 		}
+	}
+
+	private void RunSynchronousStderrLoop(StreamReader stderr)
+	{
+		while (true)
+		{
+			string? line = TryReadLine(stderr);
+			if (line is null) break;
+			if (line.Length == 0 || stderrReceived is null) continue;
+
+			// Join each pool callback before reading its successor, preserving order and
+			// the callback thread contract without an unbounded stderr queue.
+#pragma warning disable VSTHRD002 // This wait belongs to the owned stderr reader, never a pool/UI thread.
+			Task.Run(() => InvokeStderrHandler(line)).GetAwaiter().GetResult();
+#pragma warning restore VSTHRD002
+		}
+	}
+
+	private void InvokeStderrHandler(string line)
+	{
+		try { stderrReceived?.Invoke(line); }
+		catch { /* User-provided handler exceptions must not crash the loop. */ }
 	}
 
 	/// <summary>

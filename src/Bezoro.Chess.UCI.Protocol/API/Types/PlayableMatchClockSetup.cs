@@ -69,6 +69,22 @@ public readonly record struct PlayableMatchClockSetup
 	/// </summary>
 	public PlayableMatchClockRestore? ExactRestore { get; }
 
+	/// <summary>Creates a valid clock snapshot from authored seconds, clamping negative values to zero.</summary>
+	/// <remarks>Negative infinity is clamped to zero. NaN and positive infinity are rejected by <see cref="TimeSpan.FromSeconds(double)" />.</remarks>
+	/// <exception cref="ArgumentException">A value is NaN.</exception>
+	/// <exception cref="OverflowException">A positive value exceeds the range of <see cref="TimeSpan" />.</exception>
+	public static PlayableMatchClockSetup FromClampedSeconds(
+		double whiteRemainingSeconds, double blackRemainingSeconds, double delayRemainingSeconds = 0,
+		bool isPaused = true, DateTimeOffset? snapshotUtc = null)
+	{
+		var setup = new PlayableMatchClockSetup(
+			TimeSpan.FromSeconds(Math.Max(0, whiteRemainingSeconds)),
+			TimeSpan.FromSeconds(Math.Max(0, blackRemainingSeconds)),
+			TimeSpan.FromSeconds(Math.Max(0, delayRemainingSeconds)), isPaused, snapshotUtc);
+		setup.Validate();
+		return setup;
+	}
+
 	/// <summary>
 	///     Creates a clock setup from an advanced exact snapshot that supplies active side, move counts, and stage.
 	/// </summary>

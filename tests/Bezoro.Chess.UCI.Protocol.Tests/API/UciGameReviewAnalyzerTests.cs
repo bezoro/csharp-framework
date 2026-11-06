@@ -413,7 +413,7 @@ public sealed class UciGameReviewAnalyzerTests
 			}
 			return Task.CompletedTask;
 		});
-		return (new UciEngineClient(transport, new() { ReadyTimeout = TimeSpan.FromSeconds(1) }), commands);
+		return (new UciEngineClient(transport), commands);
 	}
 
 	private sealed class RecordingProgress(Action<GameReviewProgress>? callback = null) : IProgress<GameReviewProgress>
