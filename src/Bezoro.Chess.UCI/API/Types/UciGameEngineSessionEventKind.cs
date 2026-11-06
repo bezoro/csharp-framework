@@ -74,5 +74,7 @@ public enum UciGameEngineSessionEventKind
 	/// <summary>The session stopped.</summary>
 	Stopped,
 	/// <summary>A pending promotion prompt was canceled before a move was applied.</summary>
-	PromotionCanceled
+	PromotionCanceled,
+	/// <summary>A match reached a terminal result, with its authoritative identity captured at publication.</summary>
+	GameFinished,
 }

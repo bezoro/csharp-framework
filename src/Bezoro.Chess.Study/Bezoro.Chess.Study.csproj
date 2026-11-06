@@ -4,6 +4,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Bezoro.Core/Compatibility/IsExternalInit.cs" Link="Compatibility/IsExternalInit.cs" />
     <ProjectReference Include="../Bezoro.Chess.UCI.Protocol/Bezoro.Chess.UCI.Protocol.csproj" />
+    <ProjectReference Include="../Bezoro.StateMachines/Bezoro.StateMachines.csproj" />
+    <ProjectReference Include="../Bezoro.Progression/Bezoro.Progression.csproj" />
   </ItemGroup>
 </Project>

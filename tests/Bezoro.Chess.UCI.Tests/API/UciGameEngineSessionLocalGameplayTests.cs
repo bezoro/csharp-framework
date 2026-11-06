@@ -123,6 +123,59 @@ public sealed class UciGameEngineSessionLocalGameplayTests
 	}
 
 	[Fact]
+	public async Task FivefoldRepetition_IsAutomaticAfterClaimableThirdAndFourthOccurrences()
+	{
+		await using var session = CreateSession(UciCoordinatorOptions.Default with
+		{
+			ClaimableDrawPolicy = PlayableMatchClaimableDrawPolicy.ClaimRequired
+		});
+		await session.LoadMatchAsync(PlayableMatchSetup.Standard);
+		string[] cycle = ["g1f3", "g8f6", "f3g1", "f6g8"];
+		var history = new List<string>();
+		var events = new List<GameMoveEvent>();
+		session.MoveMade += events.Add;
+		Guid gameId = session.CurrentGameId;
+		// The loaded base position is the first occurrence.
+		for (int occurrence = 2; occurrence <= 5; occurrence++)
+		{
+			foreach (string move in cycle)
+			{
+				await session.MakeMoveAsync(move);
+				history.Add(move);
+			}
+			Assert.Equal(Fen.Default, session.State.BaseFen);
+			Assert.Equal(history, session.PlayedMoves);
+			Assert.Equal(history, events.Select(move => move.Notation));
+			Assert.All(events, move => Assert.Equal(gameId, move.GameId));
+			Assert.Equal(Enumerable.Range(1, history.Count), events.Select(move => move.Ply));
+			if (occurrence == 5)
+			{
+				Assert.Equal(PlayableMatchResultReason.FivefoldRepetition, session.State.Result.Reason);
+				Assert.True(session.State.IsGameOver);
+				Assert.True(session.State.Result.IsDraw);
+				Assert.Null(session.State.ClaimableResult);
+			}
+			else
+			{
+				Assert.False(session.State.Result.IsTerminal);
+				if (occurrence >= 3) Assert.Equal(PlayableMatchResultReason.ThreefoldRepetition, session.State.ClaimableResult?.Reason);
+				else Assert.Null(session.State.ClaimableResult);
+			}
+		}
+		var terminal = session.State;
+		await Assert.ThrowsAsync<InvalidOperationException>(() => session.MakeMoveAsync("e2e4"));
+		Assert.Equal(terminal, session.State);
+		var restored = await session.UndoAsync();
+		Assert.False(restored.Result.IsTerminal);
+		Assert.Equal(PlayableMatchResultReason.ThreefoldRepetition, restored.ClaimableResult?.Reason);
+		Assert.Equal(history.Take(history.Count - 1), restored.PlayedMoves);
+		Assert.Equal(gameId, session.CurrentGameId);
+		await session.MakeMoveAsync(cycle[^1]);
+		Assert.Equal(PlayableMatchResultReason.FivefoldRepetition, session.State.Result.Reason);
+		Assert.Equal(history, session.PlayedMoves);
+	}
+
+	[Fact]
 	public async Task LoadMatch_InvalidClockSetup_DoesNotEraseCurrentPositionOrUndoHistory()
 	{
 		await using var session = CreateSession();

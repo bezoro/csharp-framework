@@ -30,6 +30,8 @@ Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare | public readonly struct | stabl
 Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity | public enum | stable-shape | API/Types/EngineActivity.cs
 Bezoro.Chess.UCI.Protocol.API.Types.EngineMoveResult | public readonly record struct | stable-shape | API/Types/EngineMoveResult.cs
 Bezoro.Chess.UCI.Protocol.API.Types.Fen | public readonly record struct | stable-shape | API/Types/Fen.cs
+Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup | public sealed class | stable-shape | API/Types/FenPositionSetup.cs
+Bezoro.Chess.UCI.Protocol.API.Types.FenPositionValidationResult | public readonly record struct | stable-shape | API/Types/FenPositionSetup.cs
 Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation | public readonly record struct | stable-shape | API/Types/GameReviewEvaluation.cs
 Bezoro.Chess.UCI.Protocol.API.Types.GameReviewOptions | public sealed class | stable-shape | API/Types/GameReviewOptions.cs
 Bezoro.Chess.UCI.Protocol.API.Types.GameReviewProgress | public readonly record struct | stable-shape | API/Types/GameReviewProgress.cs
