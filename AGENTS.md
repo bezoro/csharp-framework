@@ -30,7 +30,7 @@ Design the framework for safe concurrent use and useful parallel execution witho
 
 - Prefer immutable shared definitions, readonly results and coherent snapshots. Stateful shared services must synchronize complete operations, including reads, claims, lifecycle changes and snapshot publication.
 - Keep execution workspaces and borrowed storage under explicit exclusive ownership. Reject unsupported overlapping operations atomically before effects; a lock around a getter cannot protect a reference or span after it escapes.
-- State callback execution, ownership, reentrancy, cancellation and disposal contracts explicitly. Protect internal state without invoking arbitrary user callbacks under blocking locks. Thread-safe bookkeeping does not make caller-owned values or callbacks thread-safe.
+- State callback execution, ownership, reentrancy, cancellation and disposal contracts explicitly. Protect internal state without invoking arbitrary user callbacks under blocking locks. Explicit synchronization primitives may execute the caller's critical section by contract. Thread-safe bookkeeping does not make caller-owned values or callbacks thread-safe.
 - Bound parallel work and retained queues; observe and join owned work during shutdown. Never create tasks or marshal threads merely to make a synchronous operation look concurrent.
 - Preserve the pay-for-use principle: no mandatory engine dispatcher, task allocation, polling or per-element synchronization in pure calculations and exclusively owned kernels. Verify concurrency invariants with deterministic regressions and measure material performance changes in Release builds.
 
