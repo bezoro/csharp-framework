@@ -15,6 +15,7 @@ namespace Bezoro.Core.Types;
 ///     The array is ideal for scenarios where element order is unimportant and high-performance removals are desired.
 ///     Implements <see cref="IReadOnlyList{T}" /> for enumeration. Use <see cref="Add(T)" />, <see cref="Remove(T)" />,
 ///     <see cref="Clear()" />, etc. for mutation.
+///     Storage and borrowed views require exclusive ownership. Predicates must not mutate the array.
 /// </remarks>
 [DebuggerDisplay("Count = {Count}, Capacity = {Capacity}")]
 public sealed class SwapbackArray<T> : IReadOnlyList<T>
@@ -361,6 +362,8 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 	/// </summary>
 	/// <param name="match">Predicate to select elements for removal.</param>
 	/// <exception cref="ArgumentNullException">If <paramref name="match" /> is null.</exception>
+	/// <exception cref="InvalidOperationException">The predicate mutates the array.</exception>
+	/// <remarks>Compaction is in place; work performed before a predicate failure is not rolled back.</remarks>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public uint RemoveAll(Predicate<T> match)
 	{
@@ -708,10 +711,14 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 	{
 		uint write = 0;
 		uint read  = 0;
+		uint version = Version;
 
 		while (read < originalCount)
 		{
-			if (!match(_items[read]))
+			bool remove = match(_items[read]);
+			if (Version != version)
+				throw new InvalidOperationException("The removal predicate must not mutate the array.");
+			if (!remove)
 			{
 				if (write != read)
 					_items[write] = _items[read];
