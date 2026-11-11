@@ -86,7 +86,7 @@ while (events.TryDequeue(out var evt))
 
 ## Ownership and integration
 
-Health fields are mutable. The constructor clamps initial pools, and mutation helpers apply their documented clamping and saturation rules. Callers writing fields directly must preserve their own invariants. Callbacks run synchronously on the world thread. The event invocation catches exceptions, but a throwing subscriber can stop later subscribers in that invocation; queued event consumption is independent.
+Health fields are mutable. The constructor clamps initial pools, and mutation helpers apply their documented clamping and saturation rules. Callers writing fields directly must preserve their own invariants. Callbacks run synchronously on the world thread. The event invocation catches exceptions, but a throwing subscriber can stop later subscribers in that invocation; queued event consumption is independent. Acquire `HealthEventsResource` under world ownership, then share that queue with worker or engine-adapter consumers. Queue operations are synchronized and support optional preallocation and backlog limits under the [shared event-queue contract](../README.md#runtime-behavior).
 
 This subsystem shares the [module targets and engine integration](../README.md). Run its .NET 10 tests with:
 

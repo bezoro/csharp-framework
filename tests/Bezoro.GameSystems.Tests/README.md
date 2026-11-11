@@ -35,6 +35,7 @@ dotnet test tests/Bezoro.GameSystems.Tests/Bezoro.GameSystems.Tests.csproj -c Re
 
 - These are unit-level composition tests; they do not require Unity or another engine.
 - Concurrency tests coordinate work with bounded synchronization rather than timing-only assertions.
+- Shared event-queue cases cover concurrent producers/consumers, bounded rejection without event loss, retained warmed storage with zero per-operation allocations, callback dispatch outside queue locks and self-reposting callbacks deferred by a finite dispatch pass.
 
 Tests use the .NET 10 SDK selected by [global.json](../../global.json). They run without Unity or Godot and do not replace validation in engine player builds.
 

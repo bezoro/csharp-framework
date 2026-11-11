@@ -84,7 +84,7 @@ Handles identify a live modifier inside one set. They are not save-game or cross
 
 ## Unity, Godot, and ECS ownership
 
-Own a `StatSet` from a Unity component, Godot node, or ECS resource. All reads that can refresh caches and all mutations require one owning thread or external serialization. Separate sets can run on separate workers. A pure calculator call can run concurrently when its input spans are not mutated by another caller. Scene, UI, and rendering calls remain the host engine's responsibility.
+Own a `StatSet` from a Unity component, Godot node, or ECS resource. Individual reads, cache refreshes and mutations are synchronized per set; multiple threads may safely share one set. Unrelated sets execute independently. Definitions, evaluations and modifiers are copied value snapshots, and `CopyModifiersTo` sees one consistent modifier list while writing caller-owned destination memory. Separate calls are not a multi-operation transaction. A pure calculator call can run concurrently when its input spans are not mutated by another caller. Scene, UI, and rendering calls remain the host engine's responsibility.
 
 For a Bezoro ECS world, the same set can be installed as a resource:
 

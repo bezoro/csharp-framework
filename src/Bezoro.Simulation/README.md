@@ -5,7 +5,7 @@ Engine-independent simulation time and gameplay attributes. Runtime targets are 
 - [Timing](Timing/README.md) provides fixed-step advancement and bounded integer-tick scheduling.
 - [Attributes](Attributes/README.md) provides explicit modifier formulas and reusable attribute storage.
 
-Value models are readonly. Mutable owners such as schedulers and attribute sets belong to an update thread or require external serialization. Independent owners can run on separate workers. Deliver scheduled data to Unity/Godot scene objects on the engine's main thread.
+Value models are readonly. Schedulers and attribute sets synchronize individual operations, allowing shared producers, consumers and readers without external locks. Independent instances can execute in parallel. Returned values are snapshots; application-owned buffers and reference payloads keep their own synchronization requirements. Deliver scheduled data to Unity/Godot scene objects through the engine adapter's thread rules.
 
 Use these owners directly in a game loop or register them as ECS world resources. No global clock, background timer task, or singleton is required. The ECS-specific pipelines remain in [GameSystems](../Bezoro.GameSystems/README.md).
 

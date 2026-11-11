@@ -2,7 +2,7 @@ namespace Bezoro.Simulation.Timing;
 
 /// <summary>
 /// A fixed-capacity integer-tick scheduler with stable ordering and generational cancellation.
-/// Operations require one owning thread or external serialization. Separate instances are independent.
+/// Public operations are synchronized per instance; producers may schedule or cancel while consumers drain.
 /// </summary>
 /// <remarks>
 /// Scheduling, cancellation, rescheduling, and draining allocate no managed memory after construction.
@@ -24,10 +24,12 @@ public sealed class TickScheduler<T>
     private readonly Node[] _nodes;
     private readonly int[] _heap;
     private readonly long _ownerId;
+    private readonly object _gate = new();
     private int _count;
     private int _freeHead;
     private int _remainingCapacity;
     private ulong _nextSequence;
+    private long _currentTick;
 
     /// <summary>Preallocates a fixed number of slots. Zero capacity is valid and always full.</summary>
     public TickScheduler(int capacity, long initialTick = 0)
@@ -39,7 +41,7 @@ public sealed class TickScheduler<T>
         _ownerId = SchedulerOwnerIds.Next();
         _remainingCapacity = capacity;
         _freeHead = capacity == 0 ? -1 : 0;
-        CurrentTick = initialTick;
+        _currentTick = initialTick;
         for (int slot = 0; slot < capacity; slot++)
         {
             _nodes[slot].Generation = 1;
@@ -52,19 +54,21 @@ public sealed class TickScheduler<T>
     public int Capacity => _nodes.Length;
 
     /// <summary>Gets the number of pending items.</summary>
-    public int Count => _count;
+    public int Count { get { lock (_gate) return _count; } }
 
     /// <summary>Gets available slots, excluding slots retired after generation exhaustion.</summary>
-    public int RemainingCapacity => _remainingCapacity;
+    public int RemainingCapacity { get { lock (_gate) return _remainingCapacity; } }
 
     /// <summary>Gets slots permanently retired to prevent stale-handle resurrection.</summary>
-    public int RetiredSlotCount => Capacity - _count - _remainingCapacity;
+    public int RetiredSlotCount { get { lock (_gate) return Capacity - _count - _remainingCapacity; } }
 
     /// <summary>Gets the latest tick supplied to AdvanceTo. Clear retains this value.</summary>
-    public long CurrentTick { get; private set; }
+    public long CurrentTick { get { lock (_gate) return _currentTick; } }
 
     /// <summary>Gets whether at least one item is due at CurrentTick.</summary>
-    public bool HasDueItems => _count != 0 && _nodes[_heap[0]].DueTick <= CurrentTick;
+    public bool HasDueItems { get { lock (_gate) return HasDueItemsCore; } }
+
+    private bool HasDueItemsCore => _count != 0 && _nodes[_heap[0]].DueTick <= _currentTick;
 
     /// <summary>Schedules a payload after a nonnegative delay. Throws if capacity is exhausted.</summary>
     public ScheduledHandle Schedule(T value, long delayTicks)
@@ -86,7 +90,7 @@ public sealed class TickScheduler<T>
     public bool TrySchedule(T value, long delayTicks, out ScheduledHandle handle)
     {
         if (delayTicks < 0) throw new ArgumentOutOfRangeException(nameof(delayTicks));
-        return TryScheduleAt(value, checked(CurrentTick + delayTicks), out handle);
+        lock (_gate) return TryScheduleAtCore(value, checked(_currentTick + delayTicks), out handle);
     }
 
     /// <summary>
@@ -96,7 +100,12 @@ public sealed class TickScheduler<T>
     /// </summary>
     public bool TryScheduleAt(T value, long dueTick, out ScheduledHandle handle)
     {
-        if (dueTick < CurrentTick) throw new ArgumentOutOfRangeException(nameof(dueTick));
+        lock (_gate) return TryScheduleAtCore(value, dueTick, out handle);
+    }
+
+    private bool TryScheduleAtCore(T value, long dueTick, out ScheduledHandle handle)
+    {
+        if (dueTick < _currentTick) throw new ArgumentOutOfRangeException(nameof(dueTick));
         handle = default;
         if (_freeHead < 0) return false;
         if (_nextSequence == ulong.MaxValue)
@@ -119,31 +128,37 @@ public sealed class TickScheduler<T>
     }
 
     /// <summary>Gets whether a handle currently identifies an item in this scheduler.</summary>
-    public bool Contains(ScheduledHandle handle) => IsActive(handle);
+    public bool Contains(ScheduledHandle handle) { lock (_gate) return IsActive(handle); }
 
     /// <summary>Reads a scheduled item without removing it. Foreign, default, and stale handles return false.</summary>
     public bool TryGet(ScheduledHandle handle, out ScheduledItem<T> item)
     {
-        if (!IsActive(handle))
+        lock (_gate)
         {
-            item = default;
-            return false;
+            if (!IsActive(handle))
+            {
+                item = default;
+                return false;
+            }
+            item = ItemAt(handle.Slot);
+            return true;
         }
-        item = ItemAt(handle.Slot);
-        return true;
     }
 
     /// <summary>Cancels an item and returns its payload. Invalid handles leave the scheduler unchanged.</summary>
     public bool TryCancel(ScheduledHandle handle, out T value)
     {
-        if (!IsActive(handle))
+        lock (_gate)
         {
-            value = default!;
-            return false;
+            if (!IsActive(handle))
+            {
+                value = default!;
+                return false;
+            }
+            value = _nodes[handle.Slot].Value;
+            RemoveAt(_nodes[handle.Slot].HeapIndex);
+            return true;
         }
-        value = _nodes[handle.Slot].Value;
-        RemoveAt(_nodes[handle.Slot].HeapIndex);
-        return true;
     }
 
     /// <summary>
@@ -152,24 +167,30 @@ public sealed class TickScheduler<T>
     /// </summary>
     public bool TryRescheduleAt(ScheduledHandle handle, long dueTick)
     {
-        if (dueTick < CurrentTick) throw new ArgumentOutOfRangeException(nameof(dueTick));
-        if (!IsActive(handle)) return false;
-        ref var node = ref _nodes[handle.Slot];
-        node.DueTick = dueTick;
-        RepairHeap(node.HeapIndex);
-        return true;
+        lock (_gate)
+        {
+            if (dueTick < _currentTick) throw new ArgumentOutOfRangeException(nameof(dueTick));
+            if (!IsActive(handle)) return false;
+            ref var node = ref _nodes[handle.Slot];
+            node.DueTick = dueTick;
+            RepairHeap(node.HeapIndex);
+            return true;
+        }
     }
 
     /// <summary>Reads the earliest scheduled item, whether or not it is due.</summary>
     public bool TryPeek(out ScheduledItem<T> item)
     {
-        if (_count == 0)
+        lock (_gate)
         {
-            item = default;
-            return false;
+            if (_count == 0)
+            {
+                item = default;
+                return false;
+            }
+            item = ItemAt(_heap[0]);
+            return true;
         }
-        item = ItemAt(_heap[0]);
-        return true;
     }
 
     /// <summary>
@@ -178,21 +199,29 @@ public sealed class TickScheduler<T>
     /// </summary>
     public SchedulerDrainResult AdvanceTo(long tick, Span<ScheduledItem<T>> destination)
     {
-        if (tick < CurrentTick) throw new ArgumentOutOfRangeException(nameof(tick));
-        CurrentTick = tick;
-        return DrainDue(destination);
+        lock (_gate)
+        {
+            if (tick < _currentTick) throw new ArgumentOutOfRangeException(nameof(tick));
+            _currentTick = tick;
+            return DrainDueCore(destination);
+        }
     }
 
     /// <summary>Drains a bounded prefix of due work in due-tick and insertion order.</summary>
     public SchedulerDrainResult DrainDue(Span<ScheduledItem<T>> destination)
     {
+        lock (_gate) return DrainDueCore(destination);
+    }
+
+    private SchedulerDrainResult DrainDueCore(Span<ScheduledItem<T>> destination)
+    {
         int written = 0;
-        while (written < destination.Length && HasDueItems)
+        while (written < destination.Length && HasDueItemsCore)
         {
             destination[written++] = ItemAt(_heap[0]);
             RemoveAt(0);
         }
-        return new(written, HasDueItems);
+        return new(written, HasDueItemsCore);
     }
 
     /// <summary>
@@ -201,13 +230,16 @@ public sealed class TickScheduler<T>
     /// </summary>
     public void Clear()
     {
-        while (_count > 0)
+        lock (_gate)
         {
-            int heapIndex = --_count;
-            ReleaseSlot(_heap[heapIndex]);
-            _heap[heapIndex] = 0;
+            while (_count > 0)
+            {
+                int heapIndex = --_count;
+                ReleaseSlot(_heap[heapIndex]);
+                _heap[heapIndex] = 0;
+            }
+            _nextSequence = 0;
         }
-        _nextSequence = 0;
     }
 
     private bool IsActive(ScheduledHandle handle) =>

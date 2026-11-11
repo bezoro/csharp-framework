@@ -36,10 +36,13 @@ world.AddActivationPipeline();
 ## Runtime behavior
 
 - Pipelines register ECS systems and resources through explicit `World` extension methods.
-- Only ingress queues explicitly documented as thread-safe accept producer-thread calls. World APIs, resource access, and health/timer helpers run on the world update thread.
-- Lifecycle events are stored in world resources so consumers can drain them during their own systems.
+- Input and activation ingress queues accept producer-thread calls. World APIs, resource acquisition, component refs, and health/timer helpers still follow world/job ownership.
+- Health, timer, streaming and activation event resources, plus the activation callback queue, synchronize queue operations. Acquire their references on the world owner, then share the queues with worker or engine-adapter consumers without accessing the world from those threads. One consumer preserves processing order; multiple consumers may process dequeued payloads in parallel.
+- Event queues retain warmed array storage. Optional `initialCapacity` preallocates slots and `maxCapacity` bounds retained backlog. `TryEnqueue` returns false when full; `Enqueue` throws instead of silently dropping events. System-generated events use `Enqueue`, so configure a sufficient budget and drain regularly. Queue rejection does not roll back simulation changes made before event publication; a failed world update is not an automatically retryable transaction. Default construction grows with backlog. `Count` is an observation that can immediately become stale.
+- Activation dispatch backpressure leaves an activation pending with its callback retained until queue space becomes available; only accepted callbacks commit an activated entry.
 - World updates require finite, non-negative delta times. Unity hosts typically call `Tick(Time.deltaTime)` in `Update` and `FixedTick(Time.fixedDeltaTime)` in `FixedUpdate`; Godot hosts can call them from their corresponding process callbacks.
 - Callbacks run on the world update thread unless the subsystem has an explicitly configured dispatcher. The framework does not move the complete simulation to the engine's main thread.
+- Callback invocation happens outside queue locks. An activation dispatch pass attempts at most its initial queued count, so reentrant posts and producers cannot extend that pass indefinitely.
 - Drain lifecycle queues regularly. A processing budget limits work per update and does not by itself bound producer backlog or memory use.
 - Input timestamps and the public simulation clock use double precision so short hold windows still expire after long uptimes. Input ingestion has an explicit optional dequeue budget and supports releasing control snapshots on the world thread.
 - Movement integrates every finite positive delta, including values below a comparison epsilon. It skips invalid direct-update deltas and leaves a complete position unchanged when integration would produce a non-finite component.
