@@ -14,7 +14,8 @@ internal sealed class UciEngineCommandModule(
 	UciLineWaiterRegistry  lineWaiters,
 	IUciLineSource         lineSource,
 	Action<EngineActivity> setActivity,
-	UciClientOptions       options
+	UciClientOptions       options,
+    Action? ensureUsable = null
 )
 {
 	private readonly Action<EngineActivity> _setActivity =
@@ -34,6 +35,7 @@ internal sealed class UciEngineCommandModule(
 
 	public async Task PonderHitAsync(CancellationToken ct)
 	{
+        ensureUsable?.Invoke();
 		await _transport.WriteLineAsync(UciConstants.Commands.PONDER_HIT, ct).ConfigureAwait(false);
 		_setActivity(EngineActivity.Searching);
 	}
@@ -105,9 +107,11 @@ internal sealed class UciEngineCommandModule(
 
 	private async Task ExecuteSerializedCommandAsync(Func<CancellationToken, Task> action, CancellationToken ct)
 	{
+        ensureUsable?.Invoke();
 		await _protocolGate.WaitAsync(ct).ConfigureAwait(false);
 		try
 		{
+            ensureUsable?.Invoke();
 			await action(ct).ConfigureAwait(false);
 		}
 		finally
@@ -215,9 +219,11 @@ internal sealed class UciEngineCommandModule(
 		Func<CancellationToken, Task<T>> action,
 		CancellationToken                ct)
 	{
+        ensureUsable?.Invoke();
 		await _protocolGate.WaitAsync(ct).ConfigureAwait(false);
 		try
 		{
+            ensureUsable?.Invoke();
 			return await action(ct).ConfigureAwait(false);
 		}
 		finally

@@ -9,6 +9,7 @@ internal sealed class SerializedUciEngineClientRuntime : IAsyncDisposable, IDisp
 {
 	private readonly SemaphoreSlim   _gate = new(1, 1);
 	private readonly UciEngineClient _client;
+    private int _disposed;
 
 	public SerializedUciEngineClientRuntime(UciEngineClient client)
 	{
@@ -121,8 +122,10 @@ internal sealed class SerializedUciEngineClientRuntime : IAsyncDisposable, IDisp
 
 	public async ValueTask DisposeAsync()
 	{
-		await _client.DisposeAsync().ConfigureAwait(false);
-		_gate.Dispose();
+        Volatile.Write(ref _disposed, 1);
+        await _client.DisposeAsync().ConfigureAwait(false);
+        // Existing calls still release this gate in finally. It owns only managed storage;
+        // AvailableWaitHandle is never requested, so let GC reclaim it after those calls leave.
 	}
 
 	public void Dispose()
@@ -132,9 +135,11 @@ internal sealed class SerializedUciEngineClientRuntime : IAsyncDisposable, IDisp
 
 	private async Task ExecuteAsync(Func<UciEngineClient, Task> operation, CancellationToken ct)
 	{
+        ThrowIfDisposed();
 		await _gate.WaitAsync(ct).ConfigureAwait(false);
 		try
 		{
+            ThrowIfDisposed();
 			await operation(_client).ConfigureAwait(false);
 		}
 		finally
@@ -145,9 +150,11 @@ internal sealed class SerializedUciEngineClientRuntime : IAsyncDisposable, IDisp
 
 	private async Task<T> ExecuteAsync<T>(Func<UciEngineClient, Task<T>> operation, CancellationToken ct)
 	{
+        ThrowIfDisposed();
 		await _gate.WaitAsync(ct).ConfigureAwait(false);
 		try
 		{
+            ThrowIfDisposed();
 			return await operation(_client).ConfigureAwait(false);
 		}
 		finally
@@ -155,6 +162,11 @@ internal sealed class SerializedUciEngineClientRuntime : IAsyncDisposable, IDisp
 			_gate.Release();
 		}
 	}
+
+    private void ThrowIfDisposed()
+    {
+        if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(SerializedUciEngineClientRuntime));
+    }
 
 	private static void EnsureCapabilitySupported(UciCapabilityState capability, string capabilityName)
 	{

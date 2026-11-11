@@ -164,17 +164,8 @@ public sealed class UciPlayableMatchSessionEventContractTests
 	[Fact]
 	public async Task ProcessAsync_WhenClockIsPausedAndResumed_ShouldStopAndRestartElapsedTime()
 	{
-		var times = new Queue<DateTimeOffset>(
-		[
-			new(2026, 4, 1, 12, 0, 0, TimeSpan.Zero),
-			new(2026, 4, 1, 12, 0, 0, TimeSpan.Zero),
-			new(2026, 4, 1, 12, 0, 2, TimeSpan.Zero),
-			new(2026, 4, 1, 12, 0, 2, TimeSpan.Zero),
-			new(2026, 4, 1, 12, 0, 10, TimeSpan.Zero),
-			new(2026, 4, 1, 12, 0, 10, TimeSpan.Zero),
-			new(2026, 4, 1, 12, 0, 12, TimeSpan.Zero),
-			new(2026, 4, 1, 12, 0, 12, TimeSpan.Zero)
-		]);
+		var startedAt = new DateTimeOffset(2026, 4, 1, 12, 0, 0, TimeSpan.Zero);
+		var now = startedAt;
 
 		await using var playingClient = await CreateStartedClientAsync();
 
@@ -189,20 +180,28 @@ public sealed class UciPlayableMatchSessionEventContractTests
 			analysisMoveTimeMs: 10,
 			analysisFallbackMoveTimeMs: 10,
 			timeControl: new(TimeSpan.FromSeconds(30), TimeSpan.Zero, TimeSpan.FromSeconds(3)),
-			utcNowProvider: () => times.Dequeue()
+			utcNowProvider: () => now
 		);
 
 		await session.StartNewGameAsync(CancellationToken.None);
 		var opening = await session.RefreshAsync(CancellationToken.None);
+		now = startedAt + TimeSpan.FromSeconds(2);
 		await session.ProcessAsync(new(PlayableMatchRequestKind.PauseClock), CancellationToken.None);
+		now = startedAt + TimeSpan.FromSeconds(10);
 		var paused = await session.RefreshAsync(CancellationToken.None);
 		await session.ProcessAsync(new(PlayableMatchRequestKind.ResumeClock), CancellationToken.None);
+		now = startedAt + TimeSpan.FromSeconds(12);
 		var resumed = await session.RefreshAsync(CancellationToken.None);
 
 		opening.Clock!.Value.WhiteRemaining.Should().Be(TimeSpan.FromSeconds(30));
+		opening.Clock.Value.DelayRemaining.Should().Be(TimeSpan.FromSeconds(3));
 		paused.Clock!.Value.WhiteRemaining.Should().Be(TimeSpan.FromSeconds(30));
+		paused.Clock.Value.DelayRemaining.Should().Be(TimeSpan.FromSeconds(1));
 		paused.Clock!.Value.IsPaused.Should().BeTrue();
+		// Four active seconds consume the three-second delay and one second of main time.
 		resumed.Clock!.Value.WhiteRemaining.Should().Be(TimeSpan.FromSeconds(29));
+		resumed.Clock.Value.DelayRemaining.Should().Be(TimeSpan.Zero);
+		resumed.Clock.Value.BlackRemaining.Should().Be(TimeSpan.FromSeconds(30));
 		resumed.Clock!.Value.IsPaused.Should().BeFalse();
 		session.CancelAnalysis();
 	}

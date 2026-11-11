@@ -442,7 +442,13 @@ The event ordering contract is stable and tested for the important flows:
 - `PauseClock` / `ResumeClock`
 - `CancelAnalysis`
 
-For server-oriented consumers, `ProcessBatchAsync(requests, ct)` applies a sequence of `PlayableMatchRequest` values and returns the ordered `PlayableMatchEvent` values emitted while doing so.
+`UciPlayableMatchSession` serializes local commands and snapshot reads with a short state gate. Injected clock providers run outside that gate; nested clock operations share one sampled time, and an observation is resampled if another clock command wins admission first. Background-analysis generations are retired under the gate, while cancellation callbacks run after release. Complete saves, raw move histories and enriched move histories are copied coherently. Separate property reads are independent observations; use `CaptureSave()` when a persisted position and its complete history must belong to the same operation. This low-level session still requires `Refresh()` after a move before querying `CurrentState`.
+
+Engine turns capture immutable base-position/history data, release the state gate while searching, and verify the position revision before committing. Multiple engine-turn requests serialize on their dedicated client; local moves, snapshots, undo and resignation remain available while it searches. Disposal attempts every owned cancellation even if a callback throws, and always establishes the shutdown signal. `DisposeAsync()` joins active/queued turn requests and optional analysis workers before reporting any preserved cleanup failure, without disposing caller-owned clients. Local-only sessions allocate no engine-turn semaphore or cancellation source.
+
+Events retain their order within each command and are delivered only after that command has committed and released the state gate. Handlers execute on the completing caller and may safely read snapshots or issue another command. Concurrent callers can invoke handlers concurrently; UI adapters must marshal their work to the engine thread. Subscriber snapshots are rebuilt only on subscription changes. Each observer is isolated from exceptions thrown by earlier observers. Callback buffers are created only when subscribers exist and are reused after warmup. Subscriber work, including child tasks, does not inherit an enclosing batch capture. A batch capture is allocated only for an explicit batch request.
+
+For server-oriented consumers, `ProcessBatchAsync(requests, ct)` applies requests sequentially and returns events belonging to that batch's logical execution. Concurrent unrelated commands are excluded. A batch does not reserve the session between requests: other commands may interleave, so server authorization/revision policies belong in `AuthoritativeChessMatch` when an atomic transport boundary is required.
 
 ## Text Formatting Helpers
 ```csharp
@@ -622,7 +628,7 @@ After cancellation or timeout, the client sends `stop` and drains its response w
 
 Search node counts, tablebase hits, and elapsed time are cumulative engine counters. `SearchResult` keeps their highest reported values, including `info` messages without a PV. `BestPv` and `BestCpScore` use the deepest primary variation and prefer the most recent report at equal depth. Engine terminal responses `bestmove 0000` and `bestmove (none)` complete normally.
 
-Lifecycle operations serialize startup, shutdown, and disposal. Canceling the token originally passed to a successful `StartAsync` does not stop the reader; call `StopAsync` to end the client lifetime.
+Lifecycle operations serialize startup, shutdown, and disposal. Repeated disposal calls wait for the same serialized teardown. Command admission is checked before and after acquiring the protocol gate, so queued commands cannot write to an already disposed custom transport. Canceling the token originally passed to a successful `StartAsync` does not stop the reader; call `StopAsync` to end the client lifetime.
 
 UCI node counts, nodes per second, tablebase hits, and elapsed milliseconds use `ulong` in `UciInfoPayload`, `PrincipalVariation`, and search totals. Counters above `uint.MaxValue` remain available without truncation. Depth and MultiPV indices remain `uint`. This changes constructor and deconstruction signatures; consumers with explicit `uint` variables must use `ulong`. Search budgets keep their existing protocol types.
 

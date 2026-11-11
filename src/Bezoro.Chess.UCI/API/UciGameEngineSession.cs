@@ -44,6 +44,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	private readonly UciCoordinatorOptions _options;
 
 	private int _disposed;
+    private TaskCompletionSource<bool>? _disposeCompletion;
 	private CancellationTokenSource? _bestCts;
 	private CancellationTokenSource? _classificationCts;
 	private int                      _acceptedPonderGeneration;
@@ -1697,8 +1698,29 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	///     Disposes all underlying engines and cancels outstanding classification.
 	/// </summary>
 	public async ValueTask DisposeAsync()
-	{
-		if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+    {
+        TaskCompletionSource<bool> completion;
+        bool ownsCleanup;
+        lock (_sync)
+        {
+            ownsCleanup = _disposeCompletion is null;
+            completion = _disposeCompletion ??= new(TaskCreationOptions.RunContinuationsAsynchronously);
+            Volatile.Write(ref _disposed, 1);
+        }
+        if (ownsCleanup)
+        {
+            try
+            {
+                await DisposeCoreAsync().ConfigureAwait(false);
+                completion.TrySetResult(true);
+            }
+            catch (Exception error) { completion.TrySetException(error); }
+        }
+        await completion.Task.ConfigureAwait(false);
+    }
+
+    private async Task DisposeCoreAsync()
+    {
 		await _commandGate.WaitAsync().ConfigureAwait(false);
 		try
 		{
@@ -1718,7 +1740,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 			}
 		}
 		finally { _commandGate.Release(); }
-	}
+    }
 
 	/// <summary>
 	///     Synchronously disposes all underlying engines and cancels outstanding classification.
