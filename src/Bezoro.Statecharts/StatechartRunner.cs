@@ -7,7 +7,8 @@ namespace Bezoro.Statecharts;
 /// <summary>Owns one active configuration and bounded event workspace for a shared chart definition.</summary>
 /// <remarks>
 /// Only active sources are examined on Dispatch. There is no polling, timer, worker, or event queue.
-/// Call from one owner or externally serialize access. Lifecycle callbacks are synchronous and cannot reenter operations.
+/// Independent runners can execute concurrently. Concurrent or reentrant lifecycle operations on one runner are rejected
+/// before mutation. State inspection and borrowed views belong to the execution owner. Callbacks are synchronous.
 /// </remarks>
 public sealed class StatechartRunner<TContext>
 {
@@ -25,7 +26,7 @@ public sealed class StatechartRunner<TContext>
     private int _activeCount;
     private int _pendingExitCount;
     private ulong _lastSerial;
-    private bool _busy;
+    private int _busy;
 
     /// <summary>Allocates execution storage from peak simultaneous activity, with no storage growth afterward.</summary>
     public StatechartRunner(StatechartDefinition definition, IStatechartHandler<TContext>? handler = null)
@@ -59,45 +60,51 @@ public sealed class StatechartRunner<TContext>
     /// <summary>Starts the initial configuration. Starting an already-running or faulted runner throws.</summary>
     public void Start(ref TContext context)
     {
-        CheckNotBusy();
+        EnterOperation();
+        try { StartCore(ref context); }
+        finally { ExitOperation(); }
+    }
+
+    private void StartCore(ref TContext context)
+    {
         if (IsRunning) throw new InvalidOperationException("The chart is already running.");
         if (IsFaulted) throw new InvalidOperationException("Reset the faulted chart before starting it.");
         ReserveActivations(Definition.InitialStates.Length);
-        _busy = true;
         IsRunning = true;
         try
         {
             foreach (StateId state in Definition.InitialStates) Enter(state, ref context);
         }
         catch (Exception failure) { FailAndCleanup(failure, ref context); throw; }
-        finally { _busy = false; }
     }
 
     /// <summary>Stops and invalidates all activations, attempting every exit even if an exit callback fails.</summary>
     /// <remarks>Stopping an inactive runner is idempotent. A callback failure leaves it stopped and faulted.</remarks>
     public void Stop(ref TContext context)
     {
-        CheckNotBusy();
-        _busy = true;
-        try
+        EnterOperation();
+        try { StopCore(ref context); }
+        finally { ExitOperation(); }
+    }
+
+    private void StopCore(ref TContext context)
+    {
+        IsRunning = false;
+        List<Exception>? failures = null;
+        Cleanup(ref context, ref failures);
+        if (failures is not null)
         {
-            IsRunning = false;
-            List<Exception>? failures = null;
-            Cleanup(ref context, ref failures);
-            if (failures is not null)
-            {
-                IsFaulted = true;
-                ThrowFailures(failures);
-            }
+            IsFaulted = true;
+            ThrowFailures(failures);
         }
-        finally { _busy = false; }
     }
 
     /// <summary>Stops any active configuration and clears a prior fault when cleanup succeeds.</summary>
     public void Reset(ref TContext context)
     {
-        Stop(ref context);
-        IsFaulted = false;
+        EnterOperation();
+        try { StopCore(ref context); IsFaulted = false; }
+        finally { ExitOperation(); }
     }
 
     /// <summary>Evaluates one explicit signal against active sources and applies nonconflicting transitions.</summary>
@@ -107,10 +114,15 @@ public sealed class StatechartRunner<TContext>
     /// </remarks>
     public StatechartDispatchResult Dispatch(SignalId signal, ref TContext context)
     {
-        CheckNotBusy();
+        EnterOperation();
+        try { return DispatchCore(signal, ref context); }
+        finally { ExitOperation(); }
+    }
+
+    private StatechartDispatchResult DispatchCore(SignalId signal, ref TContext context)
+    {
         if (!IsRunning) throw new InvalidOperationException("Start the chart before dispatching signals.");
         if (signal.Value >= Definition.SignalCount) throw new ArgumentOutOfRangeException(nameof(signal));
-        _busy = true;
         bool changing = false;
         try
         {
@@ -187,7 +199,7 @@ public sealed class StatechartRunner<TContext>
             if (changing) FailAndCleanup(failure, ref context);
             throw;
         }
-        finally { _pendingExitCount = 0; _busy = false; }
+        finally { _pendingExitCount = 0; }
     }
 
     /// <summary>Tests whether the supplied numeric state is currently active.</summary>
@@ -317,10 +329,12 @@ public sealed class StatechartRunner<TContext>
         if (_lastSerial > ulong.MaxValue - (ulong)count)
             throw new InvalidOperationException("State activation identities are exhausted; create a new runner.");
     }
-    private void CheckNotBusy()
+    private void EnterOperation()
     {
-        if (_busy) throw new InvalidOperationException("Statechart operations cannot be reentered.");
+        if (Interlocked.CompareExchange(ref _busy, 1, 0) != 0)
+            throw new InvalidOperationException("Concurrent or reentrant statechart operations are not supported.");
     }
+    private void ExitOperation() => Volatile.Write(ref _busy, 0);
 
     private readonly struct GuardEvaluator : IConditionEvaluator<TContext>
     {

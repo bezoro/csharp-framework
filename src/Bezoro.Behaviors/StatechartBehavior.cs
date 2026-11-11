@@ -74,40 +74,51 @@ public sealed class StatechartBehavior<TContext> : Behavior<TContext>, IStatecha
     /// <summary>Gets the token for an active state.</summary>
     public StateActivation GetActivation(StateId state) => _runner.GetActivation(state);
 
-    /// <summary>Delivers one host signal synchronously. The whole composition must be idle and externally serialized.</summary>
+    /// <summary>Delivers one host signal synchronously, exclusively borrowing the whole composition.</summary>
     public StatechartDispatchResult Dispatch(SignalId signal, ref TContext context)
     {
         BeginSignalOperation();
+        try { return DispatchCore(signal, ref context); }
+        finally { EndSignalOperation(); }
+    }
+
+    private StatechartDispatchResult DispatchCore(SignalId signal, ref TContext context)
+    {
         try
         {
-            try
-            {
-                var result = _runner.Dispatch(signal, ref context);
-                if (result.ExitedCount != 0) PruneCompletions();
-                return result;
-            }
-            catch (Exception failure)
-            {
-                // Pure guard failures preserve the chart. Lifecycle failures invalidate the component.
-                if (_runner.IsFaulted)
-                {
-                    var cleanup = FaultCleanup(ref context);
-                    if (cleanup is not null) throw new AggregateException("Signal processing and cleanup both failed.", failure, cleanup);
-                }
-                throw;
-            }
+            var result = _runner.Dispatch(signal, ref context);
+            if (result.ExitedCount != 0) PruneCompletions();
+            return result;
         }
-        finally { EndSignalOperation(); }
+        catch (Exception failure)
+        {
+            // Pure guard failures preserve the chart. Lifecycle failures invalidate the component.
+            if (_runner.IsFaulted)
+            {
+                var cleanup = FaultCleanup(ref context);
+                if (cleanup is not null) throw new AggregateException("Signal processing and cleanup both failed.", failure, cleanup);
+            }
+            throw;
+        }
     }
 
     /// <summary>Delivers a signal only while its originating activation is still live and this component is Running.</summary>
     /// <returns>False for an old, foreign, default, stopped, or terminal activation.</returns>
     public bool TryDispatch(StateActivation activation, SignalId signal, ref TContext context)
     {
-        if (!CanAcceptSignals || !_runner.IsRunning || !_runner.IsActive(activation)) return false;
-        Dispatch(signal, ref context);
-        return true;
+        if (IsExecutingOnCurrentThread && !IsCurrentSignal(activation)) return false;
+        BeginSignalOperation(requireRunning: false);
+        try
+        {
+            if (!IsCurrentSignal(activation)) return false;
+            DispatchCore(signal, ref context);
+            return true;
+        }
+        finally { EndSignalOperation(); }
     }
+
+    private bool IsCurrentSignal(StateActivation activation) =>
+        CanAcceptSignals && _runner.IsRunning && _runner.IsActive(activation);
 
     /// <inheritdoc />
     protected override void OnStart(ref TContext context)

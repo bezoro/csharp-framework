@@ -2,8 +2,10 @@ namespace Bezoro.BehaviorTrees;
 
 /// <summary>Executes one agent's tree with storage proportional to its maximum active path depth.</summary>
 /// <remarks>
-/// The owner serializes updates. Definitions are shareable; runners, contexts and handler state are not implicitly synchronized.
-/// Actions are synchronous callbacks and own any external jobs. No per-node tasks, locks or progress arrays are created.
+/// Definitions are shareable and independent runners can execute concurrently. Each update exclusively borrows its context
+/// and handler; concurrent or reentrant lifecycle operations on one runner are rejected before mutation.
+/// State inspection belongs to that execution owner. Actions are synchronous callbacks and own any external jobs.
+/// No per-node tasks, blocking locks or progress arrays are created.
 /// </remarks>
 public sealed class BehaviorTreeRunner<TContext>
 {
@@ -18,7 +20,7 @@ public sealed class BehaviorTreeRunner<TContext>
     private BehaviorActivation _activation;
     private ulong _serial;
     private bool _suspended;
-    private bool _busy;
+    private int _busy;
 
     /// <summary>Allocates this runner's bounded path and optional condition/reactive scratch storage.</summary>
     public BehaviorTreeRunner(BehaviorTreeDefinition definition)
@@ -44,7 +46,13 @@ public sealed class BehaviorTreeRunner<TContext>
     /// <summary>Starts an inactive runner. Action callbacks begin during Tick, after consuming their visit.</summary>
     public void Start()
     {
-        RequireIdle();
+        EnterOperation();
+        try { StartCore(); }
+        finally { ExitOperation(); }
+    }
+
+    private void StartCore()
+    {
         if (Status != BehaviorStatus.Inactive) throw new InvalidOperationException("Stop or restart an existing execution before starting.");
         _count = 1;
         _frames[0] = new Frame(0);
@@ -65,14 +73,20 @@ public sealed class BehaviorTreeRunner<TContext>
     public BehaviorTickResult Tick<THandler>(ref TContext context, ref THandler handler, ref BehaviorBudget budget)
         where THandler : IBehaviorTreeHandler<TContext>
     {
-        RequireIdle();
+        EnterOperation();
+        try { return TickCore(ref context, ref handler, ref budget); }
+        finally { ExitOperation(); }
+    }
+
+    private BehaviorTickResult TickCore<THandler>(ref TContext context, ref THandler handler, ref BehaviorBudget budget)
+        where THandler : IBehaviorTreeHandler<TContext>
+    {
         if (!HandlerTraits<THandler>.IsValueType && handler is null) throw new ArgumentNullException(nameof(handler));
         if (Status == BehaviorStatus.Inactive) throw new InvalidOperationException("Start the runner before ticking it.");
         if (Status == BehaviorStatus.Faulted) throw new InvalidOperationException("Stop the faulted runner before starting again.");
         if (Status is BehaviorStatus.Success or BehaviorStatus.Failure) return new(Status, 0, false);
         if (budget.Remaining == 0) return new(Status, 0, true);
         int initialConsumed = budget.Consumed;
-        _busy = true;
         try
         {
             if (!_suspended && _activeNode >= 0 && _firstReactive >= 0)
@@ -165,7 +179,6 @@ public sealed class BehaviorTreeRunner<TContext>
             catch (Exception cleanupFailure) { throw new AggregateException("Tree execution and action cleanup failed.", failure, cleanupFailure); }
             throw;
         }
-        finally { _busy = false; }
     }
 
     /// <summary>Interrupts the current action once, discards progress, and returns to Inactive.</summary>
@@ -177,9 +190,14 @@ public sealed class BehaviorTreeRunner<TContext>
     /// <summary>Stops with a handler by reference, avoiding boxing for struct handlers.</summary>
     public void Stop<THandler>(ref TContext context, ref THandler handler) where THandler : IBehaviorTreeHandler<TContext>
     {
-        RequireIdle();
+        EnterOperation();
+        try { StopCore(ref context, ref handler); }
+        finally { ExitOperation(); }
+    }
+
+    private void StopCore<THandler>(ref TContext context, ref THandler handler) where THandler : IBehaviorTreeHandler<TContext>
+    {
         if (!HandlerTraits<THandler>.IsValueType && handler is null) throw new ArgumentNullException(nameof(handler));
-        _busy = true;
         try
         {
             AbortActive(ref context, ref handler);
@@ -188,15 +206,22 @@ public sealed class BehaviorTreeRunner<TContext>
         catch { Status = BehaviorStatus.Faulted; throw; }
         finally
         {
-            _count = 0; _resumeCount = 0; _firstReactive = -1; _suspended = false; _busy = false;
+            _count = 0; _resumeCount = 0; _firstReactive = -1; _suspended = false;
         }
     }
     /// <summary>Stops the current execution and starts a fresh one.</summary>
     public void Restart(ref TContext context, IBehaviorTreeHandler<TContext> handler)
-    { Stop(ref context, handler); Start(); }
+    {
+        if (handler is null) throw new ArgumentNullException(nameof(handler));
+        Restart(ref context, ref handler);
+    }
     /// <summary>Restarts with a handler by reference.</summary>
     public void Restart<THandler>(ref TContext context, ref THandler handler) where THandler : IBehaviorTreeHandler<TContext>
-    { Stop(ref context, ref handler); Start(); }
+    {
+        EnterOperation();
+        try { StopCore(ref context, ref handler); StartCore(); }
+        finally { ExitOperation(); }
+    }
 
     private void Push(int nodeId)
     {
@@ -261,10 +286,12 @@ public sealed class BehaviorTreeRunner<TContext>
         _resumeCount = 0;
         handler.Abort(nodeId, Definition.Nodes[nodeId].Parameter, token, ref context);
     }
-    private void RequireIdle()
+    private void EnterOperation()
     {
-        if (_busy) throw new InvalidOperationException("Reentrant tree operations are not supported.");
+        if (Interlocked.CompareExchange(ref _busy, 1, 0) != 0)
+            throw new InvalidOperationException("Concurrent or reentrant tree operations are not supported.");
     }
+    private void ExitOperation() => Volatile.Write(ref _busy, 0);
     private static bool IsSelector(BehaviorNodeKind kind) => kind is BehaviorNodeKind.Selector or BehaviorNodeKind.ReactiveSelector;
     private static bool IsReactive(BehaviorNodeKind kind) => kind is BehaviorNodeKind.ReactiveSequence or BehaviorNodeKind.ReactiveSelector;
     private static class HandlerTraits<THandler>
