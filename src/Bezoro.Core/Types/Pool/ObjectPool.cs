@@ -19,7 +19,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 {
 	// Reuse storage for available references. All access after construction holds
 	// _lifecycleGate; unlike ConcurrentStack, returning an item allocates no node.
-	private readonly Stack<T> _available;
+	private Stack<T> _available;
 	private readonly ConcurrentDictionary<T, PoolItemState> _ownedItems;
 	private readonly object                                  _lifecycleGate = new();
 	private readonly IPoolPolicy<T>                          _policy;
@@ -139,7 +139,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 
 		if (Volatile.Read(ref _disposed) != 0)
 		{
-			ReleaseOwnedItem(item, _policy.OnDiscard);
+			ReleaseOwnedItem(item);
 			return false;
 		}
 
@@ -147,14 +147,14 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 		try { canReturn = ResetAndValidateForReturn(item); }
 		catch
 		{
-			try { ReleaseOwnedItem(item, _policy.OnDiscard); }
+			try { ReleaseOwnedItem(item); }
 			catch { /* Preserve the reset failure. */ }
 			throw;
 		}
 
 		if (!canReturn || Volatile.Read(ref _disposed) != 0)
 		{
-			ReleaseOwnedItem(item, _policy.OnDiscard);
+			ReleaseOwnedItem(item);
 			return false;
 		}
 
@@ -186,7 +186,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 			if (!_ownedItems.TryGetValue(item, out var state) || state != PoolItemState.Available)
 				continue;
 
-			ReleaseOwnedItem(item, _policy.OnDiscard);
+			ReleaseOwnedItem(item);
 			trimmed++;
 			toRemove--;
 		}
@@ -279,32 +279,23 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 		}
 	}
 
-	/// <summary>
-	///     Clears all available objects from the pool and directly disposes items that implement
-	///     <see cref="IDisposable" /> without invoking <see cref="IPoolPolicy{T}.OnDiscard" />.
-	/// </summary>
-	public void Clear() => ClearAvailable(DisposeItem);
-
-	/// <summary>
-	///     Clears all available objects from the pool by invoking <see cref="IPoolPolicy{T}.OnDiscard" />
-	///     for each item.
-	/// </summary>
-	public void ClearWithPolicyDiscard() => ClearAvailable(_policy.OnDiscard);
-
-	/// <summary>
-	///     Clears all available objects from the pool using the selected legacy release behavior.
-	/// </summary>
-	/// <param name="disposeItems">
-	///     If <c>true</c>, forwards to <see cref="Clear()" />; otherwise, forwards to
-	///     <see cref="ClearWithPolicyDiscard" />.
-	/// </param>
-	[Obsolete("Use Clear() or ClearWithPolicyDiscard() instead.")]
-	public void Clear(bool disposeItems)
+	/// <inheritdoc />
+	public void Clear()
 	{
-		if (disposeItems)
-			Clear();
-		else
-			ClearWithPolicyDiscard();
+		Stack<T> clearing;
+		lock (_lifecycleGate)
+		{
+			if (_available.Count == 0) return;
+			clearing = _available;
+			_available = new Stack<T>();
+		}
+		ExceptionDispatchInfo? failure = null;
+		while (clearing.Count != 0)
+		{
+			try { ReleaseOwnedItem(clearing.Pop()); }
+			catch (Exception error) { failure ??= ExceptionDispatchInfo.Capture(error); }
+		}
+		failure?.Throw();
 	}
 
 	/// <summary>
@@ -385,12 +376,6 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 		_disposeWaitCancellation?.Dispose();
 	}
 
-	private static void DisposeItem(T item)
-	{
-		if (item is IDisposable disposable)
-			disposable.Dispose();
-	}
-
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void CompleteRent(T item)
 	{
@@ -405,7 +390,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 			{
 				try
 				{
-					ReleaseOwnedItem(item, _policy.OnDiscard);
+					ReleaseOwnedItem(item);
 				}
 				finally
 				{
@@ -433,18 +418,6 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private bool ResetAndValidateForReturn(T item) => _policy.Reset(item);
-
-	private void ClearAvailable(Action<T> release)
-	{
-		ExceptionDispatchInfo? failure = null;
-		while (TryPopAvailable(out var item))
-		{
-			try { ReleaseOwnedItem(item, release); }
-			catch (Exception ex) { failure ??= ExceptionDispatchInfo.Capture(ex); }
-		}
-
-		failure?.Throw();
-	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void DiscardUnownedItem(T item)
@@ -483,7 +456,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 
 			if (!_ownedItems.TryUpdate(item, PoolItemState.Available, PoolItemState.Renting))
 			{
-				ReleaseOwnedItem(item, _policy.OnDiscard);
+				ReleaseOwnedItem(item);
 				throw new InvalidOperationException("Failed to register a prewarmed item as available.");
 			}
 
@@ -505,11 +478,11 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 			}
 		}
 
-		ReleaseOwnedItem(item, _policy.OnDiscard);
+		ReleaseOwnedItem(item);
 		return false;
 	}
 
-	private bool ReleaseOwnedItem(T item, Action<T> release)
+	private bool ReleaseOwnedItem(T item)
 	{
 		while (true)
 		{
@@ -521,7 +494,7 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 
 		try
 		{
-			release(item);
+			_policy.OnDiscard(item);
 		}
 		finally
 		{
@@ -560,14 +533,14 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 			}
 			catch
 			{
-				try { ReleaseOwnedItem(availableItem, _policy.OnDiscard); }
+				try { ReleaseOwnedItem(availableItem); }
 				catch { /* Preserve the validation failure. */ }
 				throw;
 			}
 
 			if (!valid)
 			{
-				ReleaseOwnedItem(availableItem, _policy.OnDiscard);
+				ReleaseOwnedItem(availableItem);
 				continue;
 			}
 

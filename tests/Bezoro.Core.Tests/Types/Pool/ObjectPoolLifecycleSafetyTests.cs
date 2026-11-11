@@ -30,7 +30,7 @@ public class ObjectPoolLifecycleSafetyTests
 			throw new InvalidOperationException("Discard failed.");
 		}), new() { InitialCapacity = 3 });
 
-		Assert.Throws<InvalidOperationException>(() => pool.ClearWithPolicyDiscard());
+		Assert.Throws<InvalidOperationException>(() => pool.Clear());
 		Assert.Equal(3, discarded);
 		Assert.Equal(0, pool.TotalCount);
 		Assert.Equal(0, pool.AvailableCount);
