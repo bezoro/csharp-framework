@@ -11,6 +11,47 @@ namespace Bezoro.ECS.Tests.Internal;
 public sealed class WorldResourceLifetimeTests
 {
 	[Theory]
+	[InlineData("factory")]
+	[InlineData("replace")]
+	[InlineData("remove")]
+	[InlineData("clear")]
+	public void ResourceCallbacks_DoNotHoldTheStoreGateWhileAnotherThreadReads(string operation)
+	{
+		var store = new WorldResourceStore();
+		store.Set(new Counter { Value = 17 });
+		using var readFinished = new ManualResetEventSlim();
+		Exception? readFailure = null;
+		Thread? reader = null;
+		void ReadFromAnotherThread()
+		{
+			reader = new Thread(() =>
+			{
+				try { _ = store.Has<Counter>(); }
+				catch (Exception failure) { readFailure = failure; }
+				finally { readFinished.Set(); }
+			}) { IsBackground = true };
+			reader.Start();
+			Assert.True(readFinished.Wait(TimeSpan.FromSeconds(2)), "A resource callback blocked an independent reader.");
+		}
+
+		try
+		{
+			if (operation == "factory")
+				store.GetOrCreate(() => { ReadFromAnotherThread(); return new DisposableResource(); });
+			else
+			{
+				store.Set(new CallbackResource(ReadFromAnotherThread));
+				if (operation == "replace") store.Set(new CallbackResource(() => { }));
+				else if (operation == "remove") store.Remove<CallbackResource>();
+				else store.Clear();
+			}
+		}
+		finally { if (reader is not null) Assert.True(reader.Join(TimeSpan.FromSeconds(10))); }
+		Assert.Null(readFailure);
+		store.Dispose();
+	}
+
+	[Theory]
 	[InlineData(false)]
 	[InlineData(true)]
 	public void ReplacingWithSameInstance_RetainsLiveResource(bool boxed)

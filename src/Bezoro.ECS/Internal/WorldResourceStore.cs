@@ -14,39 +14,53 @@ internal sealed class WorldResourceStore
 
 	public void Clear()
 	{
+		IResourceBox[] boxes;
 		lock (_gate)
 		{
 			ThrowIfDisposed();
 			if (_resources.Count == 0) return;
 			EnsureCanMutate();
-			ClearCore();
+			boxes = DetachAll();
 		}
+		DisposeDetached(boxes);
 	}
 
-	private void ClearCore()
+	private IResourceBox[] DetachAll()
 	{
-		// Detach ownership before invoking user code, including reentrant disposal.
+		// Claim the mutation and detach ownership before releasing the gate for user code.
 		IResourceBox[] boxes = [.. _resources.Values];
 		_resources.Clear();
-		List<Exception>? errors = null;
-		foreach (var box in boxes)
+		_invokingUserCode = true;
+		return boxes;
+	}
+
+	private void DisposeDetached(IResourceBox[] boxes)
+	{
+		try
 		{
-			try { DisposeValue(box); }
-			catch (Exception error) { (errors ??= []).Add(error); }
+			List<Exception>? errors = null;
+			foreach (var box in boxes)
+			{
+				try { box.DisposeValue(); }
+				catch (Exception error) { (errors ??= []).Add(error); }
+			}
+			if (errors is not null)
+				throw new AggregateException("One or more resources failed to dispose.", errors);
 		}
-		if (errors is not null)
-			throw new AggregateException("One or more resources failed to dispose.", errors);
+		finally { EndUserCode(); }
 	}
 
 	public void Dispose()
 	{
+		IResourceBox[] boxes;
 		lock (_gate)
 		{
 			if (_disposed) return;
 			EnsureCanMutate();
 			_disposed = true;
-			ClearCore();
+			boxes = DetachAll();
 		}
+		DisposeDetached(boxes);
 	}
 
 	public ref T Get<T>() where T : notnull
@@ -87,14 +101,10 @@ internal sealed class WorldResourceStore
 			ThrowIfDisposed();
 			if (_resources.TryGetValue(typeof(T), out var boxed)) return ref GetTypedBox<T>(boxed).Value;
 			EnsureCanMutate();
-			T value;
 			_invokingUserCode = true;
-			try { value = new T(); }
-			finally { _invokingUserCode = false; }
-			var created = new ResourceBox<T>(value);
-			_resources.Add(typeof(T), created);
-			return ref created.Value;
 		}
+		try { return ref PublishCreated(new T()); }
+		finally { EndUserCode(); }
 	}
 
 	public ref T GetOrCreate<T>(Func<T> factory) where T : notnull
@@ -105,12 +115,18 @@ internal sealed class WorldResourceStore
 			ThrowIfDisposed();
 			if (_resources.TryGetValue(typeof(T), out var boxed)) return ref GetTypedBox<T>(boxed).Value;
 			EnsureCanMutate();
-			T value;
 			_invokingUserCode = true;
-			try { value = factory(); }
-			finally { _invokingUserCode = false; }
-			if (value is null) throw new InvalidOperationException("Resource factory returned null.");
-			var created = new ResourceBox<T>(value);
+		}
+		try { return ref PublishCreated(factory()); }
+		finally { EndUserCode(); }
+	}
+
+	private ref T PublishCreated<T>(T value) where T : notnull
+	{
+		if (value is null) throw new InvalidOperationException("Resource factory returned null.");
+		var created = new ResourceBox<T>(value);
+		lock (_gate)
+		{
 			_resources.Add(typeof(T), created);
 			return ref created.Value;
 		}
@@ -119,20 +135,22 @@ internal sealed class WorldResourceStore
 	public void Set<T>(T resource) where T : notnull
 	{
 		if (resource is null) throw new ArgumentNullException(nameof(resource));
-		lock (_gate) Replace(typeof(T), new ResourceBox<T>(resource));
+		Replace(typeof(T), new ResourceBox<T>(resource));
 	}
 
 	public bool Remove<T>() where T : notnull
 	{
+		IResourceBox existing;
 		lock (_gate)
 		{
 			ThrowIfDisposed();
-			if (!_resources.TryGetValue(typeof(T), out var existing)) return false;
+			if (!_resources.TryGetValue(typeof(T), out existing!)) return false;
 			EnsureCanMutate();
 			_resources.Remove(typeof(T));
-			DisposeValue(existing);
-			return true;
+			_invokingUserCode = true;
 		}
+		try { existing.DisposeValue(); return true; }
+		finally { EndUserCode(); }
 	}
 
 	public SnapshotResourceRecord[] CaptureSnapshotRecords()
@@ -154,7 +172,7 @@ internal sealed class WorldResourceStore
 		if (!resourceType.IsInstanceOfType(value))
 			throw new ArgumentException(
 				$"Resource value type '{value.GetType().FullName}' is not assignable to '{resourceType.FullName}'.", nameof(value));
-		lock (_gate) Replace(resourceType, new SnapshotResourceBox(resourceType, value));
+		Replace(resourceType, new SnapshotResourceBox(resourceType, value));
 	}
 
 	private ResourceBox<T> GetTypedBox<T>(IResourceBox boxed) where T : notnull
@@ -168,22 +186,31 @@ internal sealed class WorldResourceStore
 
 	private void Replace(Type resourceType, IResourceBox replacement)
 	{
-		ThrowIfDisposed();
-		EnsureCanMutate();
-		if (_resources.TryGetValue(resourceType, out var existing))
+		IResourceBox existing;
+		lock (_gate)
 		{
+			ThrowIfDisposed();
+			EnsureCanMutate();
+			if (!_resources.TryGetValue(resourceType, out existing!))
+			{
+				_resources.Add(resourceType, replacement);
+				return;
+			}
 			if (!resourceType.IsValueType && ReferenceEquals(existing.BoxedValue, replacement.BoxedValue)) return;
 			_resources.Remove(resourceType);
-			DisposeValue(existing);
+			_invokingUserCode = true;
 		}
-		_resources.Add(resourceType, replacement);
+		try
+		{
+			existing.DisposeValue();
+			lock (_gate) _resources.Add(resourceType, replacement);
+		}
+		finally { EndUserCode(); }
 	}
 
-	private void DisposeValue(IResourceBox box)
+	private void EndUserCode()
 	{
-		_invokingUserCode = true;
-		try { box.DisposeValue(); }
-		finally { _invokingUserCode = false; }
+		lock (_gate) _invokingUserCode = false;
 	}
 
 	private void EnsureCanMutate()

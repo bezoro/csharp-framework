@@ -646,8 +646,9 @@ public class World : IWorld, IDisposable
 		if (_disposed || _disposing)
 			return;
 		EnsureNoResourceCallback();
-		if (_queryEngine.HasActiveQueryIterations || _systemRuntime.IsUpdating || _systemRuntime.IsRegistering)
+		if (_queryEngine.HasActiveQueryIterations)
 			throw new InvalidOperationException("Dispose cannot run while a query iteration, system update, or system registration is active.");
+		if (!_systemRuntime.BeginShutdown()) return;
 
 		_disposing = true;
 		try { _lifecycleService.Dispose(this); }
