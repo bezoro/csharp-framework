@@ -14,3 +14,5 @@ dotnet test tests/Bezoro.Behaviors.Tests -c Release -p:CheckForOverflowUnderflow
 ```
 
 Host callback behavior, engine scene access, actual asynchronous job cancellation, and target-player exports remain application responsibilities. The token checks demonstrate rejection of late results rather than stopping external work automatically.
+
+Concurrency coverage blocks real lifecycle/guard callbacks on a dedicated worker, verifies overlapping operations are rejected before effects, and checks admission release after invalid calls. Independent owners share immutable definitions across parallel workers. Composition also tests exclusive child adoption and graph-wide exclusion across sibling and ancestor operations.

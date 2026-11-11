@@ -12,7 +12,7 @@ namespace Bezoro.Events.Tests.Services.EventBus;
 public class EventBusBoundedFlushTests
 {
 	[Fact]
-	public void FlushQueued_WithoutBudget_ShouldDrainFiniteCallbackChain()
+	public void FlushQueued_WithoutBudget_ShouldDeferCallbackPostsToTheNextPass()
 	{
 		using var bus = new Events.Services.EventBus();
 		var received = 0;
@@ -24,9 +24,9 @@ public class EventBusBoundedFlushTests
 		});
 		bus.Enqueue(new TestEventA(1));
 
-		bus.FlushQueued().Should().Be(10);
-		received.Should().Be(10);
-		bus.QueuedCount.Should().Be(0);
+		bus.FlushQueued().Should().Be(1);
+		received.Should().Be(1);
+		bus.QueuedCount.Should().Be(1);
 	}
 
 	[Fact]

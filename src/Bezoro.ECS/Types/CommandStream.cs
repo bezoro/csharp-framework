@@ -8,9 +8,15 @@ namespace Bezoro.ECS.Types;
 ///     Fixed-capacity deferred command stream for structural mutations in <see cref="World" />.
 ///     Command storage is allocated on the first recorded command and retained until disposal.
 /// </summary>
+/// <remarks>
+///     Recording, diagnostics, reset, disposal and playback serialize per stream. Concurrent producers retain
+///     each caller's order; order between callers depends on scheduling. World playback still requires exclusive
+///     access to the owning world's structural state. Stop producers before playback for a fixed batch boundary.
+/// </remarks>
 public sealed class CommandStream : IDisposable
 {
 	private static long _nextTemporaryGeneration;
+	private readonly object _gate = new();
 	private readonly int                      _commandCapacity;
 	private readonly int                      _componentTypeCapacity;
 	private readonly int                      _payloadCapacityPerType;
@@ -55,8 +61,11 @@ public sealed class CommandStream : IDisposable
 	{
 		get
 		{
-			ThrowIfDisposed();
-			return _commandCount > 0;
+			lock (_gate)
+			{
+				ThrowIfDisposed();
+				return _commandCount > 0;
+			}
 		}
 	}
 
@@ -67,8 +76,11 @@ public sealed class CommandStream : IDisposable
 	/// </summary>
 	public CommandStreamDiagnostics GetDiagnostics()
 	{
-		ThrowIfDisposed();
-		return new(_commandCapacity, _commandCount, _highWatermark, _overflowCount);
+		lock (_gate)
+		{
+			ThrowIfDisposed();
+			return new(_commandCapacity, _commandCount, _highWatermark, _overflowCount);
+		}
 	}
 
 	/// <summary>
@@ -77,15 +89,18 @@ public sealed class CommandStream : IDisposable
 	/// <returns>A temporary entity handle resolved during playback.</returns>
 	public Entity CreateEntity()
 	{
-		ThrowIfDisposed();
-		if (!CanRecordCommand())
-			throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
-		EnsureTemporaryGeneration();
+		lock (_gate)
+		{
+			ThrowIfDisposed();
+			if (!CanRecordCommand())
+				throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
+			EnsureTemporaryGeneration();
 
-		if (!TryRecord(new(RecordedCommandType.CreateEntity, new(_nextTemporaryId--, _temporaryResolveGeneration), -1, -1), out var command))
-			throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
+			if (!TryRecord(new(RecordedCommandType.CreateEntity, new(_nextTemporaryId--, _temporaryResolveGeneration), -1, -1), out var command))
+				throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
 
-		return command.Entity;
+			return command.Entity;
+		}
 	}
 
 	/// <summary>
@@ -96,33 +111,36 @@ public sealed class CommandStream : IDisposable
 	/// <returns>A temporary entity handle resolved during playback.</returns>
 	public Entity CreateEntity<T>(in T component) where T : struct
 	{
-		ThrowIfDisposed();
-		if (!CanRecordCommand())
-			throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
-		EnsureTemporaryGeneration();
-
-		int typeId = Owner.GetOrCreateComponentTypeId<T>();
-		var store  = GetOrCreatePayloadStore<T>(typeId);
-		if (store.IsFull) _overflowCount++;
-		if (!store.TryAdd(in component, out int payloadIndex))
+		lock (_gate)
 		{
-			throw new InvalidOperationException(
-				$"Payload capacity for component '{typeof(T).Name}' was exceeded."
-			);
+			ThrowIfDisposed();
+			if (!CanRecordCommand())
+				throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
+			EnsureTemporaryGeneration();
+
+			int typeId = Owner.GetOrCreateComponentTypeId<T>();
+			var store  = GetOrCreatePayloadStore<T>(typeId);
+			if (store.IsFull) _overflowCount++;
+			if (!store.TryAdd(in component, out int payloadIndex))
+			{
+				throw new InvalidOperationException(
+					$"Payload capacity for component '{typeof(T).Name}' was exceeded."
+				);
+			}
+
+			if (!TryRecord(
+					new(
+						RecordedCommandType.CreateEntityWithComponent,
+						new(_nextTemporaryId--, _temporaryResolveGeneration),
+						typeId,
+						payloadIndex
+					),
+					out var command
+				))
+				throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
+
+			return command.Entity;
 		}
-
-		if (!TryRecord(
-				new(
-					RecordedCommandType.CreateEntityWithComponent,
-					new(_nextTemporaryId--, _temporaryResolveGeneration),
-					typeId,
-					payloadIndex
-				),
-				out var command
-			))
-			throw new InvalidOperationException("Command stream is full and cannot allocate another temporary entity.");
-
-		return command.Entity;
 	}
 
 	/// <summary>
@@ -135,67 +153,73 @@ public sealed class CommandStream : IDisposable
 	/// <param name="entity">Entity to destroy.</param>
 	public void Destroy(Entity entity)
 	{
-		ThrowIfDisposed();
-		if (!CanRecordCommand())
-			return;
+		lock (_gate)
+		{
+			ThrowIfDisposed();
+			if (!CanRecordCommand())
+				return;
 
-		TryRecord(new(RecordedCommandType.DestroyEntity, entity, -1, -1), out _);
+			TryRecord(new(RecordedCommandType.DestroyEntity, entity, -1, -1), out _);
+		}
 	}
 
 	/// <inheritdoc />
 	public void Dispose()
 	{
-		if (_disposed)
-			return;
-
-		ResetInternal();
-		var    payloadStoresByTypeId = _payloadStoresByTypeId;
-		int[]? payloadStoreTypeIds   = _payloadStoreTypeIds;
-		for (var i = 0; i < _payloadStoreTypeCount; i++)
+		lock (_gate)
 		{
-			int typeId = payloadStoreTypeIds![i];
-			payloadStoresByTypeId![typeId]?.Dispose();
-			payloadStoresByTypeId[typeId] = null;
-			payloadStoreTypeIds[i]        = 0;
+			if (_disposed)
+				return;
+
+			ResetInternal();
+			var    payloadStoresByTypeId = _payloadStoresByTypeId;
+			int[]? payloadStoreTypeIds   = _payloadStoreTypeIds;
+			for (var i = 0; i < _payloadStoreTypeCount; i++)
+			{
+				int typeId = payloadStoreTypeIds![i];
+				payloadStoresByTypeId![typeId]?.Dispose();
+				payloadStoresByTypeId[typeId] = null;
+				payloadStoreTypeIds[i]        = 0;
+			}
+
+			_payloadStoreTypeCount = 0;
+			if (_commands is { } commands)
+				ArrayPool<RecordedCommand>.Shared.Return(commands);
+			_commands = null;
+			if (_resolvedTemporaryEntities is { })
+				ArrayPool<Entity>.Shared.Return(_resolvedTemporaryEntities);
+
+			if (_resolvedTemporaryGenerationByIndex is { })
+				ArrayPool<int>.Shared.Return(_resolvedTemporaryGenerationByIndex);
+
+			if (_batchEntityIds is { })
+				ArrayPool<int>.Shared.Return(_batchEntityIds);
+
+			if (_batchPayloadIndices is { })
+				ArrayPool<int>.Shared.Return(_batchPayloadIndices);
+
+			if (_batchEntityMarkerBits is { })
+				ArrayPool<uint>.Shared.Return(_batchEntityMarkerBits);
+
+			if (_batchTouchedMarkerWordIndices is { })
+				ArrayPool<int>.Shared.Return(_batchTouchedMarkerWordIndices);
+
+			if (_payloadStoresByTypeId is { })
+				ArrayPool<ICommandPayloadStore?>.Shared.Return(_payloadStoresByTypeId);
+
+			if (_payloadStoreTypeIds is { })
+				ArrayPool<int>.Shared.Return(_payloadStoreTypeIds);
+
+			_resolvedTemporaryEntities          = null;
+			_resolvedTemporaryGenerationByIndex = null;
+			_batchEntityIds                     = null;
+			_batchPayloadIndices                = null;
+			_batchEntityMarkerBits              = null;
+			_batchTouchedMarkerWordIndices      = null;
+			_payloadStoresByTypeId              = null;
+			_payloadStoreTypeIds                = null;
+			_disposed                           = true;
 		}
-
-		_payloadStoreTypeCount = 0;
-		if (_commands is { } commands)
-			ArrayPool<RecordedCommand>.Shared.Return(commands);
-		_commands = null;
-		if (_resolvedTemporaryEntities is { })
-			ArrayPool<Entity>.Shared.Return(_resolvedTemporaryEntities);
-
-		if (_resolvedTemporaryGenerationByIndex is { })
-			ArrayPool<int>.Shared.Return(_resolvedTemporaryGenerationByIndex);
-
-		if (_batchEntityIds is { })
-			ArrayPool<int>.Shared.Return(_batchEntityIds);
-
-		if (_batchPayloadIndices is { })
-			ArrayPool<int>.Shared.Return(_batchPayloadIndices);
-
-		if (_batchEntityMarkerBits is { })
-			ArrayPool<uint>.Shared.Return(_batchEntityMarkerBits);
-
-		if (_batchTouchedMarkerWordIndices is { })
-			ArrayPool<int>.Shared.Return(_batchTouchedMarkerWordIndices);
-
-		if (_payloadStoresByTypeId is { })
-			ArrayPool<ICommandPayloadStore?>.Shared.Return(_payloadStoresByTypeId);
-
-		if (_payloadStoreTypeIds is { })
-			ArrayPool<int>.Shared.Return(_payloadStoreTypeIds);
-
-		_resolvedTemporaryEntities          = null;
-		_resolvedTemporaryGenerationByIndex = null;
-		_batchEntityIds                     = null;
-		_batchPayloadIndices                = null;
-		_batchEntityMarkerBits              = null;
-		_batchTouchedMarkerWordIndices      = null;
-		_payloadStoresByTypeId              = null;
-		_payloadStoreTypeIds                = null;
-		_disposed                           = true;
 	}
 
 	/// <summary>
@@ -209,12 +233,15 @@ public sealed class CommandStream : IDisposable
 	/// <param name="entity">Entity to modify.</param>
 	public void Remove<T>(Entity entity) where T : struct
 	{
-		ThrowIfDisposed();
-		if (!CanRecordCommand())
-			return;
+		lock (_gate)
+		{
+			ThrowIfDisposed();
+			if (!CanRecordCommand())
+				return;
 
-		int typeId = Owner.GetOrCreateComponentTypeId<T>();
-		TryRecord(new(RecordedCommandType.RemoveComponent, entity, typeId, -1), out _);
+			int typeId = Owner.GetOrCreateComponentTypeId<T>();
+			TryRecord(new(RecordedCommandType.RemoveComponent, entity, typeId, -1), out _);
+		}
 	}
 
 	/// <summary>
@@ -222,8 +249,11 @@ public sealed class CommandStream : IDisposable
 	/// </summary>
 	public void Reset()
 	{
-		ThrowIfDisposed();
-		ResetInternal();
+		lock (_gate)
+		{
+			ThrowIfDisposed();
+			ResetInternal();
+		}
 	}
 
 	/// <summary>
@@ -238,96 +268,102 @@ public sealed class CommandStream : IDisposable
 	/// <param name="component">Component value.</param>
 	public void Set<T>(Entity entity, in T component) where T : struct
 	{
-		ThrowIfDisposed();
-		if (!CanRecordCommand())
-			return;
-
-		int typeId = Owner.GetOrCreateComponentTypeId<T>();
-		var store  = GetOrCreatePayloadStore<T>(typeId);
-		if (store.IsFull) _overflowCount++;
-		if (!store.TryAdd(in component, out int payloadIndex))
+		lock (_gate)
 		{
-			return;
-		}
+			ThrowIfDisposed();
+			if (!CanRecordCommand())
+				return;
 
-		TryRecord(new(RecordedCommandType.SetComponent, entity, typeId, payloadIndex), out _);
+			int typeId = Owner.GetOrCreateComponentTypeId<T>();
+			var store  = GetOrCreatePayloadStore<T>(typeId);
+			if (store.IsFull) _overflowCount++;
+			if (!store.TryAdd(in component, out int payloadIndex))
+			{
+				return;
+			}
+
+			TryRecord(new(RecordedCommandType.SetComponent, entity, typeId, payloadIndex), out _);
+		}
 	}
 
 
 	internal void PlaybackInternal()
 	{
-		ThrowIfDisposed();
-		if (_isPlayingBack)
-			throw new InvalidOperationException("Command stream playback is already in progress.");
-
-		if (_commandCount == 0)
-			return;
-
-		_isPlayingBack = true;
-		try
+		lock (_gate)
 		{
-			var index = 0;
-			while (index < _commandCount)
+			ThrowIfDisposed();
+			if (_isPlayingBack)
+				throw new InvalidOperationException("Command stream playback is already in progress.");
+
+			if (_commandCount == 0)
+				return;
+
+			_isPlayingBack = true;
+			try
 			{
-				var command = _commands![index];
-				switch (command.Type)
+				var index = 0;
+				while (index < _commandCount)
 				{
-					case RecordedCommandType.CreateEntity:
+					var command = _commands![index];
+					switch (command.Type)
 					{
-						EnsureTemporaryResolutionBuffers();
-						var   resolvedTemporaryEntities          = _resolvedTemporaryEntities!;
-						int[] resolvedTemporaryGenerationByIndex = _resolvedTemporaryGenerationByIndex!;
-						var   resolved                           = Owner.CreateEntityInternal();
-						int   temporaryIndex                     = GetTemporaryEntityIndex(command.Entity.Id);
-						resolvedTemporaryEntities[temporaryIndex]          = resolved;
-						resolvedTemporaryGenerationByIndex[temporaryIndex] = _temporaryResolveGeneration;
-						index++;
-						break;
+						case RecordedCommandType.CreateEntity:
+						{
+							EnsureTemporaryResolutionBuffers();
+							var   resolvedTemporaryEntities          = _resolvedTemporaryEntities!;
+							int[] resolvedTemporaryGenerationByIndex = _resolvedTemporaryGenerationByIndex!;
+							var   resolved                           = Owner.CreateEntityInternal();
+							int   temporaryIndex                     = GetTemporaryEntityIndex(command.Entity.Id);
+							resolvedTemporaryEntities[temporaryIndex]          = resolved;
+							resolvedTemporaryGenerationByIndex[temporaryIndex] = _temporaryResolveGeneration;
+							index++;
+							break;
+						}
+						case RecordedCommandType.DestroyEntity:
+							Owner.DestroyEntityInternal(ResolveEntity(command.Entity));
+							index++;
+							break;
+						case RecordedCommandType.SetComponent:
+							index = PlaybackSetRun(index);
+							break;
+						case RecordedCommandType.RemoveComponent:
+							index = PlaybackRemoveRun(index);
+							break;
+						case RecordedCommandType.CreateEntityWithComponent:
+						{
+							EnsureTemporaryResolutionBuffers();
+							var   resolvedTemporaryEntities          = _resolvedTemporaryEntities!;
+							int[] resolvedTemporaryGenerationByIndex = _resolvedTemporaryGenerationByIndex!;
+							var   created                            = Owner.CreateEntityInternal();
+							int   temporaryIndex                     = GetTemporaryEntityIndex(command.Entity.Id);
+							resolvedTemporaryEntities[temporaryIndex]          = created;
+							resolvedTemporaryGenerationByIndex[temporaryIndex] = _temporaryResolveGeneration;
+
+							ValidatePayloadStoreTypeId(command.ComponentTypeId);
+							var payloadStoresByTypeId = _payloadStoresByTypeId;
+							var payloadStore = payloadStoresByTypeId is { }
+												   ? payloadStoresByTypeId[command.ComponentTypeId]
+												   : null;
+
+							if (payloadStore is null)
+								throw new InvalidOperationException(
+									$"Missing payload store for component type id '{command.ComponentTypeId}'."
+								);
+
+							payloadStore.Apply(Owner, created, command.PayloadIndex);
+							index++;
+							break;
+						}
+						default:
+							throw new ArgumentOutOfRangeException();
 					}
-					case RecordedCommandType.DestroyEntity:
-						Owner.DestroyEntityInternal(ResolveEntity(command.Entity));
-						index++;
-						break;
-					case RecordedCommandType.SetComponent:
-						index = PlaybackSetRun(index);
-						break;
-					case RecordedCommandType.RemoveComponent:
-						index = PlaybackRemoveRun(index);
-						break;
-					case RecordedCommandType.CreateEntityWithComponent:
-					{
-						EnsureTemporaryResolutionBuffers();
-						var   resolvedTemporaryEntities          = _resolvedTemporaryEntities!;
-						int[] resolvedTemporaryGenerationByIndex = _resolvedTemporaryGenerationByIndex!;
-						var   created                            = Owner.CreateEntityInternal();
-						int   temporaryIndex                     = GetTemporaryEntityIndex(command.Entity.Id);
-						resolvedTemporaryEntities[temporaryIndex]          = created;
-						resolvedTemporaryGenerationByIndex[temporaryIndex] = _temporaryResolveGeneration;
-
-						ValidatePayloadStoreTypeId(command.ComponentTypeId);
-						var payloadStoresByTypeId = _payloadStoresByTypeId;
-						var payloadStore = payloadStoresByTypeId is { }
-											   ? payloadStoresByTypeId[command.ComponentTypeId]
-											   : null;
-
-						if (payloadStore is null)
-							throw new InvalidOperationException(
-								$"Missing payload store for component type id '{command.ComponentTypeId}'."
-							);
-
-						payloadStore.Apply(Owner, created, command.PayloadIndex);
-						index++;
-						break;
-					}
-					default:
-						throw new ArgumentOutOfRangeException();
 				}
 			}
-		}
-		finally
-		{
-			_isPlayingBack = false;
-			ResetInternal();
+			finally
+			{
+				_isPlayingBack = false;
+				ResetInternal();
+			}
 		}
 	}
 

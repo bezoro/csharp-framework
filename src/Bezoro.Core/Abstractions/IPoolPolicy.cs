@@ -4,6 +4,7 @@ namespace Bezoro.Core.Abstractions;
 ///     Defines the lifecycle and validation policy for pooled objects.
 /// </summary>
 /// <typeparam name="T">The type of objects managed by the pool.</typeparam>
+/// <remarks>Callbacks execute synchronously on the operation's thread and may run concurrently for distinct objects.</remarks>
 public interface IPoolPolicy<T> where T : class
 {
 	/// <summary>
@@ -30,5 +31,10 @@ public interface IPoolPolicy<T> where T : class
 	///     Called when an object is being discarded and will not be returned to the pool.
 	/// </summary>
 	/// <param name="item">The object being discarded.</param>
+	/// <remarks>
+	///     This is the final release operation for validation/reset rejection, trimming, clearing, and disposal.
+	///     The policy owns native-resource cleanup and any managed disposal. The pool attempts this callback
+	///     once per owned release and releases capacity even when it throws.
+	/// </remarks>
 	void OnDiscard(T item);
 }

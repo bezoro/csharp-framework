@@ -137,7 +137,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 		);
 
 		_outputDispatcher = new(_lineWaiters, _searchCoordinator, ObserveProtocolMessage);
-		_commandModule    = new(_transport, _lineWaiters, this, SetActivity, _options);
+		_commandModule    = new(_transport, _lineWaiters, this, SetActivity, _options, ThrowIfDisposed);
 	}
 
 	/// <summary>
@@ -329,7 +329,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 	///     Use for fire-and-forget searches (e.g., GUI spinning).
 	/// </summary>
 	public Task GoFireAndForgetAsync(SearchParameters parameters, CancellationToken ct) =>
-		_searchCoordinator.ExecuteFireAndForgetAsync(parameters, ct);
+		Searches.ExecuteFireAndForgetAsync(parameters, ct);
 
 	/// <summary>
 	///     Sends "isready" to the engine and waits up to 10 seconds for "readyok".
@@ -363,6 +363,13 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 	/// </summary>
 	public Task SetPositionAsync(Fen fen, IEnumerable<string>? moves, CancellationToken ct) =>
 		_commandModule.SetPositionAsync(fen, moves, ct);
+
+    internal string PreparePositionCommand(Fen fen, IEnumerable<string>? moves, CancellationToken ct) =>
+        _commandModule.PreparePositionCommand(fen, moves, ct);
+
+    internal Task SetPreparedPositionAsync(string command, CancellationToken ct) =>
+        _commandModule.SetPreparedPositionAsync(command, ct);
+
 
 	/// <summary>
 	///     Starts the engine process/connection, background read loop, and completes UCI handshake.
@@ -481,13 +488,14 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 	/// <summary>
 	///     Sends the "stop" command and waits for bestmove before allowing another search.
 	/// </summary>
-	public Task StopSearchAsync(CancellationToken ct) => _searchCoordinator.StopSearchAsync(ct);
+	public Task StopSearchAsync(CancellationToken ct) => Searches.StopSearchAsync(ct);
 
 	/// <summary>
 	///     Sends "uci" to the engine and waits for "uciok" and "readyok" to confirm supported handshaking.
 	/// </summary>
 	public async Task UciInitAsync(CancellationToken ct)
 	{
+        ThrowIfDisposed();
 		ResetHandshakeMetadata();
 		await _commandModule.UciInitAsync(ct).ConfigureAwait(false);
 		PromoteStandardCapabilities();
@@ -518,7 +526,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 	///     Applies a derived timeout based on input <paramref name="parameters" />.
 	/// </summary>
 	public Task<SearchResult> GoAsync(SearchParameters parameters, CancellationToken ct) =>
-		_searchCoordinator.ExecuteSearchAsync(parameters, ct);
+		Searches.ExecuteSearchAsync(parameters, ct);
 
 	/// <summary>
 	///     Disposes the engine client, releasing and stopping underlying transports.
@@ -529,7 +537,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 		try
 		{
 			if (_disposed) return;
-			_disposed = true;
+            Volatile.Write(ref _disposed, true);
 			await DisposeCoreAsync().ConfigureAwait(false);
 		}
 		finally { _lifecycleGate.Release(); }
@@ -551,6 +559,16 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 
 		await _transport.DisposeAsync();
 	}
+
+    private UciSearchCoordinator Searches
+    {
+        get { ThrowIfDisposed(); return _searchCoordinator; }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (Volatile.Read(ref _disposed)) throw new ObjectDisposedException(nameof(UciEngineClient));
+    }
 
 	internal void SetExtensionCapabilities(
 		UciCapabilityState displayBoardFen,

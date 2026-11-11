@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Bezoro.Chess.UCI.Protocol.API.Common.Extensions;
@@ -32,6 +33,8 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable, IAsyncDisposab
 	private CancellationTokenSource _lifetimeCts = new();
 	private Task? _workerTask;
 	private bool _disposed;
+	private TaskCompletionSource<bool>? _disposalCancellationCompleted;
+	private ExceptionDispatchInfo? _disposalFailure;
 
 	internal Task? ActiveWorker
 	{
@@ -316,27 +319,48 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable, IAsyncDisposab
 	/// <summary>Cancels analysis and observes the active worker before the caller releases its engine client.</summary>
 	public async ValueTask DisposeAsync()
 	{
-		Dispose();
+		ExceptionDispatchInfo? cancellationFailure = null;
+		try { Dispose(); }
+		catch (Exception error) { cancellationFailure = ExceptionDispatchInfo.Capture(error); }
 		Task? worker;
+		Task cancellationCompleted;
 		lock (_sync)
 		{
 			worker = _workerTask;
+			cancellationCompleted = _disposalCancellationCompleted?.Task ?? Task.CompletedTask;
 		}
-		if (worker is not null) await worker.ConfigureAwait(false);
+		await cancellationCompleted.ConfigureAwait(false);
+		lock (_sync) cancellationFailure = _disposalFailure ?? cancellationFailure;
+		try
+		{
+			if (worker is not null) await worker.ConfigureAwait(false);
+		}
+		catch (Exception workerFailure) when (cancellationFailure is not null)
+		{
+			throw new AggregateException("Analysis cancellation and worker shutdown both failed.",
+				cancellationFailure.SourceException, workerFailure);
+		}
+		cancellationFailure?.Throw();
 	}
 
-	private void CancelCore(ISet<string>? retainedPositionKeys, bool dispose = false)
+	private void CancelCore(ISet<string>? retainedPositionKeys, bool dispose = false) =>
+		BeginCancellation(retainedPositionKeys, dispose)?.Invoke();
+
+	// State invalidation happens immediately. The caller invokes the returned cleanup once, outside its own gates.
+	internal Action? BeginCancellation(ISet<string>? retainedPositionKeys = null, bool dispose = false)
 	{
 		CancellationTokenSource retiredGeneration;
 		TaskCompletionSource<PositionAnalysisResult>[] waiters;
+		TaskCompletionSource<bool>? disposalCompletion = null;
 
 		lock (_sync)
 		{
 			if (_disposed)
 			{
-				if (dispose) return;
+				if (dispose) return null;
 				ThrowIfDisposed();
 			}
+			if (dispose) disposalCompletion = _disposalCancellationCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 			_disposed = dispose;
 			retiredGeneration = _lifetimeCts;
 			if (!dispose) _lifetimeCts = new();
@@ -370,16 +394,24 @@ public sealed class UciPositionAnalysisCoordinator : IDisposable, IAsyncDisposab
 			}
 		}
 
-		try
+		return () =>
 		{
-			retiredGeneration.Cancel();
-		}
-		finally
-		{
-			retiredGeneration.Dispose();
-			foreach (var waiter in waiters)
-				waiter.TrySetCanceled();
-		}
+			// Promise completion cannot run continuations inline. Publish cancellation before callbacks,
+			// so a callback can observe a retired wait without depending on its own return.
+			foreach (var waiter in waiters) waiter.TrySetCanceled();
+			try
+			{
+				try { retiredGeneration.Cancel(); }
+				finally { retiredGeneration.Dispose(); }
+			}
+			catch (Exception error)
+			{
+				if (disposalCompletion is not null)
+					lock (_sync) _disposalFailure = ExceptionDispatchInfo.Capture(error);
+				throw;
+			}
+			finally { disposalCompletion?.TrySetResult(true); }
+		};
 	}
 
 	private void ThrowIfDisposed()

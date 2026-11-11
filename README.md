@@ -2,6 +2,8 @@
 
 Reusable C# libraries for Unity 6 and other .NET game projects, including Godot .NET. The repository uses the .NET 10 SDK and `LangVersion=latest`. Runtime libraries target `net10.0` and `netstandard2.1`; Unity consumes the precompiled .NET Standard assemblies through the `upm` branch.
 
+The framework separates immutable shared data, synchronized services and exclusively owned execution storage. Engine adapters marshal only operations that require the scene thread. See [concurrency, ownership and migration](docs/concurrency.md) for the module contracts and worker-to-engine boundaries.
+
 ## Modules
 
 | Module | Responsibility |
@@ -64,7 +66,7 @@ match.ApplyMove("e2e4");
 var current = match.Refresh();
 ```
 
-Moves, legal replies, promotion, clocks, and results use local rules. No engine process or network connection is needed. Serialize mutations of a protocol match on its owning game thread. Retain immutable snapshots for readers. The high-level `UciGameEngineSession` also has a constructor without an engine path and supports local play without calling `StartAsync`.
+Moves, legal replies, promotion, clocks, and results use local rules. No engine process or network connection is needed. Protocol commands synchronize their state and publish immutable snapshots; callbacks execute outside the state gate. The high-level `UciGameEngineSession` also has a constructor without an engine path and supports local play without calling `StartAsync`.
 
 ## Optional game review
 

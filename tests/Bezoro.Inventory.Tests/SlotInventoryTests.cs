@@ -22,7 +22,7 @@ public sealed class SlotInventoryTests
         var inventory = new SlotInventory(Catalog(), 3);
         Assert.Equal(3, inventory.Capacity);
         Assert.Equal(0, inventory.OccupiedSlotCount);
-        Assert.All(inventory.Slots.ToArray(), stack => Assert.True(stack.IsEmpty));
+        Assert.All(inventory.CreateSnapshot(), stack => Assert.True(stack.IsEmpty));
         Assert.Equal(30, inventory.GetAvailableCapacity(Wood));
     }
 
@@ -103,11 +103,11 @@ public sealed class SlotInventoryTests
     {
         var inventory = new SlotInventory(Catalog(), 2);
         Assert.True(inventory.TryAdd(Wood, 17));
-        var before = inventory.Slots.ToArray();
+        var before = inventory.CreateSnapshot();
         Assert.False(inventory.TryAdd(Wood, 4));
         Assert.False(inventory.TryAdd(Stone, 1));
         Assert.False(inventory.TryAdd(Wood, long.MaxValue));
-        Assert.Equal(before, inventory.Slots.ToArray());
+        Assert.Equal(before, inventory.CreateSnapshot());
         Assert.Equal(2, inventory.OccupiedSlotCount);
     }
 
@@ -116,7 +116,7 @@ public sealed class SlotInventoryTests
     {
         var inventory = new SlotInventory(Catalog(), 3);
         Assert.True(inventory.TryAdd(new ItemStack(Wood, 25)));
-        Assert.Equal(new[] { new ItemStack(Wood, 10), new ItemStack(Wood, 10), new ItemStack(Wood, 5) }, inventory.Slots.ToArray());
+        Assert.Equal(new[] { new ItemStack(Wood, 10), new ItemStack(Wood, 10), new ItemStack(Wood, 5) }, inventory.CreateSnapshot());
     }
 
     [Fact]
@@ -131,10 +131,10 @@ public sealed class SlotInventoryTests
         Assert.Equal(new ItemStack(Stone, 3), inventory[1]);
         Assert.Equal(new ItemStack(Wood, 7), inventory[2]);
         Assert.Equal(2, inventory.OccupiedSlotCount);
-        var before = inventory.Slots.ToArray();
+        var before = inventory.CreateSnapshot();
         Assert.False(inventory.TryRemove(Wood, 8));
         Assert.False(inventory.TryRemove(Wood, long.MaxValue));
-        Assert.Equal(before, inventory.Slots.ToArray());
+        Assert.Equal(before, inventory.CreateSnapshot());
         Assert.True(inventory.TryRemove(Wood, 7));
         Assert.Equal(1, inventory.OccupiedSlotCount);
     }
@@ -179,7 +179,7 @@ public sealed class SlotInventoryTests
         Assert.Equal(capacity - 1, destination.GetQuantity(item));
         Assert.True(destination.TryRemove(item, capacity - 1));
         Assert.Equal(0, destination.OccupiedSlotCount);
-        Assert.All(destination.Slots.ToArray(), stack => Assert.Equal(default, stack));
+        Assert.All(destination.CreateSnapshot(), stack => Assert.Equal(default, stack));
     }
 
     [Fact]
@@ -190,12 +190,12 @@ public sealed class SlotInventoryTests
         var destination = new SlotInventory(catalog, 2);
         Assert.True(source.TryAdd(Wood, 25));
         Assert.True(destination.TryAdd(Wood, 17));
-        var sourceBefore = source.Slots.ToArray();
-        var destinationBefore = destination.Slots.ToArray();
+        var sourceBefore = source.CreateSnapshot();
+        var destinationBefore = destination.CreateSnapshot();
         Assert.False(source.TryTransferTo(destination, Wood, 4));
         Assert.False(source.TryTransferTo(destination, Wood, 26));
-        Assert.Equal(sourceBefore, source.Slots.ToArray());
-        Assert.Equal(destinationBefore, destination.Slots.ToArray());
+        Assert.Equal(sourceBefore, source.CreateSnapshot());
+        Assert.Equal(destinationBefore, destination.CreateSnapshot());
         Assert.True(source.TryTransferTo(destination, Wood, 3));
         Assert.Equal(22, source.GetQuantity(Wood));
         Assert.Equal(20, destination.GetQuantity(Wood));
@@ -209,12 +209,12 @@ public sealed class SlotInventoryTests
         var source = new SlotInventory(Catalog(), 2);
         var equivalentCatalog = new SlotInventory(Catalog(), 2);
         Assert.True(source.TryAdd(Wood, 14));
-        var before = source.Slots.ToArray();
+        var before = source.CreateSnapshot();
         Assert.Throws<ArgumentNullException>(() => source.TryTransferTo(null!, Wood, 1));
         Assert.Throws<ArgumentException>(() => source.TryTransferTo(equivalentCatalog, Wood, 1));
         Assert.True(source.TryTransferTo(source, Wood, 14));
         Assert.False(source.TryTransferTo(source, Wood, 15));
-        Assert.Equal(before, source.Slots.ToArray());
+        Assert.Equal(before, source.CreateSnapshot());
         Assert.Equal(0, equivalentCatalog.OccupiedSlotCount);
     }
 
@@ -223,16 +223,16 @@ public sealed class SlotInventoryTests
     {
         var inventory = new SlotInventory(Catalog(), 3);
         Assert.True(inventory.TryAdd(Wood, 12));
-        var before = inventory.Slots.ToArray();
+        var before = inventory.CreateSnapshot();
         Assert.False(inventory.TryRestore(new ItemStack[] { default }));
         Assert.False(inventory.TryRestore(new[] { new ItemStack(Stone, 2), default, new ItemStack(Wood, 11) }));
         Assert.False(inventory.TryRestore(new[] { new ItemStack(Stone, 2), default, new ItemStack(new ItemId(99), 1) }));
-        Assert.Equal(before, inventory.Slots.ToArray());
+        Assert.Equal(before, inventory.CreateSnapshot());
         Assert.True(inventory.TryRestore(new[] { default, new ItemStack(Stone, 3), new ItemStack(Tool, 1) }));
         Assert.Equal(2, inventory.OccupiedSlotCount);
         Assert.Equal(0, inventory.GetQuantity(Wood));
         Assert.Equal(3, inventory.GetQuantity(Stone));
-        Assert.True(inventory.TryRestore(inventory.Slots));
+        Assert.True(inventory.TryRestore(inventory.CreateSnapshot()));
         Assert.Equal(2, inventory.OccupiedSlotCount);
     }
 
@@ -241,12 +241,12 @@ public sealed class SlotInventoryTests
     {
         var inventory = new SlotInventory(Catalog(), 2);
         Assert.True(inventory.TryAdd(Wood, 4));
-        var before = inventory.Slots.ToArray();
+        var before = inventory.CreateSnapshot();
         Span<int> fields = stackalloc int[] { 1, -1, 0, 0 };
         Assert.False(inventory.TryRestore(MemoryMarshal.Cast<int, ItemStack>(fields)));
         fields[1] = 0;
         Assert.False(inventory.TryRestore(MemoryMarshal.Cast<int, ItemStack>(fields)));
-        Assert.Equal(before, inventory.Slots.ToArray());
+        Assert.Equal(before, inventory.CreateSnapshot());
     }
 
     [Fact]
@@ -267,18 +267,18 @@ public sealed class SlotInventoryTests
     }
 
     [Fact]
-    public void SlotViews_AreBorrowedWhileIndexedValuesAreSnapshots()
+    public void SlotCopiesAndIndexedValuesAreIndependentSnapshots()
     {
         var inventory = new SlotInventory(Catalog(), 1);
         Assert.True(inventory.TryAdd(Wood, 3));
         var snapshot = inventory[0];
-        var view = inventory.Slots;
+        var view = inventory.CreateSnapshot();
         Assert.True(inventory.TryAdd(Wood, 2));
         Assert.Equal(3, snapshot.Quantity);
-        Assert.Equal(5, view[0].Quantity);
+        Assert.Equal(3, view[0].Quantity);
         inventory.Clear();
         Assert.Equal(0, inventory.OccupiedSlotCount);
-        Assert.Equal(default, view[0]);
+        Assert.Equal(new ItemStack(Wood, 3), view[0]);
         inventory.Clear();
         Assert.True(inventory.TryAdd(Tool, 1));
     }

@@ -9,7 +9,7 @@ namespace Bezoro.Core.Types.Pool;
 /// </summary>
 /// <typeparam name="T">The type of the pooled object.</typeparam>
 /// <remarks>
-///     This is a mutable struct whose copies share disposal state, ensuring the pooled object is returned only once.
+///     This readonly struct has copies that share disposal state, ensuring the pooled object is returned only once.
 /// </remarks>
 [DebuggerDisplay("Value={DebuggerValue}, IsDisposed={IsDisposed}")]
 public readonly struct PooledObjectHandle<T> : IDisposable where T : class

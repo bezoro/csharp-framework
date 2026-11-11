@@ -12,7 +12,7 @@ namespace Bezoro.Core.Tests.Types.Pool;
 public class ObjectPoolDisposeTests
 {
 	[Fact]
-	public void ObjectPoolDispose_WhenCalled_ShouldShouldDisposeAllPooledItems()
+	public void Dispose_WhenCalled_ShouldInvokePolicyAndDisposeAllAvailableItems()
 	{
 		var items = new List<DisposableObject>();
 		var discardCount = 0;
@@ -36,11 +36,11 @@ public class ObjectPoolDisposeTests
 		items.Should().OnlyContain(x => x.IsDisposed);
 		items.Should().OnlyContain(x => x.DisposeCount == 1);
 		pool.TotalCount.Should().Be(0);
-		discardCount.Should().Be(0);
+		discardCount.Should().Be(3);
 	}
 
 	[Fact]
-	public void ObjectPoolDispose_WhenCalled_ShouldShouldPreventFurtherRent()
+	public void Dispose_WhenCalled_ShouldPreventFurtherRent()
 	{
 		var pool = new ObjectPool<object>(() => new());
 		pool.Dispose();

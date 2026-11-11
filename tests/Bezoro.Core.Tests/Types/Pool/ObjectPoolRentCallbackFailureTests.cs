@@ -64,6 +64,11 @@ public class ObjectPoolRentCallbackFailureTests
 		Assert.Equal(before.TotalRented + 1, pool.Statistics.TotalRented);
 		Assert.True(pool.Return(replacement));
 		Assert.Equal(before.TotalReturned + 1, pool.Statistics.TotalReturned);
+		if (discardThrows) Assert.Throws<ApplicationException>(() => pool.Dispose());
+		else pool.Dispose();
+		Assert.Equal(1, replacement.DiscardCount);
+		Assert.Equal(discardThrows ? 0 : 1, replacement.DisposeCount);
+		Assert.Equal(0, pool.TotalCount);
 	}
 
 	[Theory]
@@ -201,8 +206,10 @@ public class ObjectPoolRentCallbackFailureTests
 			Assert.True(pool.Return(replacement));
 			Assert.Equal(1, pool.TotalCount);
 			Assert.Equal(1, pool.AvailableCount);
-			pool.Dispose();
-			Assert.Equal(1, replacement.DisposeCount);
+			if (discardThrows) Assert.Throws<ApplicationException>(() => pool.Dispose());
+			else pool.Dispose();
+			Assert.Equal(1, replacement.DiscardCount);
+			Assert.Equal(discardThrows ? 0 : 1, replacement.DisposeCount);
 			Assert.Equal(3, pool.Statistics.TotalDiscarded);
 			Assert.Equal(0, pool.TotalCount);
 		}

@@ -12,6 +12,9 @@ public interface IEventBus : IDisposable
 	/// </summary>
 	int QueuedCount { get; }
 
+	/// <summary>Gets the maximum pending event count, or -1 for unbounded queuing.</summary>
+	int MaximumQueuedEvents { get; }
+
 	/// <summary>
 	///     The total number of active subscriptions across all event types.
 	/// </summary>
@@ -30,7 +33,8 @@ public interface IEventBus : IDisposable
 	EventContext<TEvent> Publish<TEvent>(TEvent evt) where TEvent : struct;
 
 	/// <summary>
-	///     Dispatches all queued events in order.
+	///     Dispatches at most the queued count captured at call entry. Callback-posted work waits for a later pass
+	///     unless concurrent consumers remove earlier work. Handler work and nested flushes have separate costs.
 	/// </summary>
 	/// <returns>The number of events dispatched.</returns>
 	int FlushQueued();
@@ -55,6 +59,11 @@ public interface IEventBus : IDisposable
 
 	/// <summary>
 	///     Enqueues an event for deferred dispatch via <see cref="FlushQueued()" />.
+	///     Throws <see cref="InvalidOperationException" /> when a configured capacity is full.
 	/// </summary>
 	void Enqueue<TEvent>(TEvent evt) where TEvent : struct;
+
+	/// <summary>Enqueues without invoking handlers, returning false when the configured capacity is full.</summary>
+	/// <remarks>A rejected event allocates no dispatch envelope. A disposed bus throws rather than rejecting silently.</remarks>
+	bool TryEnqueue<TEvent>(TEvent evt) where TEvent : struct;
 }

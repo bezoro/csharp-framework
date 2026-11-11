@@ -115,16 +115,16 @@ internal sealed class MoveClassificationCoordinator : IDisposable
 				   : WaitWithCancellationAsync(waiterTask, ct);
 	}
 
-	public void Cancel() => CancelCore(null);
+	public void Cancel() => BeginCancellation()?.Invoke();
 
 	public void CancelPendingAndRetain(ISet<string> retainedPositionKeys)
 	{
 		if (retainedPositionKeys is null)
 			throw new ArgumentNullException(nameof(retainedPositionKeys));
-		CancelCore(retainedPositionKeys);
+		BeginCancellation(retainedPositionKeys)?.Invoke();
 	}
 
-	private void CancelCore(ISet<string>? retainedPositionKeys)
+	internal Action? BeginCancellation(ISet<string>? retainedPositionKeys = null)
 	{
 		TaskCompletionSource<ImmutableDictionary<string, MoveClassification>>[] waiters;
 		WorkerCancellationSource? workerCancellation;
@@ -148,10 +148,12 @@ internal sealed class MoveClassificationCoordinator : IDisposable
 			_queuedPositionKeys.Clear();
 		}
 
-		workerCancellation?.Cancel();
-
-		foreach (var waiter in waiters)
-			waiter.TrySetCanceled();
+        if (workerCancellation is null && waiters.Length == 0) return null;
+        return () =>
+        {
+            foreach (var waiter in waiters) waiter.TrySetCanceled();
+            workerCancellation?.Cancel();
+        };
 	}
 
 	public void Dispose() => Cancel();

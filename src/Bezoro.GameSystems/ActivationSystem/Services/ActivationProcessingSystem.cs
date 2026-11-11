@@ -82,10 +82,14 @@ public sealed class ActivationProcessingSystem : ISystem
 				continue;
 
 			ref var entry = ref entryRef.Value;
-			if (!entry.TryActivate(out var callback))
+			var activatedEntry = entry;
+			if (!activatedEntry.TryActivate(out var callback))
 				continue;
 
-			dispatchQueue.Enqueue(callback);
+			// Keep the original entry pending, including its callback, until queue ownership succeeds.
+			if (!dispatchQueue.TryEnqueue(callback))
+				break;
+			entry = activatedEntry;
 			activatedThisTick++;
 		}
 

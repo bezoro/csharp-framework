@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Threading;
 using Bezoro.Core.Collections;
 
 namespace Bezoro.Spatial;
@@ -6,7 +7,8 @@ namespace Bezoro.Spatial;
 /// <summary>A bounded uniform-grid index of points with application-owned payloads.</summary>
 /// <typeparam name="T">The stored payload type.</typeparam>
 /// <remarks>
-/// Mutations require one owner or external serialization. Queries may run concurrently when no operation mutates the index.
+/// Queries may run concurrently. Mutations acquire exclusive access, including across a query's sizing and copying passes.
+/// Payload references and destination storage retain their caller-defined ownership and synchronization requirements.
 /// Each entry occupies one cell. Queries own no scratch storage and never allocate managed memory after construction.
 /// Handles belong to this index; removal and clearing invalidate them. Results have no stable ordering.
 /// </remarks>
@@ -15,6 +17,10 @@ public sealed class PointSpatialIndex<T>
     private const int None = -1;
     private readonly SlotMap<Node> _entries;
     private readonly int[] _heads;
+    private readonly object _gate = new();
+    private int _readers;
+    private int _waitingWriters;
+    private bool _writer;
 
     /// <summary>Allocates fixed entry and cell storage.</summary>
     /// <param name="worldBounds">Finite inclusive world bounds with positive width and height.</param>
@@ -58,11 +64,27 @@ public sealed class PointSpatialIndex<T>
     /// <summary>Gets the logical number of grid cells.</summary>
     public int CellCount { get; }
     /// <summary>Gets the number of live points.</summary>
-    public int Count => _entries.Count;
+    public int Count
+    {
+        get
+        {
+            EnterRead();
+            try { return _entries.Count; }
+            finally { ExitRead(); }
+        }
+    }
     /// <summary>Gets the fixed entry capacity.</summary>
     public int Capacity => _entries.Capacity;
     /// <summary>Gets the reusable entry capacity. Exhausted handle generations retire their slots.</summary>
-    public int AvailableCapacity => _entries.AvailableCapacity;
+    public int AvailableCapacity
+    {
+        get
+        {
+            EnterRead();
+            try { return _entries.AvailableCapacity; }
+            finally { ExitRead(); }
+        }
+    }
 
     /// <summary>Adds an in-world point and returns its owner-scoped handle.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The point is non-finite or outside the world.</exception>
@@ -79,119 +101,159 @@ public sealed class PointSpatialIndex<T>
     /// <exception cref="ArgumentOutOfRangeException">The point is non-finite.</exception>
     public bool TryAdd(Vector2 position, T value, out SlotHandle handle)
     {
-        Bounds2D.ValidatePoint(position, nameof(position));
-        handle = default;
-        if (!WorldBounds.Contains(position) || AvailableCapacity == 0) return false;
-        int cell = GetCell(position);
-        int index = Count;
-        var node = new Node { Position = position, Value = value, Cell = cell, DenseIndex = index, Previous = None, Next = _heads[cell] };
-        if (!_entries.TryAdd(node, out handle)) return false;
-        if (node.Next != None)
+        EnterWrite();
+        try
         {
-            var next = _entries.Values[node.Next];
-            next.Previous = index;
-            SetNode(node.Next, next);
+            Bounds2D.ValidatePoint(position, nameof(position));
+            handle = default;
+            if (!WorldBounds.Contains(position) || _entries.AvailableCapacity == 0) return false;
+            int cell = GetCell(position);
+            int index = _entries.Count;
+            var node = new Node { Position = position, Value = value, Cell = cell, DenseIndex = index, Previous = None, Next = _heads[cell] };
+            if (!_entries.TryAdd(node, out handle)) return false;
+            if (node.Next != None)
+            {
+                var next = _entries.Values[node.Next];
+                next.Previous = index;
+                SetNode(node.Next, next);
+            }
+            _heads[cell] = index;
+            return true;
         }
-        _heads[cell] = index;
-        return true;
+        finally { ExitWrite(); }
     }
 
     /// <summary>Tests whether this index still owns a live entry for the handle.</summary>
-    public bool Contains(SlotHandle handle) => _entries.Contains(handle);
+    public bool Contains(SlotHandle handle)
+    {
+        EnterRead();
+        try { return _entries.Contains(handle); }
+        finally { ExitRead(); }
+    }
 
     /// <summary>Copies a live entry, or returns false and the default hit for a stale, default, or foreign handle.</summary>
     public bool TryGet(SlotHandle handle, out SpatialHit<T> hit)
     {
-        if (!_entries.TryGet(handle, out var node))
+        EnterRead();
+        try
         {
-            hit = default;
-            return false;
+            if (!_entries.TryGet(handle, out var node))
+            {
+                hit = default;
+                return false;
+            }
+            hit = new SpatialHit<T>(handle, node.Position, node.Value);
+            return true;
         }
-        hit = new SpatialHit<T>(handle, node.Position, node.Value);
-        return true;
+        finally { ExitRead(); }
     }
 
     /// <summary>Moves a live entry without changing its identity. Outside-world or invalid handles return false without mutation.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The point is non-finite.</exception>
     public bool TryMove(SlotHandle handle, Vector2 position)
     {
-        Bounds2D.ValidatePoint(position, nameof(position));
-        if (!WorldBounds.Contains(position) || !_entries.TryGet(handle, out var node)) return false;
-        int cell = GetCell(position);
-        if (cell != node.Cell)
+        EnterWrite();
+        try
         {
-            Unlink(node);
-            node.Cell = cell;
-            node.Previous = None;
-            node.Next = _heads[cell];
-            if (node.Next != None)
+            Bounds2D.ValidatePoint(position, nameof(position));
+            if (!WorldBounds.Contains(position) || !_entries.TryGet(handle, out var node)) return false;
+            int cell = GetCell(position);
+            if (cell != node.Cell)
             {
-                var next = _entries.Values[node.Next];
-                next.Previous = node.DenseIndex;
-                SetNode(node.Next, next);
+                Unlink(node);
+                node.Cell = cell;
+                node.Previous = None;
+                node.Next = _heads[cell];
+                if (node.Next != None)
+                {
+                    var next = _entries.Values[node.Next];
+                    next.Previous = node.DenseIndex;
+                    SetNode(node.Next, next);
+                }
+                _heads[cell] = node.DenseIndex;
             }
-            _heads[cell] = node.DenseIndex;
+            node.Position = position;
+            _entries[handle] = node;
+            return true;
         }
-        node.Position = position;
-        _entries[handle] = node;
-        return true;
+        finally { ExitWrite(); }
     }
 
     /// <summary>Replaces a live payload without changing its position or handle. Invalid handles return false.</summary>
     public bool TrySetValue(SlotHandle handle, T value)
     {
-        if (!_entries.TryGet(handle, out var node)) return false;
-        node.Value = value;
-        _entries[handle] = node;
-        return true;
+        EnterWrite();
+        try
+        {
+            if (!_entries.TryGet(handle, out var node)) return false;
+            node.Value = value;
+            _entries[handle] = node;
+            return true;
+        }
+        finally { ExitWrite(); }
     }
 
     /// <summary>Removes a live point and releases its payload reference. Invalid handles return false.</summary>
     public bool Remove(SlotHandle handle)
     {
-        if (!_entries.TryGet(handle, out var node)) return false;
-        Unlink(node);
-        int index = node.DenseIndex;
-        int last = Count - 1;
-        _entries.Remove(handle);
-        if (index != last)
+        EnterWrite();
+        try
         {
-            // SlotMap moved its last node into this dense position. Its bucket links still name the old position.
-            var moved = _entries.Values[index];
-            moved.DenseIndex = index;
-            if (moved.Previous == None) _heads[moved.Cell] = index;
-            else
+            if (!_entries.TryGet(handle, out var node)) return false;
+            Unlink(node);
+            int index = node.DenseIndex;
+            int last = _entries.Count - 1;
+            _entries.Remove(handle);
+            if (index != last)
             {
-                var previous = _entries.Values[moved.Previous];
-                previous.Next = index;
-                SetNode(moved.Previous, previous);
+                // SlotMap moved its last node into this dense position. Its bucket links still name the old position.
+                var moved = _entries.Values[index];
+                moved.DenseIndex = index;
+                if (moved.Previous == None) _heads[moved.Cell] = index;
+                else
+                {
+                    var previous = _entries.Values[moved.Previous];
+                    previous.Next = index;
+                    SetNode(moved.Previous, previous);
+                }
+                if (moved.Next != None)
+                {
+                    var next = _entries.Values[moved.Next];
+                    next.Previous = index;
+                    SetNode(moved.Next, next);
+                }
+                SetNode(index, moved);
             }
-            if (moved.Next != None)
-            {
-                var next = _entries.Values[moved.Next];
-                next.Previous = index;
-                SetNode(moved.Next, next);
-            }
-            SetNode(index, moved);
+            return true;
         }
-        return true;
+        finally { ExitWrite(); }
     }
 
     /// <summary>Removes all points, releases payload references, and invalidates their handles while retaining storage.</summary>
     public void Clear()
     {
-        if (Count == 0) return;
-        _entries.Clear();
-        Array.Fill(_heads, None);
+        EnterWrite();
+        try
+        {
+            if (_entries.Count == 0) return;
+            _entries.Clear();
+            Array.Fill(_heads, None);
+        }
+        finally { ExitWrite(); }
     }
 
     /// <summary>Finds points inside a closed rectangle, including all boundary points.</summary>
     /// <remarks>A small destination is left unchanged. Hit order is unspecified. Cells outside the world are skipped.</remarks>
     public SpatialQueryResult QueryRectangle(Bounds2D bounds, Span<SpatialHit<T>> destination)
     {
-        if (Count == 0 || !WorldBounds.Intersects(bounds)) return default;
-        var query = new Query(bounds.Minimum.X, bounds.Minimum.Y, bounds.Maximum.X, bounds.Maximum.Y);
-        return QueryCore(query, destination);
+        EnterRead();
+        try
+        {
+            if (_entries.Count == 0 || !WorldBounds.Intersects(bounds)) return default;
+            var query = new Query(bounds.Minimum.X, bounds.Minimum.Y, bounds.Maximum.X, bounds.Maximum.Y);
+            return QueryCore(query, destination);
+        }
+        finally { ExitRead(); }
     }
 
     /// <summary>Finds points at most the supplied radius from a finite center, including the circle boundary.</summary>
@@ -202,14 +264,19 @@ public sealed class PointSpatialIndex<T>
     /// <exception cref="ArgumentOutOfRangeException">The center is non-finite or the radius is non-finite or negative.</exception>
     public SpatialQueryResult QueryCircle(Vector2 center, float radius, Span<SpatialHit<T>> destination)
     {
-        Bounds2D.ValidatePoint(center, nameof(center));
-        if (float.IsNaN(radius) || float.IsInfinity(radius) || radius < 0) throw new ArgumentOutOfRangeException(nameof(radius));
-        if (Count == 0) return default;
-        var query = new Query((double)center.X - radius, (double)center.Y - radius,
-            (double)center.X + radius, (double)center.Y + radius, center, (double)radius * radius);
-        if (query.MaxX < WorldBounds.Minimum.X || query.MinX > WorldBounds.Maximum.X ||
-            query.MaxY < WorldBounds.Minimum.Y || query.MinY > WorldBounds.Maximum.Y) return default;
-        return QueryCore(query, destination);
+        EnterRead();
+        try
+        {
+            Bounds2D.ValidatePoint(center, nameof(center));
+            if (float.IsNaN(radius) || float.IsInfinity(radius) || radius < 0) throw new ArgumentOutOfRangeException(nameof(radius));
+            if (_entries.Count == 0) return default;
+            var query = new Query((double)center.X - radius, (double)center.Y - radius,
+                (double)center.X + radius, (double)center.Y + radius, center, (double)radius * radius);
+            if (query.MaxX < WorldBounds.Minimum.X || query.MinX > WorldBounds.Maximum.X ||
+                query.MaxY < WorldBounds.Minimum.Y || query.MinY > WorldBounds.Maximum.Y) return default;
+            return QueryCore(query, destination);
+        }
+        finally { ExitRead(); }
     }
 
     private SpatialQueryResult QueryCore(in Query query, Span<SpatialHit<T>> destination)
@@ -219,7 +286,7 @@ public sealed class PointSpatialIndex<T>
         int minRow = GetRow(query.MinY);
         int maxRow = GetRow(query.MaxY);
         // A destination covering every live point cannot overflow, so its common case needs one traversal.
-        if (destination.Length >= Count)
+        if (destination.Length >= _entries.Count)
         {
             int written = Visit(query, minColumn, maxColumn, minRow, maxRow, destination, publish: true);
             return new(SpatialQueryStatus.Success, written, written);
@@ -267,6 +334,50 @@ public sealed class PointSpatialIndex<T>
     }
 
     private void SetNode(int index, Node node) => _entries[_entries.GetHandleAt(index)] = node;
+
+    // The index has no callbacks or public borrowed views. Operations take this gate once;
+    // private algorithms run directly over storage. Waiting writers prevent writer starvation.
+    private void EnterRead()
+    {
+        lock (_gate)
+        {
+            while (_writer || _waitingWriters != 0) Monitor.Wait(_gate);
+            _readers++;
+        }
+    }
+
+    private void ExitRead()
+    {
+        lock (_gate)
+            if (--_readers == 0) Monitor.PulseAll(_gate);
+    }
+
+    private void EnterWrite()
+    {
+        lock (_gate)
+        {
+            _waitingWriters++;
+            try
+            {
+                while (_writer || _readers != 0) Monitor.Wait(_gate);
+                _writer = true;
+            }
+            finally
+            {
+                _waitingWriters--;
+                if (!_writer && _waitingWriters == 0) Monitor.PulseAll(_gate);
+            }
+        }
+    }
+
+    private void ExitWrite()
+    {
+        lock (_gate)
+        {
+            _writer = false;
+            Monitor.PulseAll(_gate);
+        }
+    }
     private int GetCell(Vector2 position) => GetRow(position.Y) * Columns + GetColumn(position.X);
     private int GetColumn(double x) => GetCoordinate(x, WorldBounds.Minimum.X, WorldBounds.Maximum.X, Columns);
     private int GetRow(double y) => GetCoordinate(y, WorldBounds.Minimum.Y, WorldBounds.Maximum.Y, Rows);

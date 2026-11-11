@@ -12,6 +12,8 @@ namespace Bezoro.ECS.Types;
 /// <remarks>
 ///     Copies share one execution lifetime. Disposing any copy invalidates all copies.
 ///     Returned spans and component references are borrowed until disposal.
+///     Callback and job entry atomically pins that lifetime against concurrent disposal of another copy.
+///     Component access and borrowed references still require the caller's access discipline.
 /// </remarks>
 public struct QueryCursor : IDisposable
 {

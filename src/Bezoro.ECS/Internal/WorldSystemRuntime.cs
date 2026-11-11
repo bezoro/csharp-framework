@@ -7,8 +7,13 @@ namespace Bezoro.ECS.Internal;
 internal sealed class WorldSystemRuntime
 {
 	private readonly SystemManager _systemManager;
-	private int _updateDepth;
+	private const int Updating = 1;
+	private const int Registering = 2;
+	private const int ShuttingDown = 3;
+	// Only registration may nest, and only on its current owning thread. Shutdown never releases its claim.
+	private int _operation;
 	private int _registrationDepth;
+	private int _registrationThreadId;
 
 	public WorldSystemRuntime(int maxDegreeOfParallelism)
 	{
@@ -16,14 +21,26 @@ internal sealed class WorldSystemRuntime
 	}
 
 	public int PlanBuildCount => _systemManager.PlanBuildCount;
-	public bool IsUpdating => Volatile.Read(ref _updateDepth) != 0;
-	public bool IsRegistering => Volatile.Read(ref _registrationDepth) != 0;
+	public bool IsUpdating => Volatile.Read(ref _operation) == Updating;
+	public bool IsRegistering => Volatile.Read(ref _operation) == Registering;
 
 	public void AddSystem(World world, ISystem system, Stage? stage)
 	{
-		Interlocked.Increment(ref _registrationDepth);
+		int threadId = Environment.CurrentManagedThreadId;
+		int previous = Interlocked.CompareExchange(ref _operation, Registering, 0);
+		if (previous != 0 && (previous != Registering || Volatile.Read(ref _registrationThreadId) != threadId))
+			throw new InvalidOperationException("System registration cannot overlap another registration, a world update, or disposal.");
+		Volatile.Write(ref _registrationThreadId, threadId);
+		_registrationDepth++;
 		try { _systemManager.RegisterSystem(world, system, stage); }
-		finally { Interlocked.Decrement(ref _registrationDepth); }
+		finally
+		{
+			if (--_registrationDepth == 0)
+			{
+				Volatile.Write(ref _registrationThreadId, 0);
+				Volatile.Write(ref _operation, 0);
+			}
+		}
 	}
 
 	public void ClearSystemSetRunCondition(Type setType) =>
@@ -35,11 +52,8 @@ internal sealed class WorldSystemRuntime
 
 	public void RunPhase(World world, SystemLoopPhase loopPhase, float deltaTime)
 	{
-		if (Interlocked.Increment(ref _updateDepth) != 1)
-		{
-			Interlocked.Decrement(ref _updateDepth);
-			throw new InvalidOperationException("Re-entrant world updates are not supported.");
-		}
+		if (Interlocked.CompareExchange(ref _operation, Updating, 0) != 0)
+			throw new InvalidOperationException("World updates cannot overlap another update, system registration or disposal.");
 
 		try
 		{
@@ -47,8 +61,17 @@ internal sealed class WorldSystemRuntime
 		}
 		finally
 		{
-			Interlocked.Decrement(ref _updateDepth);
+			Volatile.Write(ref _operation, 0);
 		}
+	}
+
+	public bool BeginShutdown()
+	{
+		int previous = Interlocked.CompareExchange(ref _operation, ShuttingDown, 0);
+		if (previous == ShuttingDown) return false;
+		if (previous != 0)
+			throw new InvalidOperationException("Dispose cannot run while a system update or system registration is active.");
+		return true;
 	}
 
 	public void SetSystemSetEnabled(Type setType, bool enabled) =>

@@ -51,32 +51,43 @@ public sealed class StateMachineBehavior<TContext> : Behavior<TContext>
     public StateStep Dispatch(SignalId signal, ref TContext context)
     {
         BeginSignalOperation();
-        try
-        {
-            // Argument validation and transition lookup occur before lifecycle effects.
-            StateStep step = Definition.Step(CurrentState, signal);
-            if (!step.HasTransition) return step;
-            if (_activationVersion == ulong.MaxValue) throw new InvalidOperationException("State activation identity is exhausted.");
-            try { Apply(step, ref context); }
-            catch (Exception failure)
-            {
-                var cleanup = FaultCleanup(ref context);
-                if (cleanup is not null) throw new AggregateException("Signal processing and cleanup both failed.", failure, cleanup);
-                throw;
-            }
-            return step;
-        }
+        try { return DispatchCore(signal, ref context); }
         finally { EndSignalOperation(); }
+    }
+
+    private StateStep DispatchCore(SignalId signal, ref TContext context)
+    {
+        // Argument validation and transition lookup occur before lifecycle effects.
+        StateStep step = Definition.Step(CurrentState, signal);
+        if (!step.HasTransition) return step;
+        if (_activationVersion == ulong.MaxValue) throw new InvalidOperationException("State activation identity is exhausted.");
+        try { Apply(step, ref context); }
+        catch (Exception failure)
+        {
+            var cleanup = FaultCleanup(ref context);
+            if (cleanup is not null) throw new AggregateException("Signal processing and cleanup both failed.", failure, cleanup);
+            throw;
+        }
+        return step;
     }
 
     /// <summary>Delivers a signal only when its originating state-entry version is still current in this instance.</summary>
     /// <remarks>Versions are instance-local, so the caller must retain the originating adapter reference as well.</remarks>
     public bool TryDispatch(ulong activationVersion, SignalId signal, ref TContext context)
     {
-        if (!CanAcceptSignals || !_stateActive || activationVersion == 0 || activationVersion != _activationVersion) return false;
-        Dispatch(signal, ref context);
-        return true;
+        if (IsExecutingOnCurrentThread && !IsCurrentSignal(activationVersion)) return false;
+        BeginSignalOperation(requireRunning: false);
+        try
+        {
+            if (!IsCurrentSignal(activationVersion)) return false;
+            DispatchCore(signal, ref context);
+            return true;
+        }
+        finally { EndSignalOperation(); }
     }
+
+    private bool IsCurrentSignal(ulong activationVersion) => CanAcceptSignals && _stateActive &&
+        activationVersion != 0 && activationVersion == _activationVersion;
 
     /// <inheritdoc />
     protected override void OnStart(ref TContext context)

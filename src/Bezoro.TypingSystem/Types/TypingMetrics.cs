@@ -2,101 +2,84 @@ using System.Diagnostics;
 
 namespace Bezoro.TypingSystem.Types;
 
-/// <summary>
-///     Calculates and tracks typing performance metrics.
-/// </summary>
+/// <summary>Tracks typing performance with synchronized recording, reads and reset.</summary>
 public sealed class TypingMetrics
 {
-	private readonly Stopwatch _stopwatch;
+	private readonly object _gate = new();
+	private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
+	private uint _correctInputs;
+	private uint _faultedInputs;
+	private uint _mistakeInputs;
+	private uint _totalInputs;
 
-	/// <summary>
-	///     Initializes a new instance of the <see cref="TypingMetrics" /> class.
-	/// </summary>
-	public TypingMetrics()
+	/// <summary>Gets accuracy from one coherent observation of the counters.</summary>
+	public double Accuracy
 	{
-		_stopwatch = Stopwatch.StartNew();
+		get
+		{
+			lock (_gate)
+			{
+				uint evaluated = _totalInputs - _faultedInputs;
+				return evaluated == 0 ? 0d : (double)_correctInputs / evaluated;
+			}
+		}
 	}
 
-	/// <summary>
-	///     Gets the typing accuracy as a value between 0 and 1.
-	/// </summary>
-	public double Accuracy => TotalEvaluated == 0 ? 0d : (double)CorrectInputs / TotalEvaluated;
-
-	/// <summary>
-	///     Gets the number of correct characters typed per minute.
-	/// </summary>
+	/// <summary>Gets correctly typed characters per minute.</summary>
 	public double CharactersPerMinute
 	{
 		get
 		{
-			var minutes = Elapsed.TotalMinutes;
-			return minutes <= 0d ? 0d : CorrectInputs / minutes;
+			lock (_gate)
+			{
+				double minutes = _stopwatch.Elapsed.TotalMinutes;
+				return minutes <= 0d ? 0d : _correctInputs / minutes;
+			}
 		}
 	}
 
-	/// <summary>
-	///     Gets the total time elapsed since the metrics tracking started.
-	/// </summary>
-	public TimeSpan Elapsed => _stopwatch.Elapsed;
+	/// <summary>Gets elapsed time since construction or the most recent reset.</summary>
+	public TimeSpan Elapsed { get { lock (_gate) return _stopwatch.Elapsed; } }
+	/// <summary>Gets the number of non-faulted inputs.</summary>
+	public uint TotalEvaluated { get { lock (_gate) return _totalInputs - _faultedInputs; } }
+	/// <summary>Gets the number of correct inputs.</summary>
+	public uint CorrectInputs { get { lock (_gate) return _correctInputs; } }
+	/// <summary>Gets the number of validation faults.</summary>
+	public uint FaultedInputs { get { lock (_gate) return _faultedInputs; } }
+	/// <summary>Gets the number of mismatches.</summary>
+	public uint MistakeInputs { get { lock (_gate) return _mistakeInputs; } }
+	/// <summary>Gets the total number of recorded inputs.</summary>
+	public uint TotalInputs { get { lock (_gate) return _totalInputs; } }
 
-	/// <summary>
-	///     Gets the total number of non-faulted inputs evaluated.
-	/// </summary>
-	public uint TotalEvaluated => TotalInputs - FaultedInputs;
+	/// <summary>Copies all counters and elapsed time together for cross-thread presentation.</summary>
+	public TypingMetricsSnapshot CreateSnapshot()
+	{
+		lock (_gate) return new(_totalInputs, _correctInputs, _mistakeInputs, _faultedInputs, _stopwatch.Elapsed);
+	}
 
-	/// <summary>
-	///     Gets the number of correct inputs.
-	/// </summary>
-	public uint CorrectInputs { get; private set; }
-
-	/// <summary>
-	///     Gets the number of faulted inputs (e.g., out of range).
-	/// </summary>
-	public uint FaultedInputs { get; private set; }
-
-	/// <summary>
-	///     Gets the number of mistake inputs (mismatches).
-	/// </summary>
-	public uint MistakeInputs { get; private set; }
-
-	/// <summary>
-	///     Gets the total number of inputs recorded.
-	/// </summary>
-	public uint TotalInputs { get; private set; }
-
-	/// <summary>
-	///     Records a validation result and updates the metrics.
-	/// </summary>
-	/// <param name="result">The validation result to record.</param>
+	/// <summary>Records a validated result atomically. No callbacks execute while updating counters.</summary>
 	public void Record(TypingResult result)
 	{
 		if (result.Status == TypingValidationStatus.Undefined)
 			throw new ArgumentException("A recorded result must come from validation or a named factory.", nameof(result));
-		if (TotalInputs == uint.MaxValue)
-			throw new InvalidOperationException("Input count cannot exceed UInt32.MaxValue. Reset the metrics first.");
-		TotalInputs++;
-
-		if (result.IsFaulted)
+		lock (_gate)
 		{
-			FaultedInputs++;
-			return;
+			if (_totalInputs == uint.MaxValue)
+				throw new InvalidOperationException("Input count cannot exceed UInt32.MaxValue. Reset the metrics first.");
+			_totalInputs++;
+			if (result.IsFaulted) _faultedInputs++;
+			else if (result.IsCorrect) _correctInputs++;
+			else _mistakeInputs++;
 		}
-
-		if (result.IsCorrect)
-			CorrectInputs++;
-		else
-			MistakeInputs++;
 	}
 
-	/// <summary>
-	///     Resets all tracked metrics and restarts the timer.
-	/// </summary>
+	/// <summary>Clears all counters and restarts elapsed time as one operation.</summary>
 	public void Reset()
 	{
-		TotalInputs   = 0;
-		CorrectInputs = 0;
-		MistakeInputs = 0;
-		FaultedInputs = 0;
-		_stopwatch.Restart();
+		lock (_gate)
+		{
+			_totalInputs = _correctInputs = _mistakeInputs = _faultedInputs = 0;
+			_stopwatch.Restart();
+		}
 	}
 }

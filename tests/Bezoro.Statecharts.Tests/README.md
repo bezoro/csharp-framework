@@ -18,3 +18,5 @@ dotnet test tests/Bezoro.Statecharts.Tests -c Release -p:CheckForOverflowUnderfl
 ```
 
 The tests do not launch Unity, IL2CPP, or Godot exports.
+
+Concurrency coverage blocks a real callback on a dedicated worker, verifies overlapping lifecycle operations are rejected before effects, and checks admission release after invalid calls. Shared immutable definitions retain independent execution ownership.

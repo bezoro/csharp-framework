@@ -12,87 +12,129 @@ public static class LoggerSettings
 	/// </summary>
 	private static long _sequenceNumber;
 
-	/// <summary>
-	///     Categories that should be ignored/muted.
-	/// </summary>
-	/// <remarks>
-	///     <para>
-	///         Use <see cref="HashSet{T}.Add(T)" /> to add a category to the list.
-	///     </para>
-	///     <para>
-	///         Use <see cref="HashSet{T}.Remove(T)" /> to remove a category from the list.
-	///     </para>
-	///     <para>
-	///         Use <see cref="HashSet{T}.Clear" /> to clear the list.
-	///     </para>
-	/// </remarks>
-	public static HashSet<LogCategory> MutedCategories { get; } = [];
+	private static readonly object ConfigurationGate = new();
+	private static LogConfiguration _configuration = new();
+	internal static LogConfiguration CaptureConfiguration() => Volatile.Read(ref _configuration);
 
+	/// <summary>Thread-safe muted categories, with snapshot enumeration and copy-on-write changes.</summary>
+	public static ISet<LogCategory> MutedCategories { get; } = new ConcurrentCategorySet();
 
 	/// <summary>
 	///     Master switch to enable/disable all logging at runtime.
 	/// </summary>
-	public static bool Enabled { get; set; } = true;
+	public static bool Enabled
+	{
+		get => CaptureConfiguration().Enabled;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { Enabled = value }); }
+	}
 
 	/// <summary>
 	///     File location metadata configuration.
 	/// </summary>
-	public static FileLocationConfig FileLocation { get; set; } = FileLocationConfig.FilenameOnly;
+	public static FileLocationConfig FileLocation
+	{
+		get => CaptureConfiguration().FileLocation;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { FileLocation = value }); }
+	}
 
 	/// <summary>
 	///     Frame count metadata configuration.
 	/// </summary>
-	public static FrameCountConfig FrameCount { get; set; } = FrameCountConfig.Disabled;
+	public static FrameCountConfig FrameCount
+	{
+		get => CaptureConfiguration().FrameCount;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { FrameCount = value }); }
+	}
 
 	/// <summary>
 	///     Grouping configuration.
 	/// </summary>
-	public static GroupingConfig Grouping { get; set; } = GroupingConfig.None;
+	public static GroupingConfig Grouping
+	{
+		get => CaptureConfiguration().Grouping;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { Grouping = value }); }
+	}
 
 	/// <summary>
 	///     Visual style for Error level logs.
 	/// </summary>
-	public static LogStyle ErrorStyle { get; set; } = new(ConsoleColor.Red);
+	public static LogStyle ErrorStyle
+	{
+		get => CaptureConfiguration().ErrorStyle;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { ErrorStyle = value }); }
+	}
 
 	/// <summary>
 	///     Visual style for Exception level logs.
 	/// </summary>
-	public static LogStyle ExceptionStyle { get; set; } = new(ConsoleColor.DarkRed, true);
+	public static LogStyle ExceptionStyle
+	{
+		get => CaptureConfiguration().ExceptionStyle;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { ExceptionStyle = value }); }
+	}
 
 	/// <summary>
 	///     Visual style for Info level logs.
 	/// </summary>
-	public static LogStyle InfoStyle { get; set; } = new(ConsoleColor.White);
+	public static LogStyle InfoStyle
+	{
+		get => CaptureConfiguration().InfoStyle;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { InfoStyle = value }); }
+	}
 
 	/// <summary>
 	///     Visual style for Success level logs.
 	/// </summary>
-	public static LogStyle SuccessStyle { get; set; } = new(ConsoleColor.Green);
+	public static LogStyle SuccessStyle
+	{
+		get => CaptureConfiguration().SuccessStyle;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { SuccessStyle = value }); }
+	}
 
 	/// <summary>
 	///     Visual style for Warning level logs.
 	/// </summary>
-	public static LogStyle WarningStyle { get; set; } = new(ConsoleColor.Yellow);
+	public static LogStyle WarningStyle
+	{
+		get => CaptureConfiguration().WarningStyle;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { WarningStyle = value }); }
+	}
 
 	/// <summary>
 	///     Sequence number metadata configuration.
 	/// </summary>
-	public static SequenceNumberConfig SequenceNumber { get; set; } = SequenceNumberConfig.On;
+	public static SequenceNumberConfig SequenceNumber
+	{
+		get => CaptureConfiguration().SequenceNumber;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { SequenceNumber = value }); }
+	}
 
 	/// <summary>
 	///     Stage metadata configuration.
 	/// </summary>
-	public static StageConfig Stage { get; set; } = StageConfig.Disabled;
+	public static StageConfig Stage
+	{
+		get => CaptureConfiguration().Stage;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { Stage = value }); }
+	}
 
 	/// <summary>
 	///     Thread ID metadata configuration.
 	/// </summary>
-	public static ThreadIdConfig ThreadId { get; set; } = ThreadIdConfig.On;
+	public static ThreadIdConfig ThreadId
+	{
+		get => CaptureConfiguration().ThreadId;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { ThreadId = value }); }
+	}
 
 	/// <summary>
 	///     Timestamp metadata configuration.
 	/// </summary>
-	public static TimestampConfig Timestamp { get; set; } = TimestampConfig.Default;
+	public static TimestampConfig Timestamp
+	{
+		get => CaptureConfiguration().Timestamp;
+		set { lock (ConfigurationGate) Volatile.Write(ref _configuration, _configuration with { Timestamp = value }); }
+	}
 
 	/// <summary>
 	///     Gets the current async context hierarchy.

@@ -5,7 +5,9 @@ namespace Bezoro.Behaviors;
 
 /// <summary>Implements lifecycle, exclusive child ownership, and bounded composition for behavior adapters.</summary>
 /// <remarks>
-/// The owner serializes all access. Definitions can be shared; mutable runtime instances have one parent.
+/// Definitions can be shared and independent graphs can run concurrently. An atomic graph reservation rejects
+/// overlapping or reentrant lifecycle/signal operations before mutation, including calls to different descendants.
+/// Contexts, handler state and inspection views remain exclusively borrowed by the executing owner.
 /// Derived implementations must keep their configured child graph immutable after construction.
 /// </remarks>
 public abstract class Behavior<TContext> : IBehavior<TContext>
@@ -18,8 +20,10 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
     private Behavior<TContext>? _activeNext;
     private bool _startedByParent;
     private bool _executing;
-    private bool _descendantSignalExecuting;
-    private bool _parentPermit;
+    private int _parentPermitThread;
+    private int _graphOperationThread;
+    private Behavior<TContext>? _operationRoot;
+    private bool _ownsGraphOperation;
     private bool _cleanupAttempted;
     private BehaviorStatus _status;
 
@@ -55,9 +59,29 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
             adoptStorage ? children : CopyChildren(children);
         CompositionDepth = depth;
         ComponentCount = (int)count;
-        // Claims occur only after all validation. A rejected parent leaves its children reusable.
-        for (int i = 0; i < _children.Length; i++)
-        { _children[i]._parent = this; _children[i]._parentChildIndex = i; }
+        // Reserve each inactive root before adopting it. This excludes concurrent parents
+        // and execution without retaining a lock or allocating runtime ownership handles.
+        _graphOperationThread = -1;
+        int claimed = 0;
+        try
+        {
+            foreach (var child in _children)
+            {
+                if (Interlocked.CompareExchange(ref child._graphOperationThread, -1, 0) != 0)
+                    throw new ArgumentException("A child runtime is already executing or being adopted.", nameof(children));
+                claimed++;
+                if (child._parent is not null || child.Status != BehaviorStatus.Inactive)
+                    throw new ArgumentException("Each inactive child runtime must be owned by exactly one occurrence.", nameof(children));
+            }
+            // Publish parent links only after every reservation succeeds.
+            for (int i = 0; i < _children.Length; i++)
+            { _children[i]._parent = this; _children[i]._parentChildIndex = i; }
+        }
+        finally
+        {
+            for (int i = 0; i < claimed; i++) Volatile.Write(ref _children[i]._graphOperationThread, 0);
+            Volatile.Write(ref _graphOperationThread, 0);
+        }
     }
 
     /// <inheritdoc />
@@ -90,7 +114,7 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
                 throw;
             }
         }
-        finally { _executing = false; }
+        finally { EndOperation(); }
     }
 
     /// <inheritdoc />
@@ -124,7 +148,7 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
                 throw;
             }
         }
-        finally { _executing = false; }
+        finally { EndOperation(); }
     }
 
     /// <inheritdoc />
@@ -139,7 +163,7 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
             IsBudgetSuspended = false;
             if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
         }
-        finally { _executing = false; }
+        finally { EndOperation(); }
     }
 
     /// <summary>Initializes this component. Derived types can start only their direct configured children.</summary>
@@ -163,9 +187,9 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
         child._activeNext = _activeHead;
         if (_activeHead is not null) _activeHead._activePrevious = child;
         _activeHead = child;
-        child._parentPermit = true;
+        child._parentPermitThread = Environment.CurrentManagedThreadId;
         try { child.Start(ref context); }
-        finally { child._parentPermit = false; }
+        finally { child._parentPermitThread = 0; }
     }
 
     /// <summary>Advances a direct child that this parent started.</summary>
@@ -174,9 +198,9 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
         ValidateChild(child);
         if (_cleanupAttempted) throw new InvalidOperationException("Cleanup cannot tick a child behavior.");
         if (!child._startedByParent) throw new InvalidOperationException("The child has not been started.");
-        child._parentPermit = true;
+        child._parentPermitThread = Environment.CurrentManagedThreadId;
         try { return child.Tick(ref context, ref budget); }
-        finally { child._parentPermit = false; }
+        finally { child._parentPermitThread = 0; }
     }
 
     /// <summary>Stops a direct started child, invalidating its parent tracking before callbacks.</summary>
@@ -190,27 +214,19 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
         if (child._activeNext is not null) child._activeNext._activePrevious = child._activePrevious;
         child._activePrevious = null;
         child._activeNext = null;
-        child._parentPermit = true;
+        child._parentPermitThread = Environment.CurrentManagedThreadId;
         try { child.Stop(ref context); }
-        finally { child._parentPermit = false; }
+        finally { child._parentPermitThread = 0; }
     }
 
-    /// <summary>Begins a synchronous signal operation. The entire composition must be externally serialized.</summary>
-    protected void BeginSignalOperation()
-    {
-        // EnterOperation validates the complete owning chain before changing any flag.
-        // Reserve that chain separately so internal child lifecycle still uses parentPermit.
-        EnterOperation(requireRunning: true, allowOwnedSignal: true);
-        for (var parent = _parent; parent is not null; parent = parent._parent)
-            parent._descendantSignalExecuting = true;
-    }
+    /// <summary>Exclusively borrows this composition for one synchronous signal operation.</summary>
+    protected void BeginSignalOperation() => BeginSignalOperation(requireRunning: true);
+
+    /// <summary>Exclusively borrows the composition, optionally permitting read-only rejection of inactive activations.</summary>
+    private protected void BeginSignalOperation(bool requireRunning) =>
+        EnterOperation(requireRunning, allowOwnedSignal: true);
     /// <summary>Ends a signal operation.</summary>
-    protected void EndSignalOperation()
-    {
-        for (var parent = _parent; parent is not null; parent = parent._parent)
-            parent._descendantSignalExecuting = false;
-        _executing = false;
-    }
+    protected void EndSignalOperation() => EndOperation();
     /// <summary>Gets whether this component and every owning ancestor still accept execution results.</summary>
     protected bool CanAcceptSignals
     {
@@ -224,6 +240,17 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
                 child = parent;
             }
             return true;
+        }
+    }
+
+    /// <summary>Gets whether this thread already owns the graph, allowing read-only stale-result rejection inside callbacks.</summary>
+    private protected bool IsExecutingOnCurrentThread
+    {
+        get
+        {
+            var root = this;
+            while (root._parent is not null) root = root._parent;
+            return Volatile.Read(ref root._graphOperationThread) == Environment.CurrentManagedThreadId;
         }
     }
     /// <summary>Stops owned activity after a failing signal operation and marks this component faulted.</summary>
@@ -274,21 +301,47 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
 
     private void EnterOperation(bool requireRunning, bool allowOwnedSignal = false)
     {
-        if (_executing || _descendantSignalExecuting)
-            throw new InvalidOperationException("Behavior operations are not reentrant within an owning graph.");
-        if (_parent is not null && !_parentPermit && !allowOwnedSignal)
+        int thread = Environment.CurrentManagedThreadId;
+        bool nested = _parent is not null && _parentPermitThread == thread;
+        if (_parent is not null && !nested && !allowOwnedSignal)
             throw new InvalidOperationException("An owned child is controlled through its parent.");
-        if (allowOwnedSignal)
-            for (var parent = _parent; parent is not null; parent = parent._parent)
-            {
-                if (parent._executing || parent._descendantSignalExecuting)
-                    throw new InvalidOperationException("A signal cannot mutate an executing composition.");
-                if (parent._status != BehaviorStatus.Running)
-                    throw new InvalidOperationException("A signal cannot address an inactive or terminal composition.");
-            }
-        if (requireRunning && _status != BehaviorStatus.Running)
-            throw new InvalidOperationException("The behavior is not running.");
-        _executing = true;
+        var root = nested ? _parent!._operationRoot : this;
+        if (!nested)
+            while (root!._parent is not null) root = root._parent;
+        if (root is null || (nested ? Volatile.Read(ref root._graphOperationThread) != thread
+            : Interlocked.CompareExchange(ref root._graphOperationThread, thread, 0) != 0))
+            throw new InvalidOperationException("Concurrent or reentrant operations cannot mutate the same behavior graph.");
+        try
+        {
+            if (!nested && root._parent is not null)
+                throw new InvalidOperationException("The graph was adopted while the operation was being admitted.");
+            if (_executing)
+                throw new InvalidOperationException("Behavior operations are not reentrant within an owning graph.");
+            if (allowOwnedSignal && requireRunning)
+                for (var parent = _parent; parent is not null; parent = parent._parent)
+                    if (parent._status != BehaviorStatus.Running)
+                        throw new InvalidOperationException("A signal cannot address an inactive or terminal composition.");
+            if (requireRunning && _status != BehaviorStatus.Running)
+                throw new InvalidOperationException("The behavior is not running.");
+            _operationRoot = root;
+            _ownsGraphOperation = !nested;
+            _executing = true;
+        }
+        catch
+        {
+            if (!nested) Volatile.Write(ref root._graphOperationThread, 0);
+            throw;
+        }
+    }
+
+    private void EndOperation()
+    {
+        var root = _operationRoot!;
+        bool release = _ownsGraphOperation;
+        _executing = false;
+        _operationRoot = null;
+        _ownsGraphOperation = false;
+        if (release) Volatile.Write(ref root._graphOperationThread, 0);
     }
 
     private sealed class ReferenceComparer : IEqualityComparer<Behavior<TContext>>

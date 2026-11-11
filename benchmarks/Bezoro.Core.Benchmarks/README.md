@@ -23,3 +23,13 @@ The [2026-10-31 samples](results/2026-10-31-pool-reuse-diagnostic.csv) compare t
 Allocation fell from 32 bytes per pair to zero. Recorded times ranged from 524 to 1053 ns before and 167 to 185 ns after. The phases ran sequentially while other review builds and tests shared the host; these samples support the allocation finding and do not establish a speedup or contention behavior. The xUnit allocation regressions also cover reuse with async waiting enabled and immediately successful timed rents. Actual waits, new owned objects, storage growth, and handle creation have separate allocation costs.
 
 Use `--filter '*ObjectPoolBenchmarks*'` for a BenchmarkDotNet run on the target runtime. Include the application's concurrency pattern when assessing the storage lock.
+
+## Concurrent ring boundary diagnostic
+
+The [2026-11-11 report](results/2026-11-11-concurrent-ring-short-run.csv) measures one enqueue/dequeue pair after synchronizing ring operations. BenchmarkDotNet 0.14.0 ran its ShortRun job (one launch, three warmups and three measured iterations) on Debian 13, Xeon Platinum 8573C, SDK 10.0.203 and .NET 10.0.7; the host reported five usable processors. The measured Core implementation is `2a7516d0`.
+
+The pair measured 55.41 ns mean, 2.549 ns standard deviation and zero managed allocation. The 99.9% error half-width was 46.51 ns, so this short shared-host diagnostic is not a precise throughput guarantee or a contention benchmark. The former owner-only ring has a different safety contract; its earlier measurements are not evidence of a concurrency speedup. Existing allocation tests cover the synchronized queue and enumerator after warmup.
+
+```sh
+dotnet run -c Release --project benchmarks/Bezoro.Core.Benchmarks -- --filter '*GameCollectionsBenchmarks.RingBufferEnqueueDequeue*' --job short
+```

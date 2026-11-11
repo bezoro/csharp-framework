@@ -34,28 +34,37 @@ internal sealed class QueryExecutionLease
 
 	internal IterationScope EnterIteration(long generation)
 	{
-		if (!IsActive(generation)) throw new ObjectDisposedException(nameof(QueryCursor));
-		Interlocked.Increment(ref _activeIterations);
-		return new(this);
+		// A cursor copy must pin its generation before another copy can release its buffers.
+		lock (this)
+		{
+			if (!IsActive(generation)) throw new ObjectDisposedException(nameof(QueryCursor));
+			Interlocked.Increment(ref _activeIterations);
+			return new(this);
+		}
 	}
 
 	internal void Dispose(long generation)
 	{
-		if (!IsActive(generation)) return;
-		if (Volatile.Read(ref _activeIterations) != 0)
-			throw new InvalidOperationException("A cursor cannot be disposed while its callback or job is running.");
-		if (Interlocked.CompareExchange(ref _generation, unchecked(generation + 1), generation) != generation)
-			return;
+		World? world;
+		QueryChunkMatch[]? chunkMatches;
+		Entity[]? entities;
+		bool usesShared;
+		lock (this)
+		{
+			if (!IsActive(generation)) return;
+			if (Volatile.Read(ref _activeIterations) != 0)
+				throw new InvalidOperationException("A cursor cannot be disposed while its callback or job is running.");
+			Volatile.Write(ref _generation, unchecked(generation + 1));
+			world        = _world;
+			chunkMatches = _chunkMatches;
+			entities     = _entities;
+			usesShared   = _usesSharedScratch;
 
-		var  world        = _world;
-		var  chunkMatches = _chunkMatches;
-		var  entities     = _entities;
-		bool usesShared   = _usesSharedScratch;
-
-		_world             = null;
-		_chunkMatches      = null;
-		_entities          = null;
-		_usesSharedScratch = false;
+			_world             = null;
+			_chunkMatches      = null;
+			_entities          = null;
+			_usesSharedScratch = false;
+		}
 
 		if (world is null || chunkMatches is null || entities is null)
 			return;

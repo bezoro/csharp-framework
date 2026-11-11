@@ -293,13 +293,17 @@ Metadata providers also execute on the logging caller's thread. Use cached frame
 - Output is event-driven; applications own console, file, Unity, or telemetry sinks.
 - Async context flows through `AsyncLocal`. Create and dispose nested scopes in their owning async flow and in reverse creation order. Ordinary sibling async branches maintain separate current contexts. Disposing a scope in a child flow does not mark the parent flow's scope disposed. Out-of-order disposal in the same flow throws before changing its context. Repeated disposal in a flow where the scope is no longer current is a no-op. Context names must contain a non-whitespace character.
 - `Logger` owns filtering, stage transitions, sequence/time/thread/frame capture, and synchronous dispatch; the internal formatter deterministically maps captured input, settings, and context into `LogPayload`.
-- Configuration and the subscriber list are process-global. Set configuration before concurrent logging, or synchronize changes externally, especially mutation of `MutedCategories`.
+- Configuration and the subscriber list are process-global. Configuration writes publish immutable copies, making individual value-type settings and each formatting snapshot coherent during concurrent changes. Formatting reads do not lock or clone configuration. Multiple separate property assignments are separate publications, not one configuration transaction.
+- `MutedCategories` is a thread-safe `ISet<LogCategory>` with copy-on-write mutations and snapshot enumeration. Membership reads do not lock or allocate. Batch set operations enumerate caller input before taking the mutation gate.
+- Stage changes are claimed atomically. Concurrent sinks and metadata providers can still run in parallel; sequence numbers identify log admission order rather than guaranteeing sink delivery order.
 - Subscriber and metadata-provider exceptions propagate to the logging caller. Wrap application sinks when a sink failure must not interrupt gameplay.
 - Disabled sequence metadata does not advance its shared counter. Disabled thread metadata avoids thread-id lookup unless thread grouping needs it. Filename extraction runs only for messages that include a detail line.
 - Formatting retained logs, collection arguments, and async-context hierarchies can allocate. This logger does not promise zero allocation.
 - Timers compiled in Release without `DEBUG` do not collect timings. Direct calls made by a caller that defines `DEBUG` still invoke the library even when its DLL was built in Release.
 
 ## Migration
+
+`LoggerSettings.MutedCategories` now exposes `ISet<LogCategory>` instead of `HashSet<LogCategory>`. Existing Add/Remove/Clear/UnionWith usage remains available; code explicitly requiring a HashSet should take its own copy. Keep providers and sinks safe for concurrent calls or dispatch their work in the engine adapter.
 
 `LogLevel.Success` now sorts below `Warning`. Its numeric value and the numeric values of `Warning`, `Error`, and `Exception` changed; serialize level names or update stored numeric values. A warning-or-higher minimum suppresses success messages.
 

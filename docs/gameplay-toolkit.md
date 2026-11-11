@@ -6,9 +6,9 @@ This round builds on the gameplay foundations in PR #10. It adds three standalon
 
 | Module | Use | Ownership |
 | --- | --- | --- |
-| [Inventory](../src/Bezoro.Inventory/README.md) | Item definitions, bounded stacks, complete transfers and validated restore | Share the immutable catalog; serialize both mutable inventories during a transfer. |
+| [Inventory](../src/Bezoro.Inventory/README.md) | Item definitions, bounded stacks, complete transfers and validated restore | Share the immutable catalog; operations synchronize internally and transfers order both inventory gates. Use copied snapshots. |
 | [StateMachines](../src/Bezoro.StateMachines/README.md) | Quest, interaction, menu, or AI state transitions | Share the immutable definition; each agent owns its current state value and applies returned steps. |
-| [Spatial](../src/Bezoro.Spatial/README.md) | Nearby point queries, pickup searches, interest regions | Separate mutation from queries. Read-only queries can run concurrently with separate output buffers. |
+| [Spatial](../src/Bezoro.Spatial/README.md) | Nearby point queries, pickup searches, interest regions | Queries run concurrently with separate output buffers; the index synchronizes exclusive mutations against readers. |
 | [Binary cursors](../src/Bezoro.Core/Binary/README.md) | Explicit checkpoint or packet fields | A reader or writer borrows its span; copying a cursor copies its position and aliases storage. |
 | [Bit sets and spans](../src/Bezoro.Core/Collections/README.BitSet.md) | Compact flags, sorted bounds and in-place removals | Mutations require an owner. Retain the returned shorter span after removal. |
 | [Numeric helpers](../src/Bezoro.Core/Numerics/README.md) | Signed chunk coordinates, cyclic indices, scalar interpolation and damping | Pure operations with finite-input and range policies. |

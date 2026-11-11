@@ -54,6 +54,7 @@ Tests use the .NET 10 SDK selected by [global.json](../../global.json). They run
 - `GridSafetyTests` covers dimension overflow, invalid span dimensions and storage, row-aliasing coordinates, pooled initialization, and access after disposal.
 - `SwapbackArraySafetyTests` covers replacement at the logical end, self-appending, partial enumeration failures, and indirectly aliased LINQ sources. Capacity-boundary tests exercise arithmetic without allocating multi-gigabyte arrays.
 - `ObjectPoolLifecycleSafetyTests` covers disposal with pending timed and indefinite renters, infinite timeouts, duplicate owned returns, reset and validation failures, failed prewarming, and continuing cleanup after a discard failure.
+- `ObjectPoolNativeResourceTests` covers non-`IDisposable` engine-handle cleanup on clear/dispose, failed prewarming, outstanding rental returns, throwing cleanup callbacks and finite snapshot clearing with reentrant returns. All permanent releases follow the configured policy.
 - `ObjectPoolDuplicateOwnershipTests` covers foreign-object ownership, preserving active rentals when the pool is full, and duplicate returns during reset or discard and after disposal.
 - Validation-helper tests require valid objects to pass the obsolete null guard and preserve named parameter details for null values.
 - `CoreBoundaryRegressionTests` covers the UInt32/float boundary, packed color layouts, strict CSS input, CSS output and allocation-free color formatting.

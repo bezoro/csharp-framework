@@ -136,7 +136,7 @@ When the world runs on a worker, configure `CallbackDispatcher` to marshal callb
 
 ## Runtime notes
 
-- External threads only interact with `ActivationCommandQueue`.
+- External producers register/cancel through `ActivationCommandQueue`. Already acquired `ActivationEventsResource` and `ActivationDispatchQueueResource` references have synchronized queue operations and can be shared with consumers on another thread. Acquiring the resources themselves still follows world ownership. Callback execution follows the selected consumer/dispatcher, not the queue's synchronization.
 - ECS systems perform all state mutation on the world update thread.
 - Priority ordering is deterministic: higher priority first, then lower handle id.
 - Completion is edge-triggered and published through `ActivationEventsResource`. It means all pending entries were selected and queued for dispatch. It does not acknowledge callback success or completion by an asynchronous host dispatcher.
@@ -144,6 +144,7 @@ When the world runs on a worker, configure `CallbackDispatcher` to marshal callb
 - The entry releases its callback reference when selected or cancelled. The dispatch queue or host dispatcher owns selected callbacks until delivery. Terminal entry entities retain only identity and state for inspection; applications that register indefinitely should despawn terminal entries after consuming that history. `ActivatedCount` counts currently retained activated entries.
 - The processor builds its cancellation index only when cancellation requests exist and allocates candidate storage only when pending entries exist.
 - Synchronous callback/dispatcher failures are caught by the dispatch system. A budget does not bound producer backlog. Register and cancel only through the ingress queue from external threads; pipeline setup, resource inspection, and disposal stay on the world thread.
+- Event and dispatch queues support optional preallocation, a retained-backlog limit and `TryEnqueue` under the [shared queue contract](../README.md#runtime-behavior). A dispatch pass attempts at most the count observed at its start, so self-reposting callbacks and concurrent producers cannot extend that pass indefinitely. Keep one dispatch consumer when delivery order matters.
 
 ## Migration
 

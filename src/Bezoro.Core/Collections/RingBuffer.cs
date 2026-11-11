@@ -4,9 +4,10 @@ namespace Bezoro.Core.Collections;
 
 /// <summary>A fixed-capacity FIFO buffer with explicit rejection and overwrite operations.</summary>
 /// <typeparam name="T">The stored value type.</typeparam>
-/// <remarks>One thread must own mutations and reads, or callers must serialize access externally.</remarks>
+/// <remarks>Individual operations are thread-safe. Enumeration detects intervening mutations; CopyTo captures a coherent snapshot.</remarks>
 public sealed class RingBuffer<T> : IReadOnlyList<T>
 {
+	private readonly object _gate = new();
 	private readonly T[] _values;
 	private int _head;
 	private int _count;
@@ -21,11 +22,11 @@ public sealed class RingBuffer<T> : IReadOnlyList<T>
 	}
 
 	/// <summary>Gets the live value count.</summary>
-	public int Count => _count;
+	public int Count { get { lock (_gate) return _count; } }
 	/// <summary>Gets the fixed maximum value count.</summary>
 	public int Capacity => _values.Length;
 	/// <summary>Reports whether a rejecting enqueue would fail.</summary>
-	public bool IsFull => _count == Capacity;
+	public bool IsFull { get { lock (_gate) return _count == Capacity; } }
 
 	/// <summary>Gets a value by logical FIFO position, where zero is the oldest value.</summary>
 	/// <exception cref="ArgumentOutOfRangeException">The index is outside the live value range.</exception>
@@ -33,19 +34,25 @@ public sealed class RingBuffer<T> : IReadOnlyList<T>
 	{
 		get
 		{
-			if (unchecked((uint)index) >= (uint)_count) throw new ArgumentOutOfRangeException(nameof(index));
-			return _values[PhysicalIndex(index)];
+			lock (_gate)
+			{
+				if (unchecked((uint)index) >= (uint)_count) throw new ArgumentOutOfRangeException(nameof(index));
+				return _values[PhysicalIndex(index)];
+			}
 		}
 	}
 
 	/// <summary>Appends a value or returns false without mutation when full.</summary>
 	public bool TryEnqueue(T value)
 	{
-		if (IsFull) return false;
-		_values[PhysicalIndex(_count)] = value;
-		_count++;
-		_version = unchecked(_version + 1);
-		return true;
+		lock (_gate)
+		{
+			if (_count == Capacity) return false;
+			_values[PhysicalIndex(_count)] = value;
+			_count++;
+			_version = unchecked(_version + 1);
+			return true;
+		}
 	}
 
 	/// <summary>Appends a value, throwing rather than overwriting when full.</summary>
@@ -59,30 +66,37 @@ public sealed class RingBuffer<T> : IReadOnlyList<T>
 	/// <returns>True if a value was evicted. The output is default when there was no eviction.</returns>
 	public bool EnqueueOverwrite(T value, out T overwritten)
 	{
-		if (!IsFull)
+		lock (_gate)
 		{
-			overwritten = default!;
-			TryEnqueue(value);
-			return false;
+			if (_count != Capacity)
+			{
+				overwritten = default!;
+				_values[PhysicalIndex(_count++)] = value;
+				_version = unchecked(_version + 1);
+				return false;
+			}
+			overwritten = _values[_head];
+			_values[_head] = value;
+			AdvanceHead();
+			_version = unchecked(_version + 1);
+			return true;
 		}
-		overwritten = _values[_head];
-		_values[_head] = value;
-		AdvanceHead();
-		_version = unchecked(_version + 1);
-		return true;
 	}
 
 	/// <summary>Removes the oldest value, clearing its storage, or returns false and default when empty.</summary>
 	public bool TryDequeue(out T value)
 	{
-		if (_count == 0) { value = default!; return false; }
-		value = _values[_head];
-		_values[_head] = default!;
-		_count--;
-		if (_count == 0) _head = 0;
-		else AdvanceHead();
-		_version = unchecked(_version + 1);
-		return true;
+		lock (_gate)
+		{
+			if (_count == 0) { value = default!; return false; }
+			value = _values[_head];
+			_values[_head] = default!;
+			_count--;
+			if (_count == 0) _head = 0;
+			else AdvanceHead();
+			_version = unchecked(_version + 1);
+			return true;
+		}
 	}
 
 	/// <summary>Removes the oldest value, throwing when empty.</summary>
@@ -96,31 +110,42 @@ public sealed class RingBuffer<T> : IReadOnlyList<T>
 	/// <summary>Copies the oldest value without removing it, or returns false and default when empty.</summary>
 	public bool TryPeek(out T value)
 	{
-		if (_count == 0) { value = default!; return false; }
-		value = _values[_head];
-		return true;
+		lock (_gate)
+		{
+			if (_count == 0) { value = default!; return false; }
+			value = _values[_head];
+			return true;
+		}
 	}
 
 	/// <summary>Copies all live values in FIFO order without changing the buffer.</summary>
+	/// <returns>The number of values copied in this coherent snapshot.</returns>
 	/// <exception cref="ArgumentException">The destination is smaller than Count.</exception>
-	public void CopyTo(Span<T> destination)
+	public int CopyTo(Span<T> destination)
 	{
-		if (destination.Length < _count) throw new ArgumentException("The destination is smaller than the live value count.", nameof(destination));
-		int first = Math.Min(_count, Capacity - _head);
-		_values.AsSpan(_head, first).CopyTo(destination);
-		_values.AsSpan(0, _count - first).CopyTo(destination.Slice(first));
+		lock (_gate)
+		{
+			if (destination.Length < _count) throw new ArgumentException("The destination is smaller than the live value count.", nameof(destination));
+			int first = Math.Min(_count, Capacity - _head);
+			_values.AsSpan(_head, first).CopyTo(destination);
+			_values.AsSpan(0, _count - first).CopyTo(destination.Slice(first));
+			return _count;
+		}
 	}
 
 	/// <summary>Removes all values and releases references without disposing them.</summary>
 	public void Clear()
 	{
-		if (_count == 0) return;
-		int first = Math.Min(_count, Capacity - _head);
-		Array.Clear(_values, _head, first);
-		Array.Clear(_values, 0, _count - first);
-		_head = 0;
-		_count = 0;
-		_version = unchecked(_version + 1);
+		lock (_gate)
+		{
+			if (_count == 0) return;
+			int first = Math.Min(_count, Capacity - _head);
+			Array.Clear(_values, _head, first);
+			Array.Clear(_values, 0, _count - first);
+			_head = 0;
+			_count = 0;
+			_version = unchecked(_version + 1);
+		}
 	}
 
 	private int PhysicalIndex(int logical)
@@ -132,7 +157,7 @@ public sealed class RingBuffer<T> : IReadOnlyList<T>
 	private void AdvanceHead() => _head = _head + 1 == Capacity ? 0 : _head + 1;
 
 	/// <summary>Returns an allocation-free FIFO-order enumerator.</summary>
-	public Enumerator GetEnumerator() => new(this);
+	public Enumerator GetEnumerator() { lock (_gate) return new(this); }
 	IEnumerator<T> IEnumerable<T>.GetEnumerator() => GetEnumerator();
 	IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
@@ -148,23 +173,30 @@ public sealed class RingBuffer<T> : IReadOnlyList<T>
 		{
 			get
 			{
-				EnsureUnchanged();
-				if (unchecked((uint)_index) >= (uint)_buffer._count) throw new InvalidOperationException("The enumerator is not positioned on a value.");
-				return _buffer[_index];
+				lock (Gate)
+				{
+					EnsureUnchanged();
+					if (unchecked((uint)_index) >= (uint)_buffer._count) throw new InvalidOperationException("The enumerator is not positioned on a value.");
+					return _buffer._values[_buffer.PhysicalIndex(_index)];
+				}
 			}
 		}
 		readonly object? IEnumerator.Current => Current;
 		/// <inheritdoc />
 		public bool MoveNext()
 		{
-			EnsureUnchanged();
-			if (_index < _buffer._count) _index++;
-			return _index < _buffer._count;
+			lock (Gate)
+			{
+				EnsureUnchanged();
+				if (_index < _buffer._count) _index++;
+				return _index < _buffer._count;
+			}
 		}
 		/// <inheritdoc />
-		public void Reset() { EnsureUnchanged(); _index = -1; }
+		public void Reset() { lock (Gate) { EnsureUnchanged(); _index = -1; } }
 		/// <inheritdoc />
 		public readonly void Dispose() { }
+		private readonly object Gate => _buffer?._gate ?? throw new InvalidOperationException("The enumerator is uninitialized.");
 		private readonly void EnsureUnchanged()
 		{
 			if (_buffer is null || _version != _buffer._version)

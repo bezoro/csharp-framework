@@ -25,7 +25,7 @@ Slot, scheduler, and modifier handles identify live entries in one owner. Genera
 
 ## Threading and host integration
 
-Readonly values and immutable maps/tables can be shared. Mutable collections, random state variables, schedulers, attribute sets, and search workspaces require one owner or external serialization. Separate owners can execute concurrently. Navigation rejects simultaneous use of one workspace. File-store operations own their streams and use filesystem commit ordering.
+Readonly values and immutable maps/tables can be shared. Tick schedulers and attribute sets synchronize complete operations; random state variables, borrowed collection storage and search workspaces require exclusive ownership. Separate owners can execute concurrently on any worker. Navigation rejects simultaneous use of one workspace. File-store operations own their streams and use filesystem commit ordering. See [concurrency and migration](concurrency.md) for the complete module contracts.
 
 Unity and Godot scene APIs remain on the main thread. Independent simulation work can use the existing bounded ECS `WorldGroup` or an application worker pool. The foundations do not create hidden background simulation loops or a task per timer/path node. Persistence uses asynchronous I/O, while checksumming still consumes CPU on the execution context that calls it.
 

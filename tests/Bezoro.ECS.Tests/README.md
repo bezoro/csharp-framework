@@ -16,13 +16,13 @@ Build `src/Bezoro.ECS/Bezoro.ECS.csproj` separately to cover both .NET 10 and .N
 | Area | Evidence |
 | --- | --- |
 | Native/managed storage | Bounds before unsafe access, disposed columns, unsupported Marshal layouts, generic value types, archetype compaction and transitions. |
-| Cursor lifetime | Copies share disposal, old copies cannot release a reused lease, callback/job pinning, default-handle errors, indexed identity access across chunks/archetypes. |
+| Cursor lifetime | Copies share disposal, old copies cannot release a reused lease, atomic callback/job pinning against cross-thread copy disposal, default-handle errors, indexed identity access across chunks/archetypes. |
 | Structural exclusion | Direct delegates, sequential/parallel jobs, active cursors, and concurrent attribute-only system batches reject invalidation before storage changes. |
-| Commands | Stream/world ownership, per-stream/per-recording temporary identity, sentinels, lazy identity epochs, exhaustion before recording/type registration, payload overflow diagnostics, failure cleanup, lazy command-buffer rental, and scheduler context epochs. |
+| Commands | Concurrent producers retain unique temporary entities, exact payload association and bounded overflow accounting; stream/world ownership, per-stream/per-recording temporary identity, sentinels, lazy identity epochs, exhaustion before recording/type registration, failure cleanup, lazy command-buffer rental, and scheduler context epochs. |
 | Playback oracle | 7,680 seeded mixed managed/unmanaged set/remove commands match a separate sequential reference model across small chunks and repeated transitions. |
-| Resources | Idempotent disposal, all-resource cleanup after exceptions, replacement identity, caller ownership after rejection, factory/disposal reentrancy, stable restored boxes under concurrent first access. |
+| Resources | Factory/replacement/removal/clear callbacks coordinate other-thread reads without holding the store lock; idempotent disposal, all-resource cleanup after exceptions, replacement identity, caller ownership after rejection, factory/disposal reentrancy, stable restored boxes under concurrent first access. |
 | Change tracking | Mutable access, read-only traversal, incremental query windows, disjoint parallel writers, unique versions beyond the 32-bit boundary, zero-allocation steady-state paths. |
-| Scheduling | Phase/stage validation, declared-order precedence with resource conflicts, unknown-access exclusivity, explicit `NoWorldAccess` parallelism, nested scheduling, interrupted joins and worker failures. |
+| Scheduling | Atomic update/registration/shutdown exclusion, safe same-thread nested initialization, phase/stage validation, declared-order precedence with resource conflicts, unknown-access exclusivity, explicit `NoWorldAccess` parallelism, nested scheduling, interrupted joins and worker failures. |
 | Relations | Incoming-edge cleanup and exhaustion of retained per-target marker IDs, including after Reset. |
 | Snapshots | Deny-by-default types, explicit allow-lists, malformed payload rejection before mutation, reader/writer contracts, active-borrow exclusion. |
 

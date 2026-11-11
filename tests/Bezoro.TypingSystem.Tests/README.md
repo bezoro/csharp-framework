@@ -32,6 +32,6 @@ Tests use the .NET 10 SDK selected by [global.json](../../global.json). They run
 
 `TypingWorkflowSafetyTests` exercises completion from `TypingState.Initial` through the normal `WithCorrect()` workflow, including 255-character targets. It also covers removing consumed words without losing unread values and constructing providers from single-pass sources without dropping the first word.
 
-Consumer concurrency tests do not authorize concurrent provider mutation. Mutations remain externally synchronized as documented by [the module](../../src/Bezoro.TypingSystem/README.md).
+`TypingConcurrencyTests` covers concurrent recording and reset with coherent snapshots, concurrent provider growth and consumption without lost words, and a blocked caller enumerable that cannot block independent consumption. Reads and mutations are synchronized as documented by [the module](../../src/Bezoro.TypingSystem/README.md).
 
 Contract coverage includes long targets using int positions, coherent result factories, rejected default metrics results, restored progress with one accepted-character count, and atomic word consumption through `IWordSource`. Legacy compatibility bridges are removed.

@@ -11,6 +11,177 @@ namespace Bezoro.Chess.Progression.Tests;
 
 public sealed class TrainingRecorderTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AClockCallbackCannotCaptureAfterItDisposesOrInvalidatesTheObserver(bool dispose)
+    {
+        using var fixture = new RecorderFixture();
+        var progress = await fixture.Open();
+        using var session = Session();
+        ChessTrainingProgressRecorder? recorder = null;
+        recorder = new ChessTrainingProgressRecorder(session, progress, "opponent", 1200, 'w', ChessTrainingProgressMode.Training, () =>
+        {
+            if (dispose) recorder!.Dispose();
+            else recorder!.SetContext(ChessTrainingProgressMode.Lesson, "opponent", 1200, 'w');
+            return DateTimeOffset.UnixEpoch;
+        });
+        await using (recorder)
+        {
+            await session.NewGameAsync();
+            await FoolsMate(session);
+            await recorder.DrainAsync();
+            Assert.Empty(progress.Snapshot.History);
+            Assert.Equal(0, recorder.PendingCount);
+            Assert.Null(recorder.LastError);
+        }
+    }
+
+    [Fact]
+    public async Task AClockCallbackCanReadRecorderStateOnAnotherThread()
+    {
+        using var fixture = new RecorderFixture();
+        var progress = await fixture.Open();
+        using var session = Session();
+        ChessTrainingProgressRecorder? recorder = null;
+        recorder = new ChessTrainingProgressRecorder(session, progress, "opponent", 1200, 'w', ChessTrainingProgressMode.Training, () =>
+        {
+            var read = Task.Factory.StartNew(() => recorder!.PendingCount,
+                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            if (!read.Wait(TimeSpan.FromSeconds(5))) throw new TimeoutException("The clock callback held the recorder gate.");
+            Assert.Equal(0, read.Result);
+            return DateTimeOffset.UnixEpoch;
+        });
+        await using (recorder)
+        {
+            await session.NewGameAsync();
+            await FoolsMate(session);
+            await recorder.DrainAsync();
+            Assert.Single(progress.Snapshot.History);
+            Assert.Null(recorder.LastError);
+        }
+    }
+
+    [Fact]
+    public async Task PendingCapacityRejectsObservablyAndSuccessfulRetryCannotEraseTheAdmissionFailure()
+    {
+        using var fixture = new RecorderFixture();
+        var progress = await fixture.Open();
+        using var session = Session();
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ChessTrainingProgressRecorder(session, progress,
+            "opponent", 1200, 'w', pendingCapacity: 0));
+        var recorder = new ChessTrainingProgressRecorder(session, progress, "opponent", 1200, 'w',
+            ChessTrainingProgressMode.Training, () => DateTimeOffset.UnixEpoch, pendingCapacity: 1);
+        var rejected = new List<ChessTrainingCaptureRejection>();
+        recorder.CaptureRejected += match =>
+        {
+            var inspect = Task.Factory.StartNew(() => recorder.PendingCount,
+                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            if (!inspect.Wait(TimeSpan.FromSeconds(5))) throw new TimeoutException("Rejection notification held the recorder gate.");
+            Assert.Equal(1, inspect.Result);
+            rejected.Add(match);
+        };
+        fixture.Store.FailWrites = true;
+        await session.NewGameAsync();
+        await FoolsMate(session);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => recorder.DrainAsync());
+        for (int index = 0; index < 2; index++)
+        {
+            await session.NewGameAsync();
+            await FoolsMate(session);
+            Assert.Equal(1, recorder.PendingCount);
+        }
+        Assert.Equal(1, recorder.PendingCapacity);
+        Assert.Equal(2, recorder.RejectedCaptureCount);
+        Assert.Equal(2, rejected.Count);
+        Assert.NotEqual(rejected[0].Match.MatchId, rejected[1].Match.MatchId);
+        Assert.Equal(1, rejected[0].Sequence);
+        Assert.Equal(2, rejected[1].Sequence);
+        Assert.Equal(rejected[1], recorder.LastRejectedCapture);
+        Assert.False(recorder.AcknowledgeRejectedCaptures(1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => recorder.AcknowledgeRejectedCaptures(-1));
+        recorder.Dispose();
+        Action<ChessTrainingCaptureRejection> noop = static _ => { };
+        Assert.Throws<ObjectDisposedException>(() => recorder.CaptureRejected += noop);
+        recorder.CaptureRejected -= noop;
+        fixture.Store.FailWrites = false;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => recorder.RetryPendingAsync());
+        Assert.Equal(0, recorder.PendingCount);
+        Assert.Single(progress.Snapshot.History);
+        Assert.NotNull(recorder.LastError);
+        Assert.Equal(2, recorder.RejectedCaptureCount);
+        Assert.Equal(rejected[1], recorder.LastRejectedCapture);
+        Assert.True(recorder.AcknowledgeRejectedCaptures(2));
+        Assert.False(recorder.AcknowledgeRejectedCaptures(2));
+        foreach (var rejection in rejected.OrderBy(rejection => rejection.Sequence)) Assert.True(await progress.RecordMatchAsync(rejection.Match));
+        await recorder.DisposeAsync();
+        Assert.Null(recorder.LastError);
+        Assert.Equal(3, progress.Snapshot.History.Count);
+        Assert.All(progress.Snapshot.History, record => Assert.Equal(DateTimeOffset.UnixEpoch, record.CompletedAt));
+    }
+
+    [Fact]
+    public async Task PendingCapacityIncludesTheWriteCurrentlyInFlight()
+    {
+        using var fixture = new RecorderFixture();
+        var progress = await fixture.Open();
+        using var session = Session();
+        fixture.Store.WriteStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Store.WriteRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var recorder = new ChessTrainingProgressRecorder(session, progress, "opponent", 1200, 'w',
+            ChessTrainingProgressMode.Training, pendingCapacity: 1);
+        try
+        {
+            await session.NewGameAsync();
+            await FoolsMate(session);
+            await fixture.Store.WriteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Empty(progress.Snapshot.History);
+            await session.NewGameAsync();
+            await FoolsMate(session);
+            Assert.Equal(1, recorder.PendingCount);
+            Assert.Equal(1, recorder.RejectedCaptureCount);
+            Assert.NotNull(recorder.LastRejectedCapture);
+        }
+        finally
+        {
+            recorder.Dispose();
+            fixture.Store.WriteRelease.TrySetResult();
+        }
+        await Assert.ThrowsAsync<InvalidOperationException>(() => recorder.DrainAsync());
+        Assert.Single(progress.Snapshot.History);
+        Assert.True(recorder.AcknowledgeRejectedCaptures(1));
+        Assert.True(await progress.RecordMatchAsync(recorder.LastRejectedCapture!.Value.Match));
+        await recorder.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ARejectingSubscriberFailureCannotHideTheRecordFromOtherSubscribers()
+    {
+        using var fixture = new RecorderFixture();
+        var progress = await fixture.Open();
+        using var session = Session();
+        var recorder = new ChessTrainingProgressRecorder(session, progress, "opponent", 1200, 'w',
+            ChessTrainingProgressMode.Training, pendingCapacity: 1);
+        fixture.Store.FailWrites = true;
+        await session.NewGameAsync();
+        await FoolsMate(session);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => recorder.DrainAsync());
+        ChessTrainingCaptureRejection? received = null;
+        recorder.CaptureRejected += _ => throw new InvalidOperationException("Subscriber failure.");
+        recorder.CaptureRejected += match => received = match;
+        await session.NewGameAsync();
+        await FoolsMate(session);
+        Assert.NotNull(received);
+        Assert.Equal(received, recorder.LastRejectedCapture);
+        Assert.True(recorder.AcknowledgeRejectedCaptures(recorder.RejectedCaptureCount));
+        Assert.Equal("Subscriber failure.", recorder.LastError!.Message);
+        recorder.Dispose();
+        fixture.Store.FailWrites = false;
+        await recorder.RetryPendingAsync();
+        Assert.True(await progress.RecordMatchAsync(received.Value.Match));
+        await recorder.DisposeAsync();
+    }
+
     [Fact]
     public async Task RealLocalSessionRecordsDerivedResultAndActualOpponentRatingOnce()
     {
@@ -208,8 +379,15 @@ public sealed class TrainingRecorderTests
     private sealed class FailingStore(ISaveStore inner) : ISaveStore
     {
         internal bool FailWrites;
-        public ValueTask WriteAsync(string slot, uint schemaVersion, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default) =>
-            FailWrites ? throw new IOException("Injected recording failure.") : inner.WriteAsync(slot, schemaVersion, payload, cancellationToken);
+        internal TaskCompletionSource? WriteStarted;
+        internal TaskCompletionSource? WriteRelease;
+        public async ValueTask WriteAsync(string slot, uint schemaVersion, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
+        {
+            if (FailWrites) throw new IOException("Injected recording failure.");
+            WriteStarted?.TrySetResult();
+            if (WriteRelease is { } release) await release.Task.WaitAsync(cancellationToken);
+            await inner.WriteAsync(slot, schemaVersion, payload, cancellationToken);
+        }
         public ValueTask<SaveReadResult> ReadAsync(string slot, Memory<byte> destination, uint? expectedSchemaVersion = null, CancellationToken cancellationToken = default) =>
             inner.ReadAsync(slot, destination, expectedSchemaVersion, cancellationToken);
         public ValueTask DeleteAsync(string slot, CancellationToken cancellationToken = default) => inner.DeleteAsync(slot, cancellationToken);

@@ -67,6 +67,33 @@ public sealed class UciGameEngineSessionTaskTrackingTests
 		finally { blockedReady.Release.TrySetResult(); }
 	}
 
+    [Fact]
+    public async Task ConcurrentDisposalCallersJoinTheSamePendingTeardown()
+    {
+        var (session, ponderTransport) = CreateSession();
+        await using var lifetime = session;
+        await session.StartAsync();
+        await session.StartSearchAsync();
+        var blockedReady = ponderTransport.BlockNextReady();
+        try
+        {
+            await session.ResetAsync();
+            await blockedReady.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var first = session.DisposeAsync().AsTask();
+            var second = session.DisposeAsync().AsTask();
+            Assert.False(first.IsCompleted);
+            Assert.False(second.IsCompleted);
+            Assert.True(ponderTransport.Transport.IsStarted);
+
+            blockedReady.Release.TrySetResult();
+            await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.False(ponderTransport.Transport.IsStarted);
+            Assert.Empty(TrackedTasks(session));
+        }
+        finally { blockedReady.Release.TrySetResult(); }
+    }
+
 	[Fact]
 	public async Task Gameplay_AfterAReportedWorkerFault_DropsTheCompletedWorkerAndStillDisposes()
 	{

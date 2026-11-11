@@ -73,7 +73,7 @@ var state = world.Read<StreamState>(entity);
 
 ## Ownership and integration
 
-Configuration, component writes, event-queue draining, and world disposal belong to the world thread. Callbacks run on that thread; this subsystem does not marshal Unity or Godot scene access. The entity budget counts evaluations, not elapsed time, and transitions report a state decision rather than loading or unloading engine assets themselves.
+Configuration, component writes, resource acquisition and world disposal follow world/job ownership. An already acquired `StreamingEventsResource` supports synchronized consumption on another thread, with optional preallocation/backlog limits under the [shared event-queue contract](../README.md#runtime-behavior). Callbacks run on the simulation thread; the engine adapter marshals Unity or Godot scene access. The entity budget counts evaluations, not elapsed time, and transitions report a state decision rather than loading or unloading engine assets themselves.
 
 See [the module README](../README.md) for targets and engine integration. Run the .NET 10 tests with:
 

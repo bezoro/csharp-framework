@@ -16,6 +16,7 @@ Bezoro.Chess.Progression.ChessQuestDefinition | public sealed class | stable-sha
 Bezoro.Chess.Progression.ChessQuestObjectiveSnapshot | public readonly struct | stable-shape | ChessPlayerSnapshot.cs
 Bezoro.Chess.Progression.ChessQuestSnapshot | public sealed class | stable-shape | ChessPlayerSnapshot.cs
 Bezoro.Chess.Progression.ChessStageSnapshot | public readonly struct | stable-shape | ChessPlayerSnapshot.cs
+Bezoro.Chess.Progression.ChessTrainingCaptureRejection | public readonly struct | stable-shape | ChessTrainingProgressRecorder.cs
 Bezoro.Chess.Progression.ChessTrainingMatch | public readonly struct | stable-shape | ChessTrainingMatch.cs
 Bezoro.Chess.Progression.ChessTrainingProgressMode | public enum | stable-shape | ChessTrainingProgressRecorder.cs
 Bezoro.Chess.Progression.ChessTrainingProgressRecorder | public sealed class | stable-shape | ChessTrainingProgressRecorder.cs

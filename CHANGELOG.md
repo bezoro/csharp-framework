@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Concurrency and ownership review
+
+- Synchronize shared accounts, progress claims, histories, inventory transfers, simulation scheduling, attribute caches, typing metrics and word providers. Add coherent copied state for cross-thread readers while retaining allocation-free warmed operations.
+- Add concurrent ring operations and bounded event/callback admission with explicit backpressure. Default dispatch passes are finite; pending activation callbacks survive a full handoff queue.
+- Preserve parallel spatial reads with exclusive writes; harden ECS command recording, cursor pinning, resource callback ownership and scheduler lifecycle transitions.
+- Atomically admit behavior/tree/statechart operations and composed graph ownership. Independent owners remain parallel with no per-node locks or tasks.
+- Publish immutable logging configuration and category snapshots, and move singleton construction/disposal outside lifecycle monitors with joined default creation.
+- Synchronize local chess commands and immutable engine-history capture, isolate batch/event delivery, join asynchronous session teardown, and bound training recording with ordered rejection/recovery facts.
+- Make pool cleanup consistently invoke its discard policy, including native non-IDisposable resources. Clearing operates on a detached finite batch; raw rentals retain explicit ownership.
+- **Breaking:** remove borrowed inventory `Slots` and legacy pool clear overloads; `RingBuffer.CopyTo` returns its coherent snapshot count; logger categories expose `ISet`; custom event buses implement bounded admission and default flushes process the entry batch. See [migration and concurrency contracts](docs/concurrency.md).
+
 ### Repository name
 
 - Rename the GitHub repository to `bezoro/csharp-framework` and update installation, documentation and generated package links. Existing Git URLs continue through GitHub's repository redirect.

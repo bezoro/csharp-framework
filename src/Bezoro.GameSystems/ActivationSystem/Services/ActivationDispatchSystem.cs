@@ -37,7 +37,10 @@ public sealed class ActivationDispatchSystem : ISystem
 
 		ref readonly var config = ref world.ReadResource<ActivationConfig>();
 		ref var dispatchQueue = ref world.WriteResource<ActivationDispatchQueueResource>();
-		while (dispatchQueue.TryDequeue(out var callback))
+		// Callback/producers cannot extend this pass's work budget. With one consumer,
+		// callbacks posted during dispatch are deferred until the next update.
+		int remaining = dispatchQueue.Count;
+		while (remaining-- > 0 && dispatchQueue.TryDequeue(out var callback))
 		{
 			try
 			{

@@ -24,10 +24,6 @@ internal sealed class CountingPool<T> : IPool<T> where T : class
 
 	public void Clear() { }
 
-	public void Clear(bool disposeItems) { }
-
-	public void ClearWithPolicyDiscard() { }
-
 	public PooledObjectHandle<T> RentHandle() => throw new NotSupportedException();
 
 	public T Rent() => throw new NotSupportedException();

@@ -51,7 +51,7 @@ Require(state == finished && completed[finished.Value], "The quest must finish a
 Span<byte> payload = stackalloc byte[8 + 8 * stash.Capacity];
 var writer = new BinarySpanWriter(payload);
 Require(writer.TryWriteInt32(state.Value) && writer.TryWriteInt32(stash.Capacity), "Checkpoint header must fit.");
-foreach (var stack in stash.Slots)
+foreach (var stack in stash.CreateSnapshot())
     Require(writer.TryWriteUInt32(stack.Item.Value) && writer.TryWriteInt32(stack.Quantity), "Checkpoint slot must fit.");
 
 var reader = new BinarySpanReader(writer.WrittenSpan);

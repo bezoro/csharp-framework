@@ -14,20 +14,33 @@ public sealed class EventBus : IEventBus
 	private readonly Action<Exception>? _reportHandlerError;
 	private readonly ConcurrentDictionary<int, Type>                     _handleToType  = new();
 	private readonly ConcurrentDictionary<Type, List<EventSubscription>> _subscriptions = new();
-	private readonly ConcurrentQueue<QueuedEvent>                        _queue         = new();
+	private readonly Queue<QueuedEvent>                                  _queue         = new();
 	private readonly object                                             _lifecycleGate = new();
 	private          int                                                 _disposed;
 	private static   long                                                _nextId;
 
 	/// <summary>Creates a bus without handler-error reporting.</summary>
-	public EventBus() { }
+	public EventBus() : this(-1) { }
 
 	/// <summary>Creates a bus with reporting for exceptions caught from handlers.</summary>
 	/// <param name="reportHandlerError">Runs inline after a handler fails. Reporter failures are ignored.</param>
-	public EventBus(Action<Exception>? reportHandlerError) => _reportHandlerError = reportHandlerError;
+	public EventBus(Action<Exception>? reportHandlerError) : this(-1, reportHandlerError) { }
+
+	/// <summary>Creates a bus with a queued-event admission limit.</summary>
+	/// <param name="maximumQueuedEvents">Maximum pending events; zero disables queuing and -1 is unbounded.</param>
+	/// <param name="reportHandlerError">Optional inline reporter for handler failures.</param>
+	public EventBus(int maximumQueuedEvents, Action<Exception>? reportHandlerError = null)
+	{
+		if (maximumQueuedEvents < -1) throw new ArgumentOutOfRangeException(nameof(maximumQueuedEvents));
+		MaximumQueuedEvents = maximumQueuedEvents;
+		_reportHandlerError = reportHandlerError;
+	}
 
 	/// <inheritdoc />
-	public int QueuedCount => _queue.Count;
+	public int QueuedCount { get { lock (_lifecycleGate) return _queue.Count; } }
+
+	/// <inheritdoc />
+	public int MaximumQueuedEvents { get; }
 
 	/// <inheritdoc />
 	public int SubscriptionCount
@@ -116,49 +129,34 @@ public sealed class EventBus : IEventBus
 	/// <inheritdoc />
 	public int FlushQueued()
 	{
-		ThrowIfDisposed();
-
-		var count = 0;
-		while (_queue.TryDequeue(out var queued))
-		{
-			try
-			{
-				queued.Dispatch();
-			}
-			catch
-			{
-				// Don't let dispatch exceptions stop the flush
-			}
-
-			count++;
-		}
-
-		return count;
+		int initialCount;
+		lock (_lifecycleGate) { ThrowIfDisposed(); initialCount = _queue.Count; }
+		return FlushQueuedCore(initialCount);
 	}
 
 	/// <inheritdoc />
 	public int FlushQueued(int maxEvents)
 	{
 		ThrowIfDisposed();
+		if (maxEvents < 0) throw new ArgumentOutOfRangeException(nameof(maxEvents));
+		return FlushQueuedCore(maxEvents);
+	}
 
-		if (maxEvents < 0)
-			throw new ArgumentOutOfRangeException(nameof(maxEvents));
-
+	private int FlushQueuedCore(int maxEvents)
+	{
 		var count = 0;
-		while (count < maxEvents && _queue.TryDequeue(out var queued))
+		while (count < maxEvents)
 		{
-			try
+			QueuedEvent queued;
+			lock (_lifecycleGate)
 			{
-				queued.Dispatch();
+				if (_queue.Count == 0) break;
+				queued = _queue.Dequeue();
 			}
-			catch
-			{
-				// Don't let dispatch exceptions stop the flush
-			}
-
+			try { queued.Dispatch(); }
+			catch { /* Dispatch failure does not retain the event or stop this pass. */ }
 			count++;
 		}
-
 		return count;
 	}
 
@@ -213,18 +211,25 @@ public sealed class EventBus : IEventBus
 			_subscriptions.Clear();
 			_handleToType.Clear();
 
-			while (_queue.TryDequeue(out _)) { }
+			_queue.Clear();
 		}
 	}
 
 	/// <inheritdoc />
 	public void Enqueue<TEvent>(TEvent evt) where TEvent : struct
 	{
+		if (!TryEnqueue(evt)) throw new InvalidOperationException("The event queue has reached its configured capacity.");
+	}
+
+	/// <inheritdoc />
+	public bool TryEnqueue<TEvent>(TEvent evt) where TEvent : struct
+	{
 		lock (_lifecycleGate)
 		{
 			ThrowIfDisposed();
-
+			if (MaximumQueuedEvents >= 0 && _queue.Count >= MaximumQueuedEvents) return false;
 			_queue.Enqueue(new QueuedEvent<TEvent>(this, evt));
+			return true;
 		}
 	}
 

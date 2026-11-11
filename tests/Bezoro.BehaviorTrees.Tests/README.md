@@ -14,3 +14,5 @@ dotnet test tests/Bezoro.BehaviorTrees.Tests -c Release -p:CheckForOverflowUnder
 ```
 
 Independent runners share definitions in concurrent tests. A single runner remains an externally serialized owner. Managed tests do not launch engine editors or exports.
+
+Concurrency coverage blocks a real callback on a dedicated worker, verifies overlapping lifecycle operations are rejected before effects, and checks admission release after invalid calls. Shared immutable definitions retain independent execution ownership.

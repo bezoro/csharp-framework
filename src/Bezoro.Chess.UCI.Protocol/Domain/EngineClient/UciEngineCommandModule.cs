@@ -14,7 +14,8 @@ internal sealed class UciEngineCommandModule(
 	UciLineWaiterRegistry  lineWaiters,
 	IUciLineSource         lineSource,
 	Action<EngineActivity> setActivity,
-	UciClientOptions       options
+	UciClientOptions       options,
+    Action? ensureUsable = null
 )
 {
 	private readonly Action<EngineActivity> _setActivity =
@@ -34,6 +35,7 @@ internal sealed class UciEngineCommandModule(
 
 	public async Task PonderHitAsync(CancellationToken ct)
 	{
+        ensureUsable?.Invoke();
 		await _transport.WriteLineAsync(UciConstants.Commands.PONDER_HIT, ct).ConfigureAwait(false);
 		_setActivity(EngineActivity.Searching);
 	}
@@ -72,13 +74,25 @@ internal sealed class UciEngineCommandModule(
 	}
 
 	public async Task SetPositionAsync(Fen fen, IEnumerable<string>? moves, CancellationToken ct)
-	{
-		if (!Fen.Validate(fen.Raw))
-			throw new ArgumentException("Invalid FEN provided.", nameof(fen));
+    {
+        string command = PreparePositionCommand(fen, moves, ct);
+        await SetPreparedPositionAsync(command, ct).ConfigureAwait(false);
+    }
 
-		await _transport.WriteLineAsync(UciCommandBuilder.BuildPositionCommand(fen, moves), ct)
-						.ConfigureAwait(false);
-	}
+    internal string PreparePositionCommand(Fen fen, IEnumerable<string>? moves, CancellationToken ct)
+    {
+        ensureUsable?.Invoke();
+        ct.ThrowIfCancellationRequested();
+        if (!Fen.Validate(fen.Raw)) throw new ArgumentException("Invalid FEN provided.", nameof(fen));
+        return UciCommandBuilder.BuildPositionCommand(fen, moves);
+    }
+
+    internal Task SetPreparedPositionAsync(string command, CancellationToken ct)
+    {
+        ensureUsable?.Invoke();
+        ct.ThrowIfCancellationRequested();
+        return _transport.WriteLineAsync(command, ct);
+    }
 
 
 	public async Task UciInitAsync(CancellationToken ct)
@@ -105,9 +119,11 @@ internal sealed class UciEngineCommandModule(
 
 	private async Task ExecuteSerializedCommandAsync(Func<CancellationToken, Task> action, CancellationToken ct)
 	{
+        ensureUsable?.Invoke();
 		await _protocolGate.WaitAsync(ct).ConfigureAwait(false);
 		try
 		{
+            ensureUsable?.Invoke();
 			await action(ct).ConfigureAwait(false);
 		}
 		finally
@@ -215,9 +231,11 @@ internal sealed class UciEngineCommandModule(
 		Func<CancellationToken, Task<T>> action,
 		CancellationToken                ct)
 	{
+        ensureUsable?.Invoke();
 		await _protocolGate.WaitAsync(ct).ConfigureAwait(false);
 		try
 		{
+            ensureUsable?.Invoke();
 			return await action(ct).ConfigureAwait(false);
 		}
 		finally

@@ -51,11 +51,11 @@ while (commands.TryDequeue(out var next)) Apply(next);
 
 The capacity must be positive. `TryEnqueue` returns false without mutation when full, `Enqueue` throws when full, and `EnqueueOverwrite` explicitly evicts the oldest item. Its return value tells whether eviction occurred; the output is default otherwise. Values are indexed and enumerated oldest first. `TryPeek` does not remove a value.
 
-`CopyTo(Span<T>)` copies the logical FIFO sequence, including wrapped storage, into caller-owned memory. It validates the destination length before copying. Dequeue, overwrite, and clear release superseded references; none of these operations disposes values. Storage is one T[N] array plus the buffer object and its counters. Enqueue, dequeue, peek, indexed reads, and overwrite are O(1); copying, enumeration, and clear are O(Count).
+`CopyTo(Span<T>)` copies the logical FIFO sequence, including wrapped storage, into caller-owned memory and returns the number copied. It validates destination capacity before writing and holds the operation gate for the complete copy. A capacity-sized destination avoids racing a separate `Count` read. The snapshot is shallow: referenced objects retain their own ownership requirements. Dequeue, overwrite, and clear release superseded references; none of these operations disposes values. Storage is one T[N] array plus the buffer object, its gate and counters. Enqueue, dequeue, peek, indexed reads, and overwrite are O(1); copying, enumeration, and clear are O(Count).
 
 ## Ownership and profiling
 
-Maps and buffers require an owning thread or external serialization for all access. Independent instances can run on separate simulation workers. Map owner-ID assignment is thread-safe; this does not make the map itself concurrent. Unity scene objects and Godot nodes still follow their engine's thread rules.
+Slot maps require an owning execution or external serialization for all access, including the full lifetime of borrowed `Values` spans. Map owner-ID assignment is thread-safe; this does not make the map itself concurrent. Ring-buffer operations synchronize per instance and support concurrent producers and consumers. Compound sequences of operations remain the caller's responsibility; enumeration rejects intervening mutation rather than retaining a lock across user code. Independent owned kernels can run on separate simulation workers. Unity scene objects and Godot nodes still follow their engine's thread rules.
 
 The allocation regression warms complete operations and checks fixed samples for a zero-allocation batch. It covers successful slot add/read/remove, ring enqueue/dequeue, and concrete enumeration. The checked-in BenchmarkDotNet workloads separate construction from steady-state operations:
 

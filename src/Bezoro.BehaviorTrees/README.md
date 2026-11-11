@@ -2,6 +2,8 @@
 
 Memory-aware behavior trees with immutable definitions and one execution owner per agent. The module targets .NET 10 and .NET Standard 2.1 and depends only on `Bezoro.Conditions`. It has no statechart, Unity, Godot, thread-pool or coroutine dependency.
 
+Lifecycle calls on one runner use atomic, nonblocking admission: overlapping or reentrant Start, Tick, Stop and Restart calls throw before mutation. Restart reserves stop and start together. Independent runners can execute concurrently while sharing one immutable definition. Each operation exclusively borrows its context and handler; inspection and activation-token queries belong to that owner and must not race updates. Worker completions should reach the owner through a host queue. This adds no worker tasks, blocking locks or per-operation allocations. The core has no main-thread dependency.
+
 ## Define once, execute per agent
 
 ```csharp
