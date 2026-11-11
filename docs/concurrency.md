@@ -60,6 +60,7 @@ Synchronous observer disposal stops new admission but cannot cancel arbitrary ca
 - Use `ObjectPool.Clear()` for policy-based cleanup. `Clear(bool)` and `ClearWithPolicyDiscard()` were removed; custom `IPool` implementations implement `Clear()` directly.
 - Depend on `ISet<LogCategory>` for `LoggerSettings.MutedCategories`; it no longer exposes a mutable `HashSet`.
 - Custom `IEventBus` implementations provide bounded-admission members. Parameterless `FlushQueued()` processes the entry batch; use explicit budgets for deliberate callback-produced work.
+- Low-level chess events observe committed state and execute outside its state gate. Subscriber failures do not roll back or fail the completed command, and batch receipts exclude subscriber-spawned commands. Clock samples are shared within a logical operation; injected clocks should describe time rather than depend on invocation counts.
 - Overlapping singleton lifecycle changes and execution-owner operations now fail before mutation rather than relying on an external lock or racing. Default singleton reads still join one creation.
 
 ## Verification limits
