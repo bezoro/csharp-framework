@@ -24,6 +24,16 @@ Reason: Consumers should be able to understand what their code does by reading i
 
 Breaking changes are always welcome when they result in a better codebase. Prefer a clearer, simpler, more robust or more efficient design over preserving backward compatibility. Document affected contracts and migration steps, and mark breaking changes using Conventional Commits and Semantic Versioning.
 
+## Engine-independent concurrency
+
+Design the framework for safe concurrent use and useful parallel execution without depending on an engine thread, ambient synchronization context or global dispatcher. Unity and Godot adapters own engine-specific thread affinity; preserve parallel data processing and marshal only operations that require the engine thread.
+
+- Prefer immutable shared definitions, readonly results and coherent snapshots. Stateful shared services must synchronize complete operations, including reads, claims, lifecycle changes and snapshot publication.
+- Keep execution workspaces and borrowed storage under explicit exclusive ownership. Reject unsupported overlapping operations atomically before effects; a lock around a getter cannot protect a reference or span after it escapes.
+- State callback execution, ownership, reentrancy, cancellation and disposal contracts explicitly. Protect internal state without invoking arbitrary user callbacks under blocking locks. Thread-safe bookkeeping does not make caller-owned values or callbacks thread-safe.
+- Bound parallel work and retained queues; observe and join owned work during shutdown. Never create tasks or marshal threads merely to make a synchronous operation look concurrent.
+- Preserve the pay-for-use principle: no mandatory engine dispatcher, task allocation, polling or per-element synchronization in pure calculations and exclusively owned kernels. Verify concurrency invariants with deterministic regressions and measure material performance changes in Release builds.
+
 ## Implementation economy
 
 Maximize useful impact with the least code necessary. Prefer simple, cohesive solutions; every additional abstraction, dependency and line of code must justify its cost. Remove duplication and unnecessary machinery while preserving readability, correctness, performance and explicit ownership. Measure economy by the complete solution, including integration and maintenance, rather than by terse syntax or line count alone.
