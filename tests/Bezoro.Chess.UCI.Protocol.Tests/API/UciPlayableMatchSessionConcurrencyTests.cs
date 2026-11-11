@@ -124,6 +124,66 @@ public sealed class UciPlayableMatchSessionConcurrencyTests
         Assert.Equal(1100, observed);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LoadPositionCopiesCallerMovesBeforeEnteringTheStateGate(bool captureSave)
+    {
+        using var session = new UciPlayableMatchSession();
+        session.Refresh();
+        Task? reader = null;
+        int enumerated = 0;
+        IEnumerable<string> Moves()
+        {
+            enumerated++;
+            reader = Task.Factory.StartNew(() =>
+            {
+                if (captureSave) session.CaptureSave();
+                else _ = session.PlayedMoves;
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            if (!reader.Wait(TimeSpan.FromSeconds(5))) throw new TimeoutException("The caller iterator ran under the session state gate.");
+            yield return "e2e4";
+        }
+        try
+        {
+#pragma warning disable CS0618 // Verify the legacy IEnumerable overload's ownership boundary.
+            await session.LoadPositionAsync(Fen.Default, Moves());
+#pragma warning restore CS0618
+            Assert.Equal(1, enumerated);
+            Assert.Equal(new[] { "e2e4" }, session.PlayedMoves);
+            Assert.Equal(Fen.Default.ApplyMove("e2e4"), session.Refresh().Fen);
+        }
+        finally
+        {
+            if (reader is not null) await reader.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [Fact]
+    public async Task BatchInputIterationCanJoinAnotherThreadsSnapshotRead()
+    {
+        using var session = new UciPlayableMatchSession();
+        session.Refresh();
+        Task? reader = null;
+        IEnumerable<PlayableMatchRequest> Requests()
+        {
+            reader = Task.Factory.StartNew(() => session.CaptureSave(), CancellationToken.None,
+                TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            if (!reader.Wait(TimeSpan.FromSeconds(5))) throw new TimeoutException("The batch iterator ran under the session state gate.");
+            yield return new(PlayableMatchRequestKind.Refresh);
+        }
+        try
+        {
+            var result = await session.ProcessBatchAsync(Requests());
+            Assert.Single(result);
+            Assert.Equal(PlayableMatchEventKind.PositionRefreshed, result[0].Kind);
+        }
+        finally
+        {
+            if (reader is not null) await reader.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
     [Fact]
     public async Task ConcurrentReplacementAndSaveReadsNeverPublishPartialHistories()
     {
@@ -269,7 +329,7 @@ public sealed class UciPlayableMatchSessionConcurrencyTests
     }
 
     [Fact]
-    public async Task DisposalCancelsAndJoinsAnActiveTurnAndItsQueuedSuccessor()
+    public async Task OverlappingTurnsAreRejectedAndDisposalStillCancelsAndJoinsTheActiveTurn()
     {
         var (transport, output) = UciEngineClientTestHelpers.CreateMockTransport();
         transport.IsStarted.Returns(true);
@@ -289,13 +349,16 @@ public sealed class UciPlayableMatchSessionConcurrencyTests
             await session.LoadMatchAsync(PlayableMatchSetup.Standard);
             var active = session.PlayControlledMoveAsync();
             await searched.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            var queued = session.PlayControlledMoveAsync();
-            Assert.False(queued.IsCompleted);
+            var overlapping = session.PlayControlledMoveAsync();
+            Assert.True(overlapping.IsCompleted);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => overlapping);
+            for (int i = 0; i < 32; i++)
+                await Assert.ThrowsAsync<InvalidOperationException>(() => session.PlayControlledMoveAsync());
+            await transport.Received(1).WriteLineAsync(Arg.Is<string>(s => s.StartsWith("go ")), Arg.Any<CancellationToken>());
 
             await session.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => active);
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => queued);
             Assert.Empty(session.PlayedMoves);
             Assert.True(playing.IsStarted);
         }

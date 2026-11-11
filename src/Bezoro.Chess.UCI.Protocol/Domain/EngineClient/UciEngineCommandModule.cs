@@ -74,13 +74,25 @@ internal sealed class UciEngineCommandModule(
 	}
 
 	public async Task SetPositionAsync(Fen fen, IEnumerable<string>? moves, CancellationToken ct)
-	{
-		if (!Fen.Validate(fen.Raw))
-			throw new ArgumentException("Invalid FEN provided.", nameof(fen));
+    {
+        string command = PreparePositionCommand(fen, moves, ct);
+        await SetPreparedPositionAsync(command, ct).ConfigureAwait(false);
+    }
 
-		await _transport.WriteLineAsync(UciCommandBuilder.BuildPositionCommand(fen, moves), ct)
-						.ConfigureAwait(false);
-	}
+    internal string PreparePositionCommand(Fen fen, IEnumerable<string>? moves, CancellationToken ct)
+    {
+        ensureUsable?.Invoke();
+        ct.ThrowIfCancellationRequested();
+        if (!Fen.Validate(fen.Raw)) throw new ArgumentException("Invalid FEN provided.", nameof(fen));
+        return UciCommandBuilder.BuildPositionCommand(fen, moves);
+    }
+
+    internal Task SetPreparedPositionAsync(string command, CancellationToken ct)
+    {
+        ensureUsable?.Invoke();
+        ct.ThrowIfCancellationRequested();
+        return _transport.WriteLineAsync(command, ct);
+    }
 
 
 	public async Task UciInitAsync(CancellationToken ct)

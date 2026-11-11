@@ -34,7 +34,6 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
     private AsyncLocal<BatchCapture?>? _batchEvents;
     private Action<PlayableMatchEvent>? _eventHandlers;
     private Delegate[] _eventSnapshot = [];
-    private readonly SemaphoreSlim? _engineTurnGate;
     private readonly CancellationTokenSource? _engineLifetimeCancellation;
     private int _activeEngineTurns;
     private bool _engineShutdownSignaled;
@@ -177,7 +176,6 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 			ValidatePositive(analysisMoveTimeMs, nameof(analysisMoveTimeMs)),
 			ValidatePositive(analysisFallbackMoveTimeMs, nameof(analysisFallbackMoveTimeMs))
 		);
-        _engineTurnGate = new(1, 1);
         _engineLifetimeCancellation = new();
 	}
 
@@ -515,8 +513,11 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 		IEnumerable<string>? moves = null,
 		CancellationToken    ct    = default)
 	{
+        ThrowIfDisposed();
+        ct.ThrowIfCancellationRequested();
+        var setup = new PlayableMatchSetup(baseFen, moves);
         using var operation = EnterOperation(observeClock: true);
-		LoadMatchCore(new(baseFen, moves), ct);
+		LoadMatchCore(setup, ct);
 		RaiseEvent(PlayableMatchEventKind.PositionLoaded, state: _hasCurrentState ? _currentState : null);
         return Task.CompletedTask;
 	}
@@ -597,6 +598,8 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
 	/// <summary>
 	///     Plays the current side's move when that side is engine-controlled.
 	/// </summary>
+    /// <remarks>Only one turn may be outstanding. Overlapping requests are rejected before allocating turn cancellation state.</remarks>
+    /// <exception cref="InvalidOperationException">Another engine turn is already outstanding, or the current side cannot play an engine turn.</exception>
 	public async Task<EngineMoveResult> PlayControlledMoveAsync(CancellationToken ct = default)
     {
         CancellationTokenSource cancellation;
@@ -604,17 +607,16 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
         {
             ThrowIfDisposed();
             ct.ThrowIfCancellationRequested();
-            if (_engineTurnGate is null)
+            if (_playingClient is null)
                 throw new InvalidOperationException("No engine client is configured for controlled moves.");
+            if (_activeEngineTurns != 0)
+                throw new InvalidOperationException("An engine turn is already outstanding. Await it before requesting another turn.");
             cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct, _engineLifetimeCancellation!.Token);
-            _activeEngineTurns++;
+            _activeEngineTurns = 1;
         }
-        bool entered = false;
         try
         {
             ct = cancellation.Token;
-            await _engineTurnGate.WaitAsync(ct).ConfigureAwait(false);
-            entered = true;
             PlayableMatchState state;
             Fen baseFen;
             ImmutableArray<string> playedMoves;
@@ -659,7 +661,6 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
         }
         finally
         {
-            if (entered) _engineTurnGate.Release();
             cancellation.Dispose();
             using var operation = EnterOperation();
             _activeEngineTurns--;
@@ -1210,13 +1211,14 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
         }
         var capture = new BatchCapture();
         var previous = context.Value;
-        context.Value = capture;
         try
         {
             foreach (var request in requests)
             {
                 ct.ThrowIfCancellationRequested();
-                await ProcessAsync(request, ct).ConfigureAwait(false);
+                context.Value = capture;
+                try { await ProcessAsync(request, ct).ConfigureAwait(false); }
+                finally { context.Value = previous; }
             }
             using var operation = EnterOperation();
             return [.. capture.Events];
@@ -1898,7 +1900,6 @@ public sealed class UciPlayableMatchSession : IDisposable, IAsyncDisposable
         if (!_disposed || !_engineShutdownSignaled || _activeEngineTurns != 0 || _engineResourcesDisposed) return;
         _engineResourcesDisposed = true;
         _engineLifetimeCancellation?.Dispose();
-        _engineTurnGate?.Dispose();
         _engineTurnsStopped?.TrySetResult(true);
     }
 

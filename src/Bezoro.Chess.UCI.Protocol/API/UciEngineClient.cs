@@ -364,6 +364,13 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 	public Task SetPositionAsync(Fen fen, IEnumerable<string>? moves, CancellationToken ct) =>
 		_commandModule.SetPositionAsync(fen, moves, ct);
 
+    internal string PreparePositionCommand(Fen fen, IEnumerable<string>? moves, CancellationToken ct) =>
+        _commandModule.PreparePositionCommand(fen, moves, ct);
+
+    internal Task SetPreparedPositionAsync(string command, CancellationToken ct) =>
+        _commandModule.SetPreparedPositionAsync(command, ct);
+
+
 	/// <summary>
 	///     Starts the engine process/connection, background read loop, and completes UCI handshake.
 	/// </summary>

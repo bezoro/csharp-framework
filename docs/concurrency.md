@@ -28,7 +28,7 @@ Directly borrowed spans and refs cannot be protected by locking their getter: th
 | Events and GameSystems | Producers may enqueue concurrently. Select an explicit queue capacity and use `TryEnqueue` for backpressure. Callback dispatch happens on the flushing thread, outside bookkeeping locks. Use one consumer when callback order matters. |
 | Inventory, Commerce, Profiles and Progression | Per-instance operations synchronize. Inventory transfers acquire both owners in a consistent order. Snapshots copy owned values; cross-module rewards and durable backend transactions remain host responsibilities. |
 | Logging and Typing | Logger readers capture immutable configuration; category changes publish copies. Typing metrics and word consumption/mutation synchronize, with coherent readonly metrics snapshots. Subscriber state remains application-owned. |
-| Chess | Protocol local commands and snapshots synchronize; engine work uses captured histories and rejects stale results. Facade commands serialize and concurrent asynchronous disposals join the same teardown. Study editing cursors and authoring builders remain explicit owners; immutable positions may be shared. |
+| Chess | Protocol local commands and snapshots synchronize; engine work uses captured histories and rejects stale results. One controlled turn is admitted at a time; overlapping requests fail before retaining waiting state. Facade commands serialize and concurrent asynchronous disposals join the same teardown. Study editing cursors and authoring builders remain explicit owners; immutable positions may be shared. |
 | Persistence | Operations own their streams and synchronize same-process file commits by normalized path. Payload/read buffers are exclusively borrowed until each asynchronous call completes. |
 
 Synchronization protects complete operations, not arbitrary sequences of calls. For example, checking a queue count and then enqueuing can race with another producer; use `TryEnqueue`. An inventory snapshot is coherent, but separately reading a wallet and quest state does not create an atomic reward transaction across those modules.
@@ -61,6 +61,7 @@ Synchronous observer disposal stops new admission but cannot cancel arbitrary ca
 - Depend on `ISet<LogCategory>` for `LoggerSettings.MutedCategories`; it no longer exposes a mutable `HashSet`.
 - Custom `IEventBus` implementations provide bounded-admission members. Parameterless `FlushQueued()` processes the entry batch; use explicit budgets for deliberate callback-produced work.
 - Low-level chess events observe committed state and execute outside its state gate. Subscriber failures do not roll back or fail the completed command, and batch receipts exclude subscriber-spawned commands. Clock samples are shared within a logical operation; injected clocks should describe time rather than depend on invocation counts.
+- Await the current `PlayControlledMoveAsync` task before requesting another engine turn. Duplicate overlapping requests are rejected rather than queued for a later board position. Caller-provided move/request iterators run outside internal serialization gates.
 - Overlapping singleton lifecycle changes and execution-owner operations now fail before mutation rather than relying on an external lock or racing. Default singleton reads still join one creation.
 
 ## Verification limits
