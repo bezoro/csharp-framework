@@ -15,6 +15,7 @@ Characterization tests for the public `Bezoro.Logging` behavior that must remain
 - Initial, changed, and repeated stage dispatch ordering
 - Async-context nested ordering and restoration, sibling-branch isolation, and idempotent scope disposal
 - Provider evaluation boundaries, immutable settings snapshots, and synchronous caller-thread dispatch
+- Concurrent configuration publication without torn struct values, copy-on-write category membership and snapshot enumeration, and callbacks outside category mutation gates
 
 The allocation benchmark project records both the ordinary and nested async-context paths.
 

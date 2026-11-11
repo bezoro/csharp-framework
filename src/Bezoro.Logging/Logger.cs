@@ -13,6 +13,7 @@ namespace Bezoro.Logging;
 public static class Logger
 {
 	private static string? _lastStage;
+	private static int _minimumLevel = (int)LogLevel.Info;
 
 	/// <summary>
 	///     Event invoked when a log message is processed.
@@ -23,7 +24,11 @@ public static class Logger
 	///     Minimum log level to process. Logs below this level are ignored.
 	///     Default: <see cref="LogLevel.Info" />.
 	/// </summary>
-	public static LogLevel MinimumLevel { get; set; } = LogLevel.Info;
+	public static LogLevel MinimumLevel
+	{
+		get => (LogLevel)Volatile.Read(ref _minimumLevel);
+		set => Volatile.Write(ref _minimumLevel, (int)value);
+	}
 
 	/// <summary>Reports whether a listener would receive this level and category under the current filters.</summary>
 	/// <remarks>Use before constructing expensive arguments. This is a snapshot; listeners and settings can change.</remarks>
@@ -290,13 +295,14 @@ public static class Logger
 		if (stage == null)
 			return false;
 
-		string? currentStage = Volatile.Read(ref _lastStage);
-		if (string.Equals(currentStage, stage, StringComparison.Ordinal))
-			return false;
-
-		Volatile.Write(ref _lastStage, stage);
-		previousStage = currentStage;
-		return previousStage != null;
+		while (true)
+		{
+			string? currentStage = Volatile.Read(ref _lastStage);
+			if (string.Equals(currentStage, stage, StringComparison.Ordinal)) return false;
+			if (!ReferenceEquals(Interlocked.CompareExchange(ref _lastStage, stage, currentStage), currentStage)) continue;
+			previousStage = currentStage;
+			return previousStage != null;
+		}
 	}
 
 	/// <summary>

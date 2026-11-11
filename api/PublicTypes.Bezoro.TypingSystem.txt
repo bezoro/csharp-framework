@@ -6,6 +6,7 @@ Bezoro.TypingSystem.Abstractions.IWordSource | public interface | review-contrac
 Bezoro.TypingSystem.Extensions.WordProviderFileExtensions | public static class | stable-shape | Extensions/WordProviderFileExtensions.cs
 Bezoro.TypingSystem.Types.ArrayWordProvider | public sealed class | stable-shape | Types/ArrayWordProvider.cs
 Bezoro.TypingSystem.Types.TypingMetrics | public sealed class | stable-shape | Types/TypingMetrics.cs
+Bezoro.TypingSystem.Types.TypingMetricsSnapshot | public readonly struct | stable-shape | Types/TypingMetricsSnapshot.cs
 Bezoro.TypingSystem.Types.TypingResult | public readonly struct | stable-shape | Types/TypingResult.cs
 Bezoro.TypingSystem.Types.TypingState | public readonly struct | stable-shape | Types/TypingState.cs
 Bezoro.TypingSystem.Types.TypingValidationStatus | public enum | stable-shape | Types/TypingValidationStatus.cs

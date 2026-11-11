@@ -15,18 +15,22 @@ internal readonly record struct LogSettingsSnapshot(
 	LogStyle SuccessStyle,
 	LogStyle WarningStyle)
 {
-	internal static LogSettingsSnapshot Capture() => new(
-		LoggerSettings.FileLocation,
-		LoggerSettings.FrameCount,
-		LoggerSettings.Grouping,
-		LoggerSettings.SequenceNumber,
-		LoggerSettings.ThreadId,
-		LoggerSettings.Timestamp,
-		LoggerSettings.ErrorStyle,
-		LoggerSettings.ExceptionStyle,
-		LoggerSettings.InfoStyle,
-		LoggerSettings.SuccessStyle,
-		LoggerSettings.WarningStyle);
+	internal static LogSettingsSnapshot Capture()
+	{
+		var settings = LoggerSettings.CaptureConfiguration();
+		return new(
+			settings.FileLocation,
+			settings.FrameCount,
+			settings.Grouping,
+			settings.SequenceNumber,
+			settings.ThreadId,
+			settings.Timestamp,
+			settings.ErrorStyle,
+			settings.ExceptionStyle,
+			settings.InfoStyle,
+			settings.SuccessStyle,
+			settings.WarningStyle);
+	}
 
 	internal LogStyle GetStyle(LogLevel level) => level switch
 	{
