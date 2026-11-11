@@ -6,6 +6,47 @@ namespace Bezoro.Logging.Tests;
 public sealed class LoggerConcurrencyTests
 {
 	[Fact]
+	public void CategorySelfOperations_PreserveSetIdentities()
+	{
+		using var settings = new LoggerSettingsScope();
+		var categories = LoggerSettings.MutedCategories;
+		categories.Add(LogCategory.Debug);
+		categories.UnionWith(categories);
+		categories.IntersectWith(categories);
+		Assert.Single(categories);
+		Assert.True(categories.SetEquals(categories));
+		Assert.True(categories.IsSubsetOf(categories));
+		Assert.True(categories.IsSupersetOf(categories));
+		Assert.False(categories.IsProperSubsetOf(categories));
+		Assert.False(categories.IsProperSupersetOf(categories));
+		Assert.True(categories.Overlaps(categories));
+		categories.ExceptWith(categories);
+		Assert.Empty(categories);
+		categories.Add(LogCategory.Debug);
+		categories.SymmetricExceptWith(categories);
+		Assert.Empty(categories);
+	}
+
+	[Fact]
+	public void ConfigurationCaptureAndMembershipReads_DoNotAllocateAfterWarmup()
+	{
+		using var settings = new LoggerSettingsScope();
+		LoggerSettings.MutedCategories.Add(LogCategory.Debug);
+		for (int i = 0; i < 100; i++)
+		{
+			_ = Internal.LogSettingsSnapshot.Capture();
+			_ = LoggerSettings.MutedCategories.Contains(LogCategory.Debug);
+		}
+		long before = GC.GetAllocatedBytesForCurrentThread();
+		for (int i = 0; i < 1000; i++)
+		{
+			_ = Internal.LogSettingsSnapshot.Capture();
+			_ = LoggerSettings.MutedCategories.Contains(LogCategory.Debug);
+		}
+		Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+	}
+
+	[Fact]
 	public void ConcurrentCategoryMutations_DoNotLoseMembershipOrInvalidateAnEnumerator()
 	{
 		using var settings = new LoggerSettingsScope();

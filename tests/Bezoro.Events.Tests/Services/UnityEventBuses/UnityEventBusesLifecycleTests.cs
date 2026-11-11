@@ -49,6 +49,7 @@ public sealed class UnityEventBusesLifecycleTests
 		public int DisposalCount { get; private set; }
 		public bool FailDisposal { get; init; }
 		public int QueuedCount => 0;
+		public int MaximumQueuedEvents => -1;
 		public int SubscriptionCount => 0;
 		public bool Unsubscribe(SubscriptionHandle handle) => false;
 		public EventContext<TEvent> Publish<TEvent>(TEvent evt) where TEvent : struct => new(evt);
@@ -56,6 +57,7 @@ public sealed class UnityEventBusesLifecycleTests
 		public int FlushQueued(int maxEvents) => 0;
 		public SubscriptionHandle Subscribe<TEvent>(Action<EventContext<TEvent>> handler, int priority = 0) where TEvent : struct => default;
 		public void Enqueue<TEvent>(TEvent evt) where TEvent : struct { }
+		public bool TryEnqueue<TEvent>(TEvent evt) where TEvent : struct => true;
 		public void Dispose()
 		{
 			DisposalCount++;
