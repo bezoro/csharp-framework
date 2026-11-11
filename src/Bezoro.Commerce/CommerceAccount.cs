@@ -2,12 +2,14 @@ namespace Bezoro.Commerce;
 
 /// <summary>Owns balances, permanent cosmetic entitlements, equipment and a bounded transaction ledger.</summary>
 /// <remarks>
-/// Requires one owner or external serialization. Successful business operations are atomic in memory; rejected operations do not mutate state.
+/// Public operations are thread-safe and serialized per account. Rejected operations do not mutate state.
 /// Persist the complete snapshot and transaction receipt together before acknowledging network requests. This class does not authenticate callers,
 /// authorize rewards, process real money or provide distributed transactions. Only the authoritative host may grant currency or ownership.
 /// </remarks>
 public sealed class CommerceAccount
 {
+    private readonly object _sync = new();
+    private string? _equippedSkinId;
     private readonly Dictionary<string, long> _balances = new(StringComparer.Ordinal);
     private readonly HashSet<string> _ownedSkins = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CommerceReceipt> _receipts = new(StringComparer.Ordinal);
@@ -58,104 +60,128 @@ public sealed class CommerceAccount
     /// <summary>Gets the maximum successful-transaction count; receipts are never silently evicted.</summary>
     public int ReceiptCapacity { get; }
     /// <summary>Gets the retained successful-transaction count.</summary>
-    public int ReceiptCount => _receipts.Count;
+    public int ReceiptCount { get { lock (_sync) return _receipts.Count; } }
     /// <summary>Gets the number of owned skins.</summary>
-    public int OwnedSkinCount => _ownedSkins.Count;
+    public int OwnedSkinCount { get { lock (_sync) return _ownedSkins.Count; } }
     /// <summary>Gets the optional equipped skin identifier, independent of the active 2D or 3D renderer.</summary>
-    public string? EquippedSkinId { get; private set; }
+    public string? EquippedSkinId { get { lock (_sync) return _equippedSkinId; } }
 
     /// <summary>Gets a currency balance, or zero when that currency has never been credited.</summary>
     public long GetBalance(string currencyId)
     {
-        Identifiers.Require(currencyId, nameof(currencyId));
-        return _balances.TryGetValue(currencyId, out long amount) ? amount : 0;
+        lock (_sync)
+        {
+            Identifiers.Require(currencyId, nameof(currencyId));
+            return _balances.TryGetValue(currencyId, out long amount) ? amount : 0;
+        }
     }
 
     /// <summary>Checks permanent ownership without allocating.</summary>
     public bool OwnsSkin(string skinId)
     {
-        Identifiers.Require(skinId, nameof(skinId));
-        return _ownedSkins.Contains(skinId);
+        lock (_sync)
+        {
+            Identifiers.Require(skinId, nameof(skinId));
+            return _ownedSkins.Contains(skinId);
+        }
     }
 
     /// <summary>Credits positive currency units once for an account-scoped transaction identifier.</summary>
     public CommerceTransactionResult CreditCurrency(string transactionId, string currencyId, long amount)
     {
-        Identifiers.Require(transactionId, nameof(transactionId));
-        Identifiers.Require(currencyId, nameof(currencyId));
-        if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount));
-        if (TryReplay(transactionId, CommerceOperation.CreditCurrency, currencyId, amount, out var replay)) return replay;
-        if (_receipts.Count == ReceiptCapacity) return Failure(CommerceTransactionStatus.ReceiptCapacityReached);
-        long current = GetBalance(currencyId);
-        if (amount > long.MaxValue - current) return Failure(CommerceTransactionStatus.BalanceOverflow);
-        var receipt = new CommerceReceipt(transactionId, CommerceOperation.CreditCurrency, currencyId, amount, current + amount);
-        _balances[currencyId] = receipt.BalanceAfter;
-        _receipts.Add(transactionId, receipt);
-        return Applied(receipt);
+        lock (_sync)
+        {
+            Identifiers.Require(transactionId, nameof(transactionId));
+            Identifiers.Require(currencyId, nameof(currencyId));
+            if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount));
+            if (TryReplay(transactionId, CommerceOperation.CreditCurrency, currencyId, amount, out var replay)) return replay;
+            if (_receipts.Count == ReceiptCapacity) return Failure(CommerceTransactionStatus.ReceiptCapacityReached);
+            long current = _balances.TryGetValue(currencyId, out long value) ? value : 0;
+            if (amount > long.MaxValue - current) return Failure(CommerceTransactionStatus.BalanceOverflow);
+            var receipt = new CommerceReceipt(transactionId, CommerceOperation.CreditCurrency, currencyId, amount, current + amount);
+            _balances[currencyId] = receipt.BalanceAfter;
+            _receipts.Add(transactionId, receipt);
+            return Applied(receipt);
+        }
     }
 
     /// <summary>Grants a catalog skin once for an account-scoped transaction identifier; ownership is permanent.</summary>
     public CommerceTransactionResult GrantSkin(string transactionId, string skinId)
     {
-        Identifiers.Require(transactionId, nameof(transactionId));
-        Identifiers.Require(skinId, nameof(skinId));
-        if (TryReplay(transactionId, CommerceOperation.GrantSkin, skinId, 0, out var replay)) return replay;
-        if (!Catalog.TryGetSkin(skinId, out _)) return Failure(CommerceTransactionStatus.UnknownProduct);
-        if (_ownedSkins.Contains(skinId)) return Failure(CommerceTransactionStatus.AlreadyOwned);
-        if (_receipts.Count == ReceiptCapacity) return Failure(CommerceTransactionStatus.ReceiptCapacityReached);
-        var receipt = new CommerceReceipt(transactionId, CommerceOperation.GrantSkin, skinId, 0, 0);
-        _ownedSkins.Add(skinId);
-        _receipts.Add(transactionId, receipt);
-        return Applied(receipt);
+        lock (_sync)
+        {
+            Identifiers.Require(transactionId, nameof(transactionId));
+            Identifiers.Require(skinId, nameof(skinId));
+            if (TryReplay(transactionId, CommerceOperation.GrantSkin, skinId, 0, out var replay)) return replay;
+            if (!Catalog.TryGetSkin(skinId, out _)) return Failure(CommerceTransactionStatus.UnknownProduct);
+            if (_ownedSkins.Contains(skinId)) return Failure(CommerceTransactionStatus.AlreadyOwned);
+            if (_receipts.Count == ReceiptCapacity) return Failure(CommerceTransactionStatus.ReceiptCapacityReached);
+            var receipt = new CommerceReceipt(transactionId, CommerceOperation.GrantSkin, skinId, 0, 0);
+            _ownedSkins.Add(skinId);
+            _receipts.Add(transactionId, receipt);
+            return Applied(receipt);
+        }
     }
 
     /// <summary>Purchases one permanent skin with a full, atomic deduction at authoritative time.</summary>
     /// <remarks>Identical successful retries return their original receipt even after the offer expires. Rejected requests reserve no transaction key.</remarks>
     public CommerceTransactionResult Purchase(string transactionId, string offerId, DateTimeOffset now)
     {
-        Identifiers.Require(transactionId, nameof(transactionId));
-        Identifiers.Require(offerId, nameof(offerId));
-        if (TryReplay(transactionId, CommerceOperation.Purchase, offerId, 0, out var replay)) return replay;
-        if (!Catalog.TryGetOffer(offerId, out var offer)) return Failure(CommerceTransactionStatus.UnknownProduct);
-        if (!offer.IsAvailableAt(now)) return Failure(CommerceTransactionStatus.OfferUnavailable);
-        if (_ownedSkins.Contains(offer.SkinId)) return Failure(CommerceTransactionStatus.AlreadyOwned);
-        if (_receipts.Count == ReceiptCapacity) return Failure(CommerceTransactionStatus.ReceiptCapacityReached);
-        long balance = GetBalance(offer.CurrencyId);
-        if (balance < offer.Price) return Failure(CommerceTransactionStatus.InsufficientFunds);
-        var receipt = new CommerceReceipt(transactionId, CommerceOperation.Purchase, offerId, offer.Price, balance - offer.Price);
-        if (offer.Price != 0) _balances[offer.CurrencyId] = receipt.BalanceAfter;
-        _ownedSkins.Add(offer.SkinId);
-        _receipts.Add(transactionId, receipt);
-        return Applied(receipt);
+        lock (_sync)
+        {
+            Identifiers.Require(transactionId, nameof(transactionId));
+            Identifiers.Require(offerId, nameof(offerId));
+            if (TryReplay(transactionId, CommerceOperation.Purchase, offerId, 0, out var replay)) return replay;
+            if (!Catalog.TryGetOffer(offerId, out var offer)) return Failure(CommerceTransactionStatus.UnknownProduct);
+            if (!offer.IsAvailableAt(now)) return Failure(CommerceTransactionStatus.OfferUnavailable);
+            if (_ownedSkins.Contains(offer.SkinId)) return Failure(CommerceTransactionStatus.AlreadyOwned);
+            if (_receipts.Count == ReceiptCapacity) return Failure(CommerceTransactionStatus.ReceiptCapacityReached);
+            long balance = _balances.TryGetValue(offer.CurrencyId, out long value) ? value : 0;
+            if (balance < offer.Price) return Failure(CommerceTransactionStatus.InsufficientFunds);
+            var receipt = new CommerceReceipt(transactionId, CommerceOperation.Purchase, offerId, offer.Price, balance - offer.Price);
+            if (offer.Price != 0) _balances[offer.CurrencyId] = receipt.BalanceAfter;
+            _ownedSkins.Add(offer.SkinId);
+            _receipts.Add(transactionId, receipt);
+            return Applied(receipt);
+        }
     }
 
     /// <summary>Equips an owned skin without changing ownership or loading assets; false leaves equipment unchanged.</summary>
     public bool TryEquipSkin(string skinId)
     {
-        Identifiers.Require(skinId, nameof(skinId));
-        if (!_ownedSkins.Contains(skinId)) return false;
-        EquippedSkinId = skinId;
-        return true;
+        lock (_sync)
+        {
+            Identifiers.Require(skinId, nameof(skinId));
+            if (!_ownedSkins.Contains(skinId)) return false;
+            _equippedSkinId = skinId;
+            return true;
+        }
     }
 
     /// <summary>Looks up a successful transaction receipt.</summary>
     public bool TryGetReceipt(string transactionId, out CommerceReceipt receipt)
     {
-        Identifiers.Require(transactionId, nameof(transactionId));
-        return _receipts.TryGetValue(transactionId, out receipt);
+        lock (_sync)
+        {
+            Identifiers.Require(transactionId, nameof(transactionId));
+            return _receipts.TryGetValue(transactionId, out receipt);
+        }
     }
 
     /// <summary>Copies the complete state for durable persistence. This explicit operation allocates.</summary>
     public CommerceAccountSnapshot CreateSnapshot()
     {
-        var balances = new WalletBalance[_balances.Count];
-        int index = 0;
-        foreach (var pair in _balances) balances[index++] = new WalletBalance(pair.Key, pair.Value);
-        var owned = new string[_ownedSkins.Count];
-        _ownedSkins.CopyTo(owned);
-        var receipts = new CommerceReceipt[_receipts.Count];
-        _receipts.Values.CopyTo(receipts, 0);
-        return new CommerceAccountSnapshot(AccountId, EquippedSkinId, balances, owned, receipts);
+        lock (_sync)
+        {
+            var balances = new WalletBalance[_balances.Count];
+            int index = 0;
+            foreach (var pair in _balances) balances[index++] = new WalletBalance(pair.Key, pair.Value);
+            var owned = new string[_ownedSkins.Count];
+            _ownedSkins.CopyTo(owned);
+            var receipts = new CommerceReceipt[_receipts.Count];
+            _receipts.Values.CopyTo(receipts, 0);
+            return new CommerceAccountSnapshot(AccountId, _equippedSkinId, balances, owned, receipts);
+        }
     }
 
     private bool TryReplay(string transactionId, CommerceOperation operation, string targetId, long amount, out CommerceTransactionResult result)

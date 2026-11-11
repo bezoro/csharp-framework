@@ -20,7 +20,7 @@ public class InventoryBenchmarks
         _source = new SlotInventory(catalog, Slots);
         _destination = new SlotInventory(catalog, Slots);
         _source.TryAdd(_item, Slots * 50L);
-        _snapshot = _source.Slots.ToArray();
+        _snapshot = _source.CreateSnapshot();
     }
 
     [Benchmark]
