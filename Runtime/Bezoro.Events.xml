@@ -14,6 +14,9 @@
                 The number of events currently in the queue.
             </summary>
         </member>
+        <member name="P:Bezoro.Events.Abstractions.IEventBus.MaximumQueuedEvents">
+            <summary>Gets the maximum pending event count, or -1 for unbounded queuing.</summary>
+        </member>
         <member name="P:Bezoro.Events.Abstractions.IEventBus.SubscriptionCount">
             <summary>
                 The total number of active subscriptions across all event types.
@@ -33,7 +36,8 @@
         </member>
         <member name="M:Bezoro.Events.Abstractions.IEventBus.FlushQueued">
             <summary>
-                Dispatches all queued events in order.
+                Dispatches at most the queued count captured at call entry. Callback-posted work waits for a later pass
+                unless concurrent consumers remove earlier work. Handler work and nested flushes have separate costs.
             </summary>
             <returns>The number of events dispatched.</returns>
         </member>
@@ -57,7 +61,12 @@
         <member name="M:Bezoro.Events.Abstractions.IEventBus.Enqueue``1(``0)">
             <summary>
                 Enqueues an event for deferred dispatch via <see cref="M:Bezoro.Events.Abstractions.IEventBus.FlushQueued" />.
+                Throws <see cref="T:System.InvalidOperationException" /> when a configured capacity is full.
             </summary>
+        </member>
+        <member name="M:Bezoro.Events.Abstractions.IEventBus.TryEnqueue``1(``0)">
+            <summary>Enqueues without invoking handlers, returning false when the configured capacity is full.</summary>
+            <remarks>A rejected event allocates no dispatch envelope. A disposed bus throws rather than rejecting silently.</remarks>
         </member>
         <member name="T:Bezoro.Events.Abstractions.IUnityEventBuses">
             <summary>
@@ -116,7 +125,15 @@
             <summary>Creates a bus with reporting for exceptions caught from handlers.</summary>
             <param name="reportHandlerError">Runs inline after a handler fails. Reporter failures are ignored.</param>
         </member>
+        <member name="M:Bezoro.Events.Services.EventBus.#ctor(System.Int32,System.Action{System.Exception})">
+            <summary>Creates a bus with a queued-event admission limit.</summary>
+            <param name="maximumQueuedEvents">Maximum pending events; zero disables queuing and -1 is unbounded.</param>
+            <param name="reportHandlerError">Optional inline reporter for handler failures.</param>
+        </member>
         <member name="P:Bezoro.Events.Services.EventBus.QueuedCount">
+            <inheritdoc />
+        </member>
+        <member name="P:Bezoro.Events.Services.EventBus.MaximumQueuedEvents">
             <inheritdoc />
         </member>
         <member name="P:Bezoro.Events.Services.EventBus.SubscriptionCount">
@@ -141,6 +158,9 @@
             <inheritdoc />
         </member>
         <member name="M:Bezoro.Events.Services.EventBus.Enqueue``1(``0)">
+            <inheritdoc />
+        </member>
+        <member name="M:Bezoro.Events.Services.EventBus.TryEnqueue``1(``0)">
             <inheritdoc />
         </member>
         <member name="T:Bezoro.Events.Services.UnityEventBuses">

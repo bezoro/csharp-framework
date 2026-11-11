@@ -7,7 +7,9 @@
         <member name="T:Bezoro.Behaviors.Behavior`1">
             <summary>Implements lifecycle, exclusive child ownership, and bounded composition for behavior adapters.</summary>
             <remarks>
-            The owner serializes all access. Definitions can be shared; mutable runtime instances have one parent.
+            Definitions can be shared and independent graphs can run concurrently. An atomic graph reservation rejects
+            overlapping or reentrant lifecycle/signal operations before mutation, including calls to different descendants.
+            Contexts, handler state and inspection views remain exclusively borrowed by the executing owner.
             Derived implementations must keep their configured child graph immutable after construction.
             </remarks>
         </member>
@@ -64,13 +66,19 @@
             <summary>Stops a direct started child, invalidating its parent tracking before callbacks.</summary>
         </member>
         <member name="M:Bezoro.Behaviors.Behavior`1.BeginSignalOperation">
-            <summary>Begins a synchronous signal operation. The entire composition must be externally serialized.</summary>
+            <summary>Exclusively borrows this composition for one synchronous signal operation.</summary>
+        </member>
+        <member name="M:Bezoro.Behaviors.Behavior`1.BeginSignalOperation(System.Boolean)">
+            <summary>Exclusively borrows the composition, optionally permitting read-only rejection of inactive activations.</summary>
         </member>
         <member name="M:Bezoro.Behaviors.Behavior`1.EndSignalOperation">
             <summary>Ends a signal operation.</summary>
         </member>
         <member name="P:Bezoro.Behaviors.Behavior`1.CanAcceptSignals">
             <summary>Gets whether this component and every owning ancestor still accept execution results.</summary>
+        </member>
+        <member name="P:Bezoro.Behaviors.Behavior`1.IsExecutingOnCurrentThread">
+            <summary>Gets whether this thread already owns the graph, allowing read-only stale-result rejection inside callbacks.</summary>
         </member>
         <member name="M:Bezoro.Behaviors.Behavior`1.FaultCleanup(`0@)">
             <summary>Stops owned activity after a failing signal operation and marks this component faulted.</summary>
@@ -172,7 +180,7 @@
             <summary>Gets the token for an active state.</summary>
         </member>
         <member name="M:Bezoro.Behaviors.StatechartBehavior`1.Dispatch(Bezoro.StateMachines.SignalId,`0@)">
-            <summary>Delivers one host signal synchronously. The whole composition must be idle and externally serialized.</summary>
+            <summary>Delivers one host signal synchronously, exclusively borrowing the whole composition.</summary>
         </member>
         <member name="M:Bezoro.Behaviors.StatechartBehavior`1.TryDispatch(Bezoro.Statecharts.StateActivation,Bezoro.StateMachines.SignalId,`0@)">
             <summary>Delivers a signal only while its originating activation is still live and this component is Running.</summary>

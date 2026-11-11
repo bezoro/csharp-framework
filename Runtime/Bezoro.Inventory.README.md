@@ -42,7 +42,9 @@ Every mutation that can run out of space is all-or-nothing. A false result leave
 | `TryInsertAt(index, stack)` | Merge into one matching or empty slot only if the complete stack fits its limit. |
 | `TryTakeAt(index, quantity, out stack)` | Extract the complete requested quantity from one slot. Failure returns an empty output. |
 | `TryTransferTo(destination, item, quantity)` | Validate source quantity and destination capacity, then update both. A self-transfer succeeds as a no-op only if the requested quantity exists. |
-| `TryRestore(snapshot)` | Validate every slot, then replace all slots. Wrong lengths, unknown items, malformed empty stacks, negative quantities, and oversized per-slot quantities return false. Input may alias the borrowed current slot view. |
+| `CopyTo(destination)` | Copy one coherent slot snapshot into caller-owned storage without allocating. Too-short destinations throw before copying. |
+| `CreateSnapshot()` | Allocate an independent array of every slot. |
+| `TryRestore(snapshot)` | Validate every slot, then replace all slots. Wrong lengths, unknown items, malformed empty stacks, negative quantities, and oversized per-slot quantities return false. The caller owns the input until the operation returns. |
 | `Clear()` | Empty every slot while retaining storage. |
 
 Indexed insertion/take and occupied-slot count use constant work. Aggregate queries and mutations scan bounded slot storage; a transfer scans its source and destination. No per-item count cache or per-inventory dictionary is retained.
@@ -51,17 +53,17 @@ Aggregate quantities and capacity sums use `long`; each individual slot uses `in
 
 ## Memory, threading, and persistence
 
-Construction allocates one `ItemStack[capacity]`, about eight bytes per slot plus its array header. Zero capacity uses shared empty storage. Catalog storage is allocated once and can be shared. The lookup retains array indexes rather than duplicate definition values. Successful operations and expected capacity failures allocate no managed storage after construction. Exception creation and application-owned snapshot copies allocate as usual.
+Construction allocates one synchronization gate and one `ItemStack[capacity]`, about eight bytes per slot plus its array header. Zero capacity uses shared empty storage. Catalog storage is allocated once and can be shared. The lookup retains array indexes rather than duplicate definition values. Successful operations and expected capacity failures allocate no managed storage after construction. Exception creation and application-owned snapshot copies allocate as usual.
 
-An indexer returns a value snapshot. `Slots` returns a borrowed read-only span over all slots, including empty slots. Mutations change that view. Use `Slots.CopyTo(destination)` to retain a snapshot in application-owned storage, and keep readers externally synchronized with mutations. No slot handles, callbacks, events, or background tasks are retained.
+An indexer returns a value snapshot. `CopyTo(destination)` copies every slot coherently into caller-owned storage without allocating; keep that destination exclusive to the call. `CreateSnapshot()` explicitly allocates an independent array. No live mutable storage escapes, and no slot handles, callbacks, events, or background tasks are retained. **Migration:** replace `inventory.Slots.CopyTo(destination)` with `inventory.CopyTo(destination)`, and `inventory.Slots.ToArray()` with `inventory.CreateSnapshot()`. The former borrowed `Slots` property was removed because a returned span could race with later mutations.
 
-A mutable inventory needs one owner or external synchronization. A transfer requires exclusive access to both inventories until it completes. Independent inventories can run on separate workers, while a shared immutable catalog supports concurrent reads. Here, atomic means that a failed single operation makes no partial data change; it does not mean lock-free thread safety.
+Public reads, mutations and snapshots serialize through one private gate per inventory. A transfer holds both gates in a stable instance order, so opposite-direction transfers cannot deadlock. Independent inventories run on separate workers, while a shared immutable catalog supports concurrent reads. Operations are linearizable; a sequence of separate queries is not a single transaction. Input/output spans remain caller-owned and must not be mutated by other threads during a call.
 
 Save item identifiers and quantities through the application's serializer and schema policy. `TryRestore` validates them against the selected catalog before changing the live inventory. The module does not interpret item metadata, instantiate engine assets, manage equipment, choose pickup rules, or perform crafting.
 
 ## Validation and benchmarks
 
-Tests cover limits, catalog ownership, full-request failure, transfer conservation, aliased restore, borrowed views, zero capacity, quantities above Int32, and zero managed allocation in warmed data operations. A seeded model plans changes against copied arrays before committing; it compares 40,000 mutations against the preflight-based implementation.
+Tests cover limits, catalog ownership, full-request failure, transfer conservation, coherent copies, concurrent additions/removals and opposite-direction transfers, independent snapshots, zero capacity, quantities above Int32, and zero managed allocation in warmed data operations. A seeded model plans changes against copied arrays before committing; it compares 40,000 mutations against the preflight-based implementation.
 
 ```sh
 dotnet test tests/Bezoro.Inventory.Tests/Bezoro.Inventory.Tests.csproj -c Release

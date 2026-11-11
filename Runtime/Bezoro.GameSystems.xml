@@ -180,8 +180,19 @@
         </member>
         <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource">
             <summary>
-                Resource queue containing callbacks ready for dispatch.
+                Thread-safe resource queue containing callbacks ready for dispatch.
             </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource.#ctor">
+            <summary>Creates an initially empty thread-safe queue that grows with its backlog.</summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource.#ctor(System.Int32,System.Int32)">
+            <summary>Creates thread-safe retained queue storage with optional preallocation and a backlog limit.</summary>
+            <param name="initialCapacity">Number of payload slots to preallocate.</param>
+            <param name="maxCapacity">Maximum retained payloads. The default grows on demand without a smaller application limit.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource.MaxCapacity">
+            <summary>Gets the configured maximum retained payload count.</summary>
         </member>
         <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource.Count">
             <summary>
@@ -199,6 +210,12 @@
             </summary>
             <param name="callback">Callback to enqueue.</param>
             <exception cref="T:System.ArgumentNullException">Thrown when <paramref name="callback" /> is null.</exception>
+            <exception cref="T:System.InvalidOperationException">The configured queue capacity is exhausted.</exception>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource.TryEnqueue(System.Action)">
+            <summary>Attempts to enqueue without changing the queue when its configured capacity is full.</summary>
+            <param name="callback">Payload to retain.</param>
+            <returns>Whether the payload was queued.</returns>
         </member>
         <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource.TryDequeue(System.Action@)">
             <summary>
@@ -238,12 +255,23 @@
         </member>
         <member name="T:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource">
             <summary>
-                Resource queue used to consume activation completion events.
+                Thread-safe resource queue used to consume activation completion events.
             </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.#ctor">
+            <summary>Creates an initially empty thread-safe queue that grows with its backlog.</summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.#ctor(System.Int32,System.Int32)">
+            <summary>Creates thread-safe retained queue storage with optional preallocation and a backlog limit.</summary>
+            <param name="initialCapacity">Number of payload slots to preallocate.</param>
+            <param name="maxCapacity">Maximum retained payloads. The default grows on demand without a smaller application limit.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.MaxCapacity">
+            <summary>Gets the configured maximum retained payload count.</summary>
         </member>
         <member name="P:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.Count">
             <summary>
-                Gets the current queued event count.
+                Gets the current queued event count; concurrent operations may immediately change it.
             </summary>
         </member>
         <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.Clear">
@@ -256,6 +284,12 @@
                 Enqueues a completion event.
             </summary>
             <param name="eventData">Event payload to enqueue.</param>
+            <exception cref="T:System.InvalidOperationException">The configured queue capacity is exhausted.</exception>
+        </member>
+        <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.TryEnqueue(Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent@)">
+            <summary>Attempts to enqueue without changing the queue when its configured capacity is full.</summary>
+            <param name="eventData">Payload to retain.</param>
+            <returns>Whether the payload was queued.</returns>
         </member>
         <member name="M:Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource.TryDequeue(Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent@)">
             <summary>
@@ -600,12 +634,23 @@
         </member>
         <member name="T:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource">
             <summary>
-                Resource queue used to consume health mutation events.
+                Thread-safe resource queue used to consume health mutation events.
             </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.#ctor">
+            <summary>Creates an initially empty thread-safe queue that grows with its backlog.</summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.#ctor(System.Int32,System.Int32)">
+            <summary>Creates thread-safe retained queue storage with optional preallocation and a backlog limit.</summary>
+            <param name="initialCapacity">Number of payload slots to preallocate.</param>
+            <param name="maxCapacity">Maximum retained payloads. The default grows on demand without a smaller application limit.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.MaxCapacity">
+            <summary>Gets the configured maximum retained payload count.</summary>
         </member>
         <member name="P:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.Count">
             <summary>
-                Gets current queued event count.
+                Gets the current queued event count; concurrent operations may immediately change it.
             </summary>
         </member>
         <member name="M:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.Enqueue(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent@)">
@@ -613,6 +658,12 @@
                 Enqueues a health event.
             </summary>
             <param name="eventData">Event payload to enqueue.</param>
+            <exception cref="T:System.InvalidOperationException">The configured queue capacity is exhausted.</exception>
+        </member>
+        <member name="M:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.TryEnqueue(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent@)">
+            <summary>Attempts to enqueue without changing the queue when its configured capacity is full.</summary>
+            <param name="eventData">Payload to retain.</param>
+            <returns>Whether the payload was queued.</returns>
         </member>
         <member name="M:Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource.TryDequeue(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent@)">
             <summary>
@@ -888,6 +939,9 @@
                 Gets or sets the intent Z movement component.
             </summary>
         </member>
+        <member name="T:Bezoro.GameSystems.Internal.SynchronizedEventQueue`1">
+            <summary>Serializes queue bookkeeping while retaining warmed storage and caller-owned payloads.</summary>
+        </member>
         <member name="T:Bezoro.GameSystems.MovementSystem.Services.MovementSystem">
             <summary>
                 Updates position components using their velocity each tick.
@@ -1033,12 +1087,23 @@
         </member>
         <member name="T:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource">
             <summary>
-                Resource queue used to consume streaming transitions.
+                Thread-safe resource queue used to consume streaming transitions.
             </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.#ctor">
+            <summary>Creates an initially empty thread-safe queue that grows with its backlog.</summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.#ctor(System.Int32,System.Int32)">
+            <summary>Creates thread-safe retained queue storage with optional preallocation and a backlog limit.</summary>
+            <param name="initialCapacity">Number of payload slots to preallocate.</param>
+            <param name="maxCapacity">Maximum retained payloads. The default grows on demand without a smaller application limit.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.MaxCapacity">
+            <summary>Gets the configured maximum retained payload count.</summary>
         </member>
         <member name="P:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.Count">
             <summary>
-                Gets current queued event count.
+                Gets the current queued event count; concurrent operations may immediately change it.
             </summary>
         </member>
         <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.Enqueue(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent@)">
@@ -1046,6 +1111,12 @@
                 Enqueues a streaming event.
             </summary>
             <param name="eventData">Event payload to enqueue.</param>
+            <exception cref="T:System.InvalidOperationException">The configured queue capacity is exhausted.</exception>
+        </member>
+        <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.TryEnqueue(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent@)">
+            <summary>Attempts to enqueue without changing the queue when its configured capacity is full.</summary>
+            <param name="eventData">Payload to retain.</param>
+            <returns>Whether the payload was queued.</returns>
         </member>
         <member name="M:Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource.TryDequeue(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent@)">
             <summary>
@@ -1268,12 +1339,23 @@
         </member>
         <member name="T:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource">
             <summary>
-                Resource queue used to consume timer lifecycle events from ECS systems.
+                Thread-safe resource queue used to consume timer lifecycle events from ECS systems.
             </summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.#ctor">
+            <summary>Creates an initially empty thread-safe queue that grows with its backlog.</summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.#ctor(System.Int32,System.Int32)">
+            <summary>Creates thread-safe retained queue storage with optional preallocation and a backlog limit.</summary>
+            <param name="initialCapacity">Number of payload slots to preallocate.</param>
+            <param name="maxCapacity">Maximum retained payloads. The default grows on demand without a smaller application limit.</param>
+        </member>
+        <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.MaxCapacity">
+            <summary>Gets the configured maximum retained payload count.</summary>
         </member>
         <member name="P:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.Count">
             <summary>
-                Gets current queued event count.
+                Gets the current queued event count; concurrent operations may immediately change it.
             </summary>
         </member>
         <member name="M:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.Enqueue(Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent@)">
@@ -1281,6 +1363,12 @@
                 Enqueues a lifecycle event.
             </summary>
             <param name="eventData">Event payload to enqueue.</param>
+            <exception cref="T:System.InvalidOperationException">The configured queue capacity is exhausted.</exception>
+        </member>
+        <member name="M:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.TryEnqueue(Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent@)">
+            <summary>Attempts to enqueue without changing the queue when its configured capacity is full.</summary>
+            <param name="eventData">Payload to retain.</param>
+            <returns>Whether the payload was queued.</returns>
         </member>
         <member name="M:Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource.TryDequeue(Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent@)">
             <summary>

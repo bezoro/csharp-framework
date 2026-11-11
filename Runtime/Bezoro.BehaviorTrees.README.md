@@ -2,6 +2,8 @@
 
 Memory-aware behavior trees with immutable definitions and one execution owner per agent. The module targets .NET 10 and .NET Standard 2.1 and depends only on `Bezoro.Conditions`. It has no statechart, Unity, Godot, thread-pool or coroutine dependency.
 
+Lifecycle calls on one runner use atomic, nonblocking admission: overlapping or reentrant Start, Tick, Stop and Restart calls throw before mutation. Restart reserves stop and start together. Independent runners can execute concurrently while sharing one immutable definition. Each operation exclusively borrows its context and handler; inspection and activation-token queries belong to that owner and must not race updates. Worker completions should reach the owner through a host queue. This adds no worker tasks, blocking locks or per-operation allocations. The core has no main-thread dependency.
+
 ## Define once, execute per agent
 
 ```csharp
@@ -78,9 +80,9 @@ BehaviorActionHandle reloadAction = compilation.GetAction(reload);
 int nodeId = compilation.Resolve(reloadAction);
 ```
 
-The handle identifies that occurrence even when preceding branches change size. `GetAction` requires an Action expression that occurs exactly once in this construction graph. Declare separate Action expressions when two occurrences share an application action ID. Reusing the same expression twice is ambiguous and throws. An action copied from a compiled `Subtree` has no construction-expression identity in the outer compilation. Model a separately bound subtree as its own runtime through [Behaviors](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Behaviors/README.md), or use explicit compiled IDs when loading an established occurrence mapping.
+The handle identifies that occurrence even when preceding branches change size. `GetAction` requires an Action expression that occurs exactly once in this construction graph. Declare separate Action expressions when two occurrences share an application action ID. Reusing the same expression twice is ambiguous and throws. An action copied from a compiled `Subtree` has no construction-expression identity in the outer compilation. Model a separately bound subtree as its own runtime through [Behaviors](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/src/Bezoro.Behaviors/README.md), or use explicit compiled IDs when loading an established occurrence mapping.
 
 `Resolve` rejects default handles and handles from another compilation. The resolver owns the action-expression map. The definition and runners retain no expression graph or map; release the compilation and handles after setup. A standalone `BehaviorTreeDefinition` does not create this map. `TreeBehaviorBuilder` in the optional composition module accepts these handles and stores only compact node IDs in runtime bindings.
 
-See the [tests](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/tests/Bezoro.BehaviorTrees.Tests/README.md) and [benchmarks](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/benchmarks/Bezoro.BehaviorTrees.Benchmarks/README.md). Managed compilation and tests do not establish Unity player, IL2CPP or Godot export behavior.
+See the [tests](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/tests/Bezoro.BehaviorTrees.Tests/README.md) and [benchmarks](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/benchmarks/Bezoro.BehaviorTrees.Benchmarks/README.md). Managed compilation and tests do not establish Unity player, IL2CPP or Godot export behavior.
 

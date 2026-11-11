@@ -3840,8 +3840,9 @@
                 board-state ownership for legal moves, promotion flow, clocks, and result adjudication.
             </summary>
             <remarks>
-                Serialize calls that mutate a session. The session rejects stale asynchronous results after a position change,
-                but concurrent callers must coordinate access to match state. Immutable snapshots can be retained by consumers.
+                Local commands and snapshot reads serialize state access. Engine searches run outside the state gate and reject
+                stale results after a position change. Events run after each committed operation, outside the gate, on its caller;
+                concurrent callers may deliver callbacks concurrently. Retain event payloads or immutable snapshots for UI dispatch.
             </remarks>
         </member>
         <member name="E:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.EventOccurred">
@@ -4022,6 +4023,8 @@
             <summary>
                 Plays the current side's move when that side is engine-controlled.
             </summary>
+            <remarks>Only one turn may be outstanding. Overlapping requests are rejected before allocating turn cancellation state.</remarks>
+            <exception cref="T:System.InvalidOperationException">Another engine turn is already outstanding, or the current side cannot play an engine turn.</exception>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.PlayControlledMoveIfNeededAsync(System.Threading.CancellationToken)">
             <summary>
@@ -4173,10 +4176,10 @@
             </summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.Dispose">
-            <summary>Cancels optional analysis and releases session resources. Engine clients remain caller-owned.</summary>
+            <summary>Cancels engine turns and optional analysis, then releases idle session resources. Engine clients remain caller-owned.</summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession.DisposeAsync">
-            <summary>Cancels analysis and joins its workers before the caller disposes the engine clients.</summary>
+            <summary>Cancels and joins engine turns and analysis workers before the caller disposes the engine clients.</summary>
         </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.API.UciPositionAnalysisCoordinator">
             <summary>
@@ -5135,7 +5138,7 @@
                 Provides reusable command helpers for interacting with a UCI engine transport.
             </summary>
         </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.UciEngineCommandModule.#ctor(Bezoro.Chess.UCI.Protocol.API.Abstractions.IUciTransport,Bezoro.Chess.UCI.Protocol.Domain.EngineClient.UciLineWaiterRegistry,Bezoro.Chess.UCI.Protocol.API.Abstractions.IUciLineSource,System.Action{Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity},Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions)">
+        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.UciEngineCommandModule.#ctor(Bezoro.Chess.UCI.Protocol.API.Abstractions.IUciTransport,Bezoro.Chess.UCI.Protocol.Domain.EngineClient.UciLineWaiterRegistry,Bezoro.Chess.UCI.Protocol.API.Abstractions.IUciLineSource,System.Action{Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity},Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions,System.Action)">
             <summary>
                 Provides reusable command helpers for interacting with a UCI engine transport.
             </summary>

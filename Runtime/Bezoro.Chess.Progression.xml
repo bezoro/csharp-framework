@@ -369,6 +369,15 @@
         <member name="F:Bezoro.Chess.Progression.ChessTrainingProgressMode.Lesson">
             <summary>Study owns progression through its separately verified completion receipts.</summary>
         </member>
+        <member name="T:Bezoro.Chess.Progression.ChessTrainingCaptureRejection">
+            <summary>One immutable rejected record and its admission order within an observer.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingCaptureRejection.Match">
+            <summary>Gets the complete immutable match to retain and recover after accepted predecessors drain.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingCaptureRejection.Sequence">
+            <summary>Gets the rejection count at admission; use it to order concurrent notifications and acknowledge observed failures.</summary>
+        </member>
         <member name="T:Bezoro.Chess.Progression.ChessTrainingProgressRecorder">
             <summary>Opt-in binding from typed UCI events to durable local training progress.</summary>
             <remarks>
@@ -376,10 +385,11 @@
             their new UCI GameId cannot authenticate the identity of an earlier saved match. New live moves after an empty-history load are eligible.
             Undo and repeated terminal notifications retain the current GameId and cannot award twice. Changing context during a game invalidates that game.
             No engine objects or Unity calls are used. An on-demand data worker drains captured immutable records; failed writes remain queued with their original timestamps.
+            Admission is bounded; overflow reports the immutable rejected record through CaptureRejected and retains a diagnostic until explicitly acknowledged.
             Dispose stops observation; DisposeAsync also drains. Hosts must await shutdown drainage and surface failures instead of abandoning pending writes.
             </remarks>
         </member>
-        <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.#ctor(Bezoro.Chess.UCI.API.UciGameEngineSession,Bezoro.Chess.Progression.ChessPlayerProgress,System.String,System.Double,System.Char,Bezoro.Chess.Progression.ChessTrainingProgressMode,System.Func{System.DateTimeOffset})">
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.#ctor(Bezoro.Chess.UCI.API.UciGameEngineSession,Bezoro.Chess.Progression.ChessPlayerProgress,System.String,System.Double,System.Char,Bezoro.Chess.Progression.ChessTrainingProgressMode,System.Func{System.DateTimeOffset},System.Int32)">
             <summary>Observes one session. The default mode is disabled; timestamps are captured once from terminal clocks or the supplied clock.</summary>
         </member>
         <member name="P:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.LastError">
@@ -387,6 +397,23 @@
         </member>
         <member name="P:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.PendingCount">
             <summary>Gets the number of terminal records awaiting a successful durable write.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.PendingCapacity">
+            <summary>Gets the maximum accepted records awaiting storage, including an in-flight write.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.RejectedCaptureCount">
+            <summary>Gets the cumulative rejected-admission count, saturating at Int64.MaxValue.</summary>
+        </member>
+        <member name="P:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.LastRejectedCapture">
+            <summary>Gets the most recent immutable rejected record. This bounded diagnostic does not retain earlier rejections.</summary>
+        </member>
+        <member name="E:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.CaptureRejected">
+            <summary>Reports each rejected record on the terminal-event delivery thread, outside the recorder gate.</summary>
+            <remarks>The host must retain each payload and pause new play or recover it in Sequence order after accepted predecessors drain. Notifications may execute concurrently. Every subscriber is attempted; failures surface through LastError after admission failure is acknowledged.</remarks>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.AcknowledgeRejectedCaptures(System.Int64)">
+            <summary>Acknowledges that the host observed and retained rejected records through the supplied count.</summary>
+            <remarks>Does not retry writes or award rejected matches. Returns false if a newer rejection arrived or there is no admission failure to acknowledge.</remarks>
         </member>
         <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.SetContext(Bezoro.Chess.Progression.ChessTrainingProgressMode,System.String,System.Double,System.Char)">
             <summary>Sets explicit match intent and actual configured opponent strength/perspective before a new session position or game.</summary>

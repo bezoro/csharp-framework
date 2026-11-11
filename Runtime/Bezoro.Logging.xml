@@ -550,20 +550,7 @@
             </summary>
         </member>
         <member name="P:Bezoro.Logging.Types.LoggerSettings.MutedCategories">
-            <summary>
-                Categories that should be ignored/muted.
-            </summary>
-            <remarks>
-                <para>
-                    Use <see cref="M:System.Collections.Generic.HashSet`1.Add(`0)" /> to add a category to the list.
-                </para>
-                <para>
-                    Use <see cref="M:System.Collections.Generic.HashSet`1.Remove(`0)" /> to remove a category from the list.
-                </para>
-                <para>
-                    Use <see cref="M:System.Collections.Generic.HashSet`1.Clear" /> to clear the list.
-                </para>
-            </remarks>
+            <summary>Thread-safe muted categories, with snapshot enumeration and copy-on-write changes.</summary>
         </member>
         <member name="P:Bezoro.Logging.Types.LoggerSettings.Enabled">
             <summary>

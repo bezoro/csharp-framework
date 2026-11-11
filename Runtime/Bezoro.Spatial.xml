@@ -49,7 +49,8 @@
             <summary>A bounded uniform-grid index of points with application-owned payloads.</summary>
             <typeparam name="T">The stored payload type.</typeparam>
             <remarks>
-            Mutations require one owner or external serialization. Queries may run concurrently when no operation mutates the index.
+            Queries may run concurrently. Mutations acquire exclusive access, including across a query's sizing and copying passes.
+            Payload references and destination storage retain their caller-defined ownership and synchronization requirements.
             Each entry occupies one cell. Queries own no scratch storage and never allocate managed memory after construction.
             Handles belong to this index; removal and clearing invalidate them. Results have no stable ordering.
             </remarks>

@@ -39,10 +39,13 @@ bus.Subscribe<DamageEvent>(context =>
 using Bezoro.Events.Abstractions;
 using Bezoro.Events.Services;
 
-using IEventBus bus = new EventBus();
+using IEventBus bus = new EventBus(maximumQueuedEvents: 1024);
 
-// A producer thread can enqueue this immutable value.
-bus.Enqueue(new DamageEvent(25));
+// A producer can handle backpressure explicitly. No handlers run here.
+if (!bus.TryEnqueue(new DamageEvent(25)))
+{
+    // Retry, aggregate or reject according to the application policy.
+}
 
 // Call from the engine's main thread to invoke handlers there.
 int dequeued = bus.FlushQueued(maxEvents: 100);
@@ -52,7 +55,13 @@ int dequeued = bus.FlushQueued(maxEvents: 100);
 
 `FlushQueued(maxEvents)` returns its own dequeue count, including events with no handlers or failed dispatch. It stops at the budget or an observed empty queue. Callbacks may enqueue more events that consume the remaining budget. Nested flushes have independent budgets and counts, so the budget does not bound elapsed time or all callback work.
 
-Zero leaves a live queue unchanged; negative budgets throw `ArgumentOutOfRangeException` for `maxEvents`. Parameterless `FlushQueued()` drains until it observes an empty queue, including events enqueued by callbacks. Continuous producers or self-enqueueing callbacks can keep that call running. The queue has no capacity limit or backpressure; a flush budget limits consumption, not retained memory.
+Zero leaves a live queue unchanged; negative budgets throw `ArgumentOutOfRangeException` for `maxEvents`. Parameterless `FlushQueued()` captures the pending count at entry and processes at most that many events, so callback reposts and continuous producers cannot extend its own dequeue budget. Nested flushes and handler work still have separate costs.
+
+`EventBus(maximumQueuedEvents: ...)` makes queued admission bounded. `TryEnqueue` returns false when full, before allocating a dispatch envelope; `Enqueue` throws `InvalidOperationException` instead. Both throw after disposal. Zero disables queued admission while preserving direct `Publish`. The default constructor uses -1 (unbounded); choose a finite limit for worker-to-engine adapters. `QueuedCount` is a coherent instantaneous pending count, and `MaximumQueuedEvents` exposes the configured limit. Capacity bounds pending event count rather than the memory reachable through event reference fields. Queuing and dequeue synchronize briefly; handlers execute outside that gate.
+
+## Migration
+
+Parameterless `FlushQueued()` now performs a bounded pass using the entry count. Code that intentionally drains callback-posted work in one call can pass an explicit budget, such as `FlushQueued(maxEvents: 100)`, or schedule further passes. `IEventBus` implementations now expose `MaximumQueuedEvents` and `TryEnqueue`.
 
 ## Ownership and concurrency
 
@@ -128,12 +137,12 @@ The same pattern applies to Godot: enqueue from producers and flush in `_Process
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/global.json):
 
 ```bash
 dotnet build src/Bezoro.Events/Bezoro.Events.csproj -c Release
 dotnet test tests/Bezoro.Events.Tests/Bezoro.Events.Tests.csproj -c Release -f net10.0
 ```
 
-See [the Events tests](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/tests/Bezoro.Events.Tests/README.md) for lifecycle and concurrency coverage.
+See [the Events tests](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/tests/Bezoro.Events.Tests/README.md) for lifecycle and concurrency coverage.
 

@@ -49,7 +49,7 @@ Create `TypingResult` values through the public `TypingResult.Match`, `TypingRes
 
 Use `TypingState.WithCorrect()` and `TypingState.WithMistake()` to derive the next immutable state. Starting at `TypingState.Initial`, each correct input advances `Position`; `CorrectCount` is the same accepted-character count. Restore progress with `new TypingState(position: 20, mistakeCount: 3)`, without a second independently writable correct count. `IsComplete(targetLength)` becomes true when all characters have been accepted. Stop submitting input for that target after completion; the next position is beyond its final character. Empty targets are validation faults and do not complete this workflow.
 
-Pass a `TypingMetrics` instance through `TypingValidatorOptions` to record each validation automatically. Metrics reject `default(TypingResult)` before updating counts. A recorded result updates metrics first, then invokes `OnValidated`, then invokes its status callback. Completion invokes `OnCompleted` rather than `OnMatch`. A throwing callback prevents later callbacks in that validation; metrics are already recorded. Metrics and callbacks run synchronously on the validation caller's thread. Callbacks can allocate or throw; the validator does not catch their exceptions. Shared metrics and UI callbacks require external synchronization or dispatch to the engine thread.
+Pass a `TypingMetrics` instance through `TypingValidatorOptions` to record each validation automatically. Metrics reject `default(TypingResult)` before updating counts. A recorded result updates metrics first, then invokes `OnValidated`, then invokes its status callback. Completion invokes `OnCompleted` rather than `OnMatch`. A throwing callback prevents later callbacks in that validation; metrics are already recorded. Metrics and callbacks run synchronously on the validation caller's thread. Callbacks can allocate or throw; the validator does not catch their exceptions. Metrics recording, reset and reads are internally synchronized. `CreateSnapshot()` copies all counters and elapsed time together into an immutable `TypingMetricsSnapshot`, suitable for delivery to another thread; separate property reads can observe different intervening updates. User callbacks remain responsible for their own shared state and engine-thread dispatch.
 
 ### Word providers
 
@@ -57,7 +57,7 @@ Use `IWordSource.TryGetNextWord` as the consumption contract. It atomically repo
 
 `ArrayWordProvider` enumerates its constructor input once, supporting sources that can only be consumed once. Empty initial sources are valid. Use `new ArrayWordProvider()` for later population; null string entries are rejected. Empty strings can be consumed or removed like other stored words. Removing a word uses swapback storage and can change unread order. Removing a consumed word preserves the remaining unread words without replaying consumed ones. `WordCount` counts stored words, including those already consumed; it is not the unread count.
 
-`ArrayWordProvider` supports concurrent consumers: each stored word is reserved by at most one successful call. Exhausted reads do not advance the cursor, so words appended afterward remain available. Mutations, including file loading, must be externally synchronized with all other operations on the provider. Returned memory refers to an owned immutable string and remains valid after the provider is changed.
+`ArrayWordProvider` synchronizes reads and mutations: each stored word is consumed at most once until the provider is cleared. Exhausted reads do not advance the cursor, so words appended afterward remain available. Batch additions and file loading publish one word at a time; caller enumeration runs outside the provider lock, and enumeration failure preserves words already appended. Returned memory refers to an owned immutable string and remains valid after the provider is changed.
 
 Load one word per line during caller-controlled setup through the focused file adapter:
 
@@ -94,12 +94,12 @@ Consume through `IWordSource`, mutate the concrete provider, and load files thro
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/global.json):
 
 ```bash
 dotnet build src/Bezoro.TypingSystem/Bezoro.TypingSystem.csproj -c Release
 dotnet test tests/Bezoro.TypingSystem.Tests/Bezoro.TypingSystem.Tests.csproj -c Release -f net10.0
 ```
 
-See [the TypingSystem tests](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/tests/Bezoro.TypingSystem.Tests/README.md) for completion, single-pass source, removal, and concurrent-consumer coverage.
+See [the TypingSystem tests](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/tests/Bezoro.TypingSystem.Tests/README.md) for completion, single-pass source, removal, and concurrent-consumer coverage.
 

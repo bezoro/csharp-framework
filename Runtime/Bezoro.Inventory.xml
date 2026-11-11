@@ -82,7 +82,7 @@
             <summary>Stores item stacks in a fixed number of slots.</summary>
             <remarks>
             Successful mutations retain catalog limits. Capacity failures return false without modifying any slot.
-            Mutable inventories require one owning thread or external serialization, including across transfers.
+            Public operations are thread-safe. Transfers lock both inventories in a consistent order; snapshots never expose mutable storage.
             Normal data operations invoke no application callbacks and allocate no managed storage after construction; exceptions allocate as usual.
             </remarks>
         </member>
@@ -98,8 +98,11 @@
         <member name="P:Bezoro.Inventory.SlotInventory.OccupiedSlotCount">
             <summary>Gets the number of nonempty slots.</summary>
         </member>
-        <member name="P:Bezoro.Inventory.SlotInventory.Slots">
-            <summary>Gets a borrowed view of all slots. Mutations change this view; copy it to retain a snapshot.</summary>
+        <member name="M:Bezoro.Inventory.SlotInventory.CopyTo(System.Span{Bezoro.Inventory.ItemStack})">
+            <summary>Copies a coherent slot snapshot into caller-owned storage without allocating.</summary>
+        </member>
+        <member name="M:Bezoro.Inventory.SlotInventory.CreateSnapshot">
+            <summary>Allocates an independent, coherent snapshot of every slot.</summary>
         </member>
         <member name="P:Bezoro.Inventory.SlotInventory.Item(System.Int32)">
             <summary>Gets a value snapshot of one slot.</summary>
@@ -133,7 +136,7 @@
             <summary>Transfers a positive aggregate quantity atomically between inventories sharing this catalog instance.</summary>
             <returns>False when the source quantity or complete destination capacity is insufficient.</returns>
             <remarks>
-            Both inventories must be externally serialized for the duration of the call.
+            Both inventories are locked for the complete transfer, in the same order for opposite-direction requests.
             A transfer to the same inventory succeeds without mutation only if the requested quantity exists.
             Different catalog instances throw even when their definitions happen to match.
             </remarks>
@@ -141,7 +144,7 @@
         <member name="M:Bezoro.Inventory.SlotInventory.TryRestore(System.ReadOnlySpan{Bezoro.Inventory.ItemStack})">
             <summary>Replaces all slots from a complete snapshot after validating its length, item identifiers, and per-slot limits.</summary>
             <returns>False for a malformed snapshot, leaving the inventory unchanged.</returns>
-            <remarks>The input may alias the current borrowed slot view. A snapshot carries no catalog identity; the application owns its schema.</remarks>
+            <remarks>The caller retains exclusive access to the input until this call returns. A snapshot carries no catalog identity; the application owns its schema.</remarks>
         </member>
         <member name="M:Bezoro.Inventory.SlotInventory.Clear">
             <summary>Empties every slot while retaining storage.</summary>

@@ -55,11 +55,13 @@ A query visits the cells in its clipped bounding rectangle and tests their point
 
 ## Concurrency and engine use
 
-Multiple queries and `TryGet` calls may read one unchanged index concurrently. Each caller supplies distinct destination memory. Mutation requires exclusive access through one owner or application-provided synchronization. No query writes stamps, scratch arrays, or other shared data, and the index does not create background workers or add implicit locks. Coordinate mutation and queries using the host's job phases or an external lock.
+Queries and `TryGet` calls can run concurrently, including while other threads request mutations. A per-index reader/writer gate grants mutations exclusive access and gives waiting writers priority over new readers. Each query keeps its read ownership across both sizing and copying, so results describe one consistent index state. Synchronization happens once at the API boundary, never per point or cell. The gate uses managed monitor state and requires no disposal or background workers.
+
+Each caller supplies distinct destination memory. Payload references remain application-owned and are not made thread-safe by the index. Individual property reads are consistent observations rather than a combined transaction. Separate indexes execute independently.
 
 Convert Unity/Godot vectors at the adapter boundary and keep scene-object access on the engine thread. This module indexes points, not extended colliders, and does not implement collision response, sweep tests, nearest-neighbor ranking, unbounded worlds, or physics integration. Rectangle/circle results are exact for their stored point positions under the documented floating-point comparisons.
 
 ## Validation
 
-See the [tests](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/tests/Bezoro.Spatial.Tests/README.md) for differential and lifecycle coverage, and the [benchmarks](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/benchmarks/Bezoro.Spatial.Benchmarks/README.md) for reusable workloads.
+See the [tests](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/tests/Bezoro.Spatial.Tests/README.md) for differential and lifecycle coverage, and the [benchmarks](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/benchmarks/Bezoro.Spatial.Benchmarks/README.md) for reusable workloads.
 

@@ -7,7 +7,7 @@
         <member name="T:Bezoro.Commerce.CommerceAccount">
             <summary>Owns balances, permanent cosmetic entitlements, equipment and a bounded transaction ledger.</summary>
             <remarks>
-            Requires one owner or external serialization. Successful business operations are atomic in memory; rejected operations do not mutate state.
+            Public operations are thread-safe and serialized per account. Rejected operations do not mutate state.
             Persist the complete snapshot and transaction receipt together before acknowledging network requests. This class does not authenticate callers,
             authorize rewards, process real money or provide distributed transactions. Only the authoritative host may grant currency or ownership.
             </remarks>

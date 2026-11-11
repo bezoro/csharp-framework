@@ -1216,6 +1216,11 @@
                 Fixed-capacity deferred command stream for structural mutations in <see cref="T:Bezoro.ECS.Services.World" />.
                 Command storage is allocated on the first recorded command and retained until disposal.
             </summary>
+            <remarks>
+                Recording, diagnostics, reset, disposal and playback serialize per stream. Concurrent producers retain
+                each caller's order; order between callers depends on scheduling. World playback still requires exclusive
+                access to the owning world's structural state. Stop producers before playback for a fixed batch boundary.
+            </remarks>
         </member>
         <member name="P:Bezoro.ECS.Types.CommandStream.HasCommands">
             <summary>
@@ -1461,6 +1466,8 @@
             <remarks>
                 Copies share one execution lifetime. Disposing any copy invalidates all copies.
                 Returned spans and component references are borrowed until disposal.
+                Callback and job entry atomically pins that lifetime against concurrent disposal of another copy.
+                Component access and borrowed references still require the caller's access discipline.
             </remarks>
         </member>
         <member name="T:Bezoro.ECS.Types.QueryCursor.EntityRefAction`1">

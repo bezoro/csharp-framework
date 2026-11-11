@@ -54,7 +54,7 @@
         <member name="T:Bezoro.PlayerProfiles.PlayerMatchHistory">
             <summary>A bounded, append-only page of one player's match history with constant-time duplicate checks.</summary>
             <remarks>
-            Requires one owner or external serialization. Records retain insertion order. Storage grows only with appended records.
+            Public operations are thread-safe and serialized per history. Records retain insertion order; storage grows only with appended records.
             Full pages reject new records rather than evicting their duplicate ledger. The host pages persistent history separately.
             </remarks>
         </member>
@@ -81,6 +81,9 @@
         </member>
         <member name="M:Bezoro.PlayerProfiles.PlayerMatchHistory.CopyTo(System.Span{Bezoro.PlayerProfiles.PlayerMatchRecord})">
             <summary>Copies all records into caller-owned storage; too-short destinations throw before copying.</summary>
+        </member>
+        <member name="M:Bezoro.PlayerProfiles.PlayerMatchHistory.CreateSnapshot">
+            <summary>Allocates a coherent snapshot without requiring a separate count query.</summary>
         </member>
         <member name="T:Bezoro.PlayerProfiles.PlayerMatchOutcome">
             <summary>Describes a completed match from one player's perspective.</summary>

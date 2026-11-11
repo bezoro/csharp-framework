@@ -22,7 +22,7 @@
         </member>
         <member name="T:Bezoro.Progression.BattlePassProgress">
             <summary>Owns one player's experience, access entitlement, and per-track claim flags for a battle pass.</summary>
-            <remarks>Requires one owner or external synchronization. Experience events and premium purchases must be authorized by the host.</remarks>
+            <remarks>Public operations are thread-safe and serialized per player. Experience events and premium purchases must be authorized by the host.</remarks>
         </member>
         <member name="M:Bezoro.Progression.BattlePassProgress.#ctor(Bezoro.Progression.BattlePassDefinition)">
             <summary>Creates a pass with zero experience, no premium access, and no claimed tiers.</summary>
@@ -55,6 +55,9 @@
         </member>
         <member name="M:Bezoro.Progression.BattlePassProgress.CopyClaimStateTo(System.Span{System.Byte})">
             <summary>Copies one byte per tier: bit zero denotes a free claim, bit one a premium claim.</summary>
+        </member>
+        <member name="M:Bezoro.Progression.BattlePassProgress.CopyStateTo(System.Span{System.Byte},System.Int64@,System.Boolean@)">
+            <summary>Copies experience, access and all claim flags from one coherent state without allocating.</summary>
         </member>
         <member name="M:Bezoro.Progression.BattlePassProgress.TryRestore(System.Int64,System.Boolean,System.ReadOnlySpan{System.Byte})">
             <summary>Validates and restores a complete saved state without partial mutation.</summary>
@@ -145,7 +148,7 @@
         </member>
         <member name="T:Bezoro.Progression.QuestProgress">
             <summary>Owns one player's quest counters and claim state for a shared catalog.</summary>
-            <remarks>Requires one owner or external synchronization. Feed authoritative events once; this class does not deduplicate event deliveries.</remarks>
+            <remarks>Public operations are thread-safe and serialized per player. Feed authoritative events once; this class does not deduplicate event deliveries.</remarks>
         </member>
         <member name="M:Bezoro.Progression.QuestProgress.#ctor(Bezoro.Progression.QuestCatalog)">
             <summary>Creates inactive quests with zero counters.</summary>
@@ -248,7 +251,7 @@
         </member>
         <member name="T:Bezoro.Progression.StoryProgress">
             <summary>Owns one byte of best-score state per story stage.</summary>
-            <remarks>Requires one owner or external synchronization. Unlocks are evaluated on demand; no update loop or cached traversal is retained.</remarks>
+            <remarks>Public operations are thread-safe and serialized per player. Unlocks are evaluated on demand; no update loop or cached traversal is retained.</remarks>
         </member>
         <member name="M:Bezoro.Progression.StoryProgress.#ctor(Bezoro.Progression.StoryCatalog)">
             <summary>Creates an unplayed story for a shared immutable catalog.</summary>

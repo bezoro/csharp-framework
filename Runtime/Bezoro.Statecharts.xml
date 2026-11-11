@@ -249,7 +249,8 @@
             <summary>Owns one active configuration and bounded event workspace for a shared chart definition.</summary>
             <remarks>
             Only active sources are examined on Dispatch. There is no polling, timer, worker, or event queue.
-            Call from one owner or externally serialize access. Lifecycle callbacks are synchronous and cannot reenter operations.
+            Independent runners can execute concurrently. Concurrent or reentrant lifecycle operations on one runner are rejected
+            before mutation. State inspection and borrowed views belong to the execution owner. Callbacks are synchronous.
             </remarks>
         </member>
         <member name="M:Bezoro.Statecharts.StatechartRunner`1.#ctor(Bezoro.Statecharts.StatechartDefinition,Bezoro.Statecharts.IStatechartHandler{`0})">

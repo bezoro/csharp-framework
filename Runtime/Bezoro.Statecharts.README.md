@@ -80,7 +80,7 @@ All selected exits run before transition effects and entries. Exits follow rever
 
 A guard exception preserves the prior active configuration and running status. An exception after lifecycle changes begin faults and stops the runner. Cleanup attempts exits for all states still active, including an entry whose OnEnter callback threw. The state and token are removed before OnExit, so that exit is never attempted twice. Cleanup errors are preserved with the original failure in an AggregateException. A faulted runner requires Reset before Start.
 
-Operations reject reentrancy. Callbacks can query the configuration but cannot Start, Stop, Reset, or Dispatch recursively. State and reaction effects should produce application intents or commands; an application controller resolves movement, external impulses, restrictions, and animation layers explicitly.
+Lifecycle operations use atomic, nonblocking admission. Concurrent or reentrant Start, Stop, Reset and Dispatch calls on one runner throw before mutation; independent runners can execute on separate workers. Reset reserves cleanup and fault reset together. Callbacks can query their configuration but cannot recursively mutate it. State and reaction effects should produce application intents or commands; an application controller resolves movement, external impulses, restrictions, and animation layers explicitly.
 
 A StateActivation identifies one entry in one runner. Dispatch revokes every token scheduled for exit before invoking its first exit callback. Tokens for unaffected states remain live, and tokens issued to new entries are live during their OnEnter callbacks. The exit plan uses existing bounded workspace; it creates no extra array. A token is invalid after exit, reentry, Stop, or use with another runner:
 
@@ -92,7 +92,7 @@ if (runner.IsActive(activation))
     ApplyResult();
 ```
 
-Tokens are process-local and do not belong in saved games. The serial is never reset; exhaustion rejects new entries before changing a configuration. `ActiveStates` and StatechartView are borrowed views and must not survive subsequent mutations. Definitions may be shared between threads. A runner, its context, and callback effects require one owner or external serialization.
+Tokens are process-local and do not belong in saved games. The serial is never reset; exhaustion rejects new entries before changing a configuration. `ActiveStates` and StatechartView are borrowed views and must not survive subsequent mutations. Definitions may be shared between threads. Each accepted operation exclusively borrows its context and callback state; state queries and borrowed views remain owner operations and must not race updates. Send worker completions to the execution owner's queue with their activation tokens. Admission does not create worker tasks, block threads, synchronize arbitrary callback data, or choose an engine thread.
 
 ## Polling and scheduled checks
 
@@ -108,5 +108,5 @@ Active membership uses O(log A) search. A signal looks up matching transitions f
 
 ## Validation
 
-The [tests](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/tests/Bezoro.Statecharts.Tests/README.md) cover locomotion/reaction parallelism, guard snapshots, local/external/internal semantics, lifecycle failure cleanup, identity, memory bounds, zero allocation, and independent concurrent owners. The [benchmarks](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/benchmarks/Bezoro.Statecharts.Benchmarks/README.md) define reusable diagnostic workloads. Engine/player validation is separate from managed compilation and tests.
+The [tests](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/tests/Bezoro.Statecharts.Tests/README.md) cover locomotion/reaction parallelism, guard snapshots, local/external/internal semantics, lifecycle failure cleanup, identity, memory bounds, zero allocation, and independent concurrent owners. The [benchmarks](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/benchmarks/Bezoro.Statecharts.Benchmarks/README.md) define reusable diagnostic workloads. Engine/player validation is separate from managed compilation and tests.
 

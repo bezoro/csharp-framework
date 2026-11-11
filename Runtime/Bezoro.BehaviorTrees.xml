@@ -223,8 +223,10 @@
         <member name="T:Bezoro.BehaviorTrees.BehaviorTreeRunner`1">
             <summary>Executes one agent's tree with storage proportional to its maximum active path depth.</summary>
             <remarks>
-            The owner serializes updates. Definitions are shareable; runners, contexts and handler state are not implicitly synchronized.
-            Actions are synchronous callbacks and own any external jobs. No per-node tasks, locks or progress arrays are created.
+            Definitions are shareable and independent runners can execute concurrently. Each update exclusively borrows its context
+            and handler; concurrent or reentrant lifecycle operations on one runner are rejected before mutation.
+            State inspection belongs to that execution owner. Actions are synchronous callbacks and own any external jobs.
+            No per-node tasks, blocking locks or progress arrays are created.
             </remarks>
         </member>
         <member name="M:Bezoro.BehaviorTrees.BehaviorTreeRunner`1.#ctor(Bezoro.BehaviorTrees.BehaviorTreeDefinition)">

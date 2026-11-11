@@ -90,24 +90,10 @@
         </member>
         <member name="M:Bezoro.Core.Abstractions.IPool`1.Clear">
             <summary>
-                Clears all available objects from the pool and directly disposes items that implement
-                <see cref="T:System.IDisposable" /> without invoking <see cref="M:Bezoro.Core.Abstractions.IPoolPolicy`1.OnDiscard(`0)" />.
+                Releases the currently available objects through <see cref="M:Bezoro.Core.Abstractions.IPoolPolicy`1.OnDiscard(`0)" />.
+                Outstanding rentals remain owned until returned. Objects returned during cleanup are retained.
             </summary>
-        </member>
-        <member name="M:Bezoro.Core.Abstractions.IPool`1.ClearWithPolicyDiscard">
-            <summary>
-                Clears all available objects from the pool by invoking <see cref="M:Bezoro.Core.Abstractions.IPoolPolicy`1.OnDiscard(`0)" />
-                for each item.
-            </summary>
-        </member>
-        <member name="M:Bezoro.Core.Abstractions.IPool`1.Clear(System.Boolean)">
-            <summary>
-                Clears all available objects from the pool using the selected legacy release behavior.
-            </summary>
-            <param name="disposeItems">
-                If <c>true</c>, forwards to <see cref="M:Bezoro.Core.Abstractions.IPool`1.Clear" />; otherwise, forwards to
-                <see cref="M:Bezoro.Core.Abstractions.IPool`1.ClearWithPolicyDiscard" />.
-            </param>
+            <remarks>Every selected object is attempted even if a discard callback throws; the first failure is rethrown.</remarks>
         </member>
         <member name="T:Bezoro.Core.Abstractions.IPooledObject">
             <summary>
@@ -132,6 +118,7 @@
                 Defines the lifecycle and validation policy for pooled objects.
             </summary>
             <typeparam name="T">The type of objects managed by the pool.</typeparam>
+            <remarks>Callbacks execute synchronously on the operation's thread and may run concurrently for distinct objects.</remarks>
         </member>
         <member name="M:Bezoro.Core.Abstractions.IPoolPolicy`1.Reset(`0)">
             <summary>
@@ -158,6 +145,11 @@
                 Called when an object is being discarded and will not be returned to the pool.
             </summary>
             <param name="item">The object being discarded.</param>
+            <remarks>
+                This is the final release operation for validation/reset rejection, trimming, clearing, and disposal.
+                The policy owns native-resource cleanup and any managed disposal. The pool attempts this callback
+                once per owned release and releases capacity even when it throws.
+            </remarks>
         </member>
         <member name="T:Bezoro.Core.Abstractions.IProcessable">
             <summary>
@@ -570,7 +562,7 @@
         <member name="T:Bezoro.Core.Collections.RingBuffer`1">
             <summary>A fixed-capacity FIFO buffer with explicit rejection and overwrite operations.</summary>
             <typeparam name="T">The stored value type.</typeparam>
-            <remarks>One thread must own mutations and reads, or callers must serialize access externally.</remarks>
+            <remarks>Individual operations are thread-safe. Enumeration detects intervening mutations; CopyTo captures a coherent snapshot.</remarks>
         </member>
         <member name="M:Bezoro.Core.Collections.RingBuffer`1.#ctor(System.Int32)">
             <summary>Creates an empty FIFO buffer with a positive, fixed capacity.</summary>
@@ -612,6 +604,7 @@
         </member>
         <member name="M:Bezoro.Core.Collections.RingBuffer`1.CopyTo(System.Span{`0})">
             <summary>Copies all live values in FIFO order without changing the buffer.</summary>
+            <returns>The number of values copied in this coherent snapshot.</returns>
             <exception cref="T:System.ArgumentException">The destination is smaller than Count.</exception>
         </member>
         <member name="M:Bezoro.Core.Collections.RingBuffer`1.Clear">
@@ -4086,25 +4079,7 @@
             <inheritdoc />
         </member>
         <member name="M:Bezoro.Core.Types.Pool.ObjectPool`1.Clear">
-            <summary>
-                Clears all available objects from the pool and directly disposes items that implement
-                <see cref="T:System.IDisposable" /> without invoking <see cref="M:Bezoro.Core.Abstractions.IPoolPolicy`1.OnDiscard(`0)" />.
-            </summary>
-        </member>
-        <member name="M:Bezoro.Core.Types.Pool.ObjectPool`1.ClearWithPolicyDiscard">
-            <summary>
-                Clears all available objects from the pool by invoking <see cref="M:Bezoro.Core.Abstractions.IPoolPolicy`1.OnDiscard(`0)" />
-                for each item.
-            </summary>
-        </member>
-        <member name="M:Bezoro.Core.Types.Pool.ObjectPool`1.Clear(System.Boolean)">
-            <summary>
-                Clears all available objects from the pool using the selected legacy release behavior.
-            </summary>
-            <param name="disposeItems">
-                If <c>true</c>, forwards to <see cref="M:Bezoro.Core.Types.Pool.ObjectPool`1.Clear" />; otherwise, forwards to
-                <see cref="M:Bezoro.Core.Types.Pool.ObjectPool`1.ClearWithPolicyDiscard" />.
-            </param>
+            <inheritdoc />
         </member>
         <member name="M:Bezoro.Core.Types.Pool.ObjectPool`1.Dispose">
             <summary>
@@ -4118,7 +4093,7 @@
             </summary>
             <typeparam name="T">The type of the pooled object.</typeparam>
             <remarks>
-                This is a mutable struct whose copies share disposal state, ensuring the pooled object is returned only once.
+                This readonly struct has copies that share disposal state, ensuring the pooled object is returned only once.
             </remarks>
         </member>
         <member name="M:Bezoro.Core.Types.Pool.PooledObjectHandle`1.#ctor(`0,Bezoro.Core.Abstractions.IPool{`0})">
@@ -4638,9 +4613,11 @@
         <member name="T:Bezoro.Core.Types.Singleton`1">
             <summary>Creates one default instance per type and supports owned, nested overrides.</summary>
             <remarks>
-            Creation, configuration, and scope changes are serialized. Reading an existing instance does not lock.
-            The application must finish using borrowed instances before resetting, recreating, or disposing an override.
-            Factories run on the calling thread and cannot recursively change this singleton's lifecycle.
+            Lifecycle reservations are serialized; factories and disposal callbacks run outside the monitor.
+            Reading an existing instance does not lock. Concurrent default readers join one pending creation.
+            Overlapping lifecycle changes fail before mutation. Factories cannot recursively request their own
+            pending instance; factories with circular dependencies across threads are unsupported.
+            Finish using borrowed instances before resetting, recreating, or disposing their owning override.
             </remarks>
             <typeparam name="T">The singleton's reference type.</typeparam>
         </member>
@@ -4700,6 +4677,7 @@
                 The array is ideal for scenarios where element order is unimportant and high-performance removals are desired.
                 Implements <see cref="T:System.Collections.Generic.IReadOnlyList`1" /> for enumeration. Use <see cref="M:Bezoro.Core.Types.SwapbackArray`1.Add(`0)" />, <see cref="M:Bezoro.Core.Types.SwapbackArray`1.Remove(`0)" />,
                 <see cref="M:Bezoro.Core.Types.SwapbackArray`1.Clear" />, etc. for mutation.
+                Storage and borrowed views require exclusive ownership. Predicates must not mutate the array.
             </remarks>
         </member>
         <member name="F:Bezoro.Core.Types.SwapbackArray`1._items">
@@ -4881,6 +4859,8 @@
             </summary>
             <param name="match">Predicate to select elements for removal.</param>
             <exception cref="T:System.ArgumentNullException">If <paramref name="match" /> is null.</exception>
+            <exception cref="T:System.InvalidOperationException">The predicate mutates the array.</exception>
+            <remarks>Compaction is in place; work performed before a predicate failure is not rolled back.</remarks>
         </member>
         <member name="M:Bezoro.Core.Types.SwapbackArray`1.Add(`0)">
             <summary>

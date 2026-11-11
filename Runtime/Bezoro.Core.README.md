@@ -2,9 +2,11 @@
 
 Engine-independent collections, grids, object pools, value types, results, and guard extensions shared by the framework. The library targets .NET 10 and .NET Standard 2.1. Unity 6 consumes the precompiled .NET Standard DLLs; its project compiler does not need to compile the framework's source syntax.
 
+Pools, ring-buffer operations and singleton bookkeeping support concurrent callers. Span/ref-based storage kernels remain explicitly borrowed execution storage, suitable for independently owned workers without per-element locks. See [concurrency and migration](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/docs/concurrency.md) for the complete ownership boundaries. A thread-safe container does not make its referenced values or callbacks thread-safe.
+
 ## Data utilities
 
-[Binary span cursors](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Core/Binary/README.md) read and write explicit little-endian fields with bounds checks and no storage growth. [Bit sets](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Core/Collections/README.BitSet.md) store fixed-capacity flags in words; span extensions provide lower/upper bounds and ordered/swap-back removal with reference clearing. [Numeric helpers](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Core/Numerics/README.md) cover signed chunk division, cyclic indices, interpolation, and elapsed-time damping with explicit finite-input policies.
+[Binary span cursors](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/src/Bezoro.Core/Binary/README.md) read and write explicit little-endian fields with bounds checks and no storage growth. [Bit sets](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/src/Bezoro.Core/Collections/README.BitSet.md) store fixed-capacity flags in words; span extensions provide lower/upper bounds and ordered/swap-back removal with reference clearing. [Numeric helpers](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/src/Bezoro.Core/Numerics/README.md) cover signed chunk division, cyclic indices, interpolation, and elapsed-time damping with explicit finite-input policies.
 
 Use the new operations where their contracts fit the game. Binary readers do not validate application schemas, sorted span searches require caller-maintained ordering, and mutable bit sets require external serialization.
 
@@ -54,14 +56,19 @@ if (item != null)
 - A rejected or throwing reset, or throwing rent validation, removes and discards the affected owned object. Cleanup releases capacity. Exceptions from reset or validation remain visible to the caller.
 - Rent validation and `OnRent` run before the rental becomes returnable. Returning that same item from either callback returns false, so it cannot become available to a second consumer while acquisition is still in progress.
 - Failed prewarming releases objects already created. Clearing available objects attempts cleanup of every object even when one cleanup callback throws, then rethrows the first failure.
-- `Clear()` disposes available `IDisposable` values directly. `ClearWithPolicyDiscard()` uses the policy's discard callback. `Dispose()` clears available objects; outstanding rentals are discarded when returned afterward. Return rentals before disposing their pool when possible.
+- Every permanent release uses `IPoolPolicy<T>.OnDiscard`, including validation/reset rejection, trimming, `Clear()`, failed prewarming and `Dispose()`. `PoolPolicy<T>` invokes its discard delegate and then disposes an `IDisposable` value, including when the delegate throws. Custom policies own their complete final cleanup. `Dispose()` releases available objects; outstanding rentals remain borrowed until returned afterward and are then discarded. Return rentals before disposing their pool when possible.
+- `Clear()` detaches a finite snapshot of available objects under the pool gate and runs all discard callbacks outside it. Objects returned while that cleanup runs remain available in the live pool. Clearing a nonempty pool allocates one empty stack and releases the previous available-reference storage; normal warmed `Rent()`/`Return()` is unchanged. Cleanup attempts every selected object and rethrows the first callback failure.
 - Copies of `PooledObjectHandle<T>` share disposal state and return their value once. `RentHandle()` allocates that shared state. Raw `Rent()`/`Return()` avoids the handle allocation but requires explicit ownership discipline.
 
-Pool bookkeeping is thread-safe. Available references use reusable stack storage under the lifecycle lock. Storage can grow when the number of available objects reaches a new peak; warmed reuse does not allocate a node per return. Timed rents that complete immediately also allocate no timer object. Actual async waits allocate cancellation and task state. Rented objects are not made thread-safe by the pool, and policy callbacks may run concurrently for different objects. A single rental should have one owner. Statistics are concurrent observations rather than an atomic snapshot of every counter.
+Pool bookkeeping is thread-safe. Available references use reusable stack storage under the lifecycle lock. Storage can grow when the number of available objects reaches a new peak; warmed reuse does not allocate a node per return. Timed rents that complete immediately also allocate no timer object. Actual async waits allocate cancellation and task state. Rented objects are not made thread-safe by the pool, and policy callbacks may run concurrently for different objects. An async rent that waits does not preserve a synchronization-context affinity for its callbacks; an engine adapter must schedule the complete operation on the required thread when those callbacks access scene objects. A single rental should have one owner. Statistics are concurrent observations rather than an atomic snapshot of every counter.
 
 `new PoolOptions()` uses `PoolOptions.Default`, including rent validation and async waiting. An omitted or uninitialized options value also selects those defaults when passed to the pool. `MaxCapacity = -1` is unbounded; zero permits no owned objects. Negative initial capacity, maximum capacity below -1, and initial capacity above a bounded maximum are rejected before calling the factory. A failed factory releases its reserved capacity and wakes waiting renters. A throwing policy discard callback still disposes its `IDisposable` value; if both fail, their exceptions are aggregated.
 
 Call `TrimExcess(...)` to trim explicitly, and select a timed rent when a deadline is needed. Statistics counters require `TrackStatistics = true`.
+
+### Pool lifecycle migration
+
+`Clear()` is the single cleanup API. Replace `ClearWithPolicyDiscard()` and either form of `Clear(bool)` with `Clear()`. `IPool<T>` implementations now implement that parameterless method directly. `Clear()` and `Dispose()` consistently invoke the configured discard policy, including for engine handles that do not implement `IDisposable`. Put native cleanup in that policy; a custom `IPoolPolicy<T>` also handles managed disposal, while `PoolPolicy<T>` performs managed disposal after its optional discard delegate. Engine adapters invoke these operations on the thread required by their callbacks; the core does not marshal them implicitly. Borrowed values and handle copies do not pin a rental against another thread returning or disposing it.
 
 ## Collections
 
@@ -76,7 +83,7 @@ entityIds.ClearRetainingCapacity(); // Reuse the backing allocation.
 entityIds.Clear();                  // Clear and shrink to minimum capacity.
 ```
 
-`SwapbackArray<T>` removes an item by moving the last item into its slot. Indexed removal is O(1) before any optional shrink; searching by value is O(n), and shrinking copies retained values. Set `ShrinkThresholdPercent = Percent.Zero` to defer shrinking until the collection is empty, or reuse capacity with `ClearRetainingCapacity()` between workloads.
+`SwapbackArray<T>` removes an item by moving the last item into its slot. Indexed removal is O(1) before any optional shrink; searching by value is O(n), and shrinking copies retained values. Set `ShrinkThresholdPercent = Percent.Zero` to defer shrinking until the collection is empty, or reuse capacity with `ClearRetainingCapacity()` between workloads. The owner must keep borrowed spans exclusive through their use. `RemoveAll` rejects predicates that mutate the array before compaction can overwrite their changes; prior in-place work is not rolled back after a predicate failure.
 
 `ReplaceAt` and the indexer require `index < Count`. `TryGetIndex` returns `false` with index zero when absent. Adding the collection directly to itself appends its current contents once. An enumerable that reads the collection indirectly, such as a LINQ query over it, is invalidated when appending starts and throws instead of growing indefinitely. A failed enumeration can leave successfully appended items in the destination and invalidates existing enumerators.
 
@@ -84,7 +91,7 @@ These collections require external synchronization for concurrent mutation and a
 
 ## Grids and borrowed views
 
-For fixed-capacity gameplay storage, see [generational slot maps and ring buffers](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Core/Collections/README.md). For replayable procedural generation, shuffling, and weighted selection, see [deterministic random streams](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/src/Bezoro.Core/Random/README.md). Their capacities and state ownership are explicit; they do not introduce global random state or synchronize mutable game data implicitly.
+For fixed-capacity gameplay storage, see [generational slot maps and ring buffers](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/src/Bezoro.Core/Collections/README.md). For replayable procedural generation, shuffling, and weighted selection, see [deterministic random streams](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/src/Bezoro.Core/Random/README.md). Their capacities and state ownership are explicit; they do not introduce global random state or synchronize mutable game data implicitly.
 
 ```csharp
 using Bezoro.Core.Types;
@@ -171,12 +178,12 @@ Format enum values with `ToString()` and then the string extensions. `ColorHex`,
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/global.json):
 
 ```bash
 dotnet build src/Bezoro.Core/Bezoro.Core.csproj -c Release
 dotnet test tests/Bezoro.Core.Tests/Bezoro.Core.Tests.csproj -c Release -f net10.0
 ```
 
-The first command builds both runtime targets. See [the Core tests](https://github.com/bezoro/csharp-framework/blob/7937b570b52cc850e10572251fb982c3d8d940f0/tests/Bezoro.Core.Tests/README.md) for covered contracts.
+The first command builds both runtime targets. See [the Core tests](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/tests/Bezoro.Core.Tests/README.md) for covered contracts.
 

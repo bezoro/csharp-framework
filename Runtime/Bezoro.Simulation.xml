@@ -133,8 +133,8 @@
         </member>
         <member name="T:Bezoro.Simulation.Attributes.StatSet">
             <summary>
-            Owns a fixed set of attributes and a bounded reusable modifier pool. Mutations and cached reads require
-            an owning thread or external serialization. Different instances may run independently on different threads.
+            Owns a fixed set of attributes and a bounded reusable modifier pool. Mutations and cached reads
+            are synchronized per instance; returned definitions, evaluations and modifiers are value snapshots.
             </summary>
         </member>
         <member name="M:Bezoro.Simulation.Attributes.StatSet.#ctor(System.ReadOnlySpan{Bezoro.Simulation.Attributes.StatDefinition},System.Int32)">
@@ -315,7 +315,7 @@
         <member name="T:Bezoro.Simulation.Timing.TickScheduler`1">
             <summary>
             A fixed-capacity integer-tick scheduler with stable ordering and generational cancellation.
-            Operations require one owning thread or external serialization. Separate instances are independent.
+            Public operations are synchronized per instance; producers may schedule or cancel while consumers drain.
             </summary>
             <remarks>
             Scheduling, cancellation, rescheduling, and draining allocate no managed memory after construction.

@@ -36,8 +36,8 @@
                 A mutable word source with atomic consumption of each stored word.
             </summary>
             <remarks>
-                Concurrent calls to <see cref="M:Bezoro.TypingSystem.Types.ArrayWordProvider.TryGetNextWord(System.ReadOnlyMemory{System.Char}@)" /> consume each stored word at most once.
-                Mutations must be externally synchronized with all other operations on this provider.
+                Reads and mutations are synchronized. Each stored word is consumed at most once until the provider is cleared.
+                Batch additions commit one word at a time, without holding a lock while enumerating caller code.
             </remarks>
         </member>
         <member name="M:Bezoro.TypingSystem.Types.ArrayWordProvider.#ctor">
@@ -68,65 +68,67 @@
             <inheritdoc />
         </member>
         <member name="T:Bezoro.TypingSystem.Types.TypingMetrics">
-            <summary>
-                Calculates and tracks typing performance metrics.
-            </summary>
-        </member>
-        <member name="M:Bezoro.TypingSystem.Types.TypingMetrics.#ctor">
-            <summary>
-                Initializes a new instance of the <see cref="T:Bezoro.TypingSystem.Types.TypingMetrics" /> class.
-            </summary>
+            <summary>Tracks typing performance with synchronized recording, reads and reset.</summary>
         </member>
         <member name="P:Bezoro.TypingSystem.Types.TypingMetrics.Accuracy">
-            <summary>
-                Gets the typing accuracy as a value between 0 and 1.
-            </summary>
+            <summary>Gets accuracy from one coherent observation of the counters.</summary>
         </member>
         <member name="P:Bezoro.TypingSystem.Types.TypingMetrics.CharactersPerMinute">
-            <summary>
-                Gets the number of correct characters typed per minute.
-            </summary>
+            <summary>Gets correctly typed characters per minute.</summary>
         </member>
         <member name="P:Bezoro.TypingSystem.Types.TypingMetrics.Elapsed">
-            <summary>
-                Gets the total time elapsed since the metrics tracking started.
-            </summary>
+            <summary>Gets elapsed time since construction or the most recent reset.</summary>
         </member>
         <member name="P:Bezoro.TypingSystem.Types.TypingMetrics.TotalEvaluated">
-            <summary>
-                Gets the total number of non-faulted inputs evaluated.
-            </summary>
+            <summary>Gets the number of non-faulted inputs.</summary>
         </member>
         <member name="P:Bezoro.TypingSystem.Types.TypingMetrics.CorrectInputs">
-            <summary>
-                Gets the number of correct inputs.
-            </summary>
+            <summary>Gets the number of correct inputs.</summary>
         </member>
         <member name="P:Bezoro.TypingSystem.Types.TypingMetrics.FaultedInputs">
-            <summary>
-                Gets the number of faulted inputs (e.g., out of range).
-            </summary>
+            <summary>Gets the number of validation faults.</summary>
         </member>
         <member name="P:Bezoro.TypingSystem.Types.TypingMetrics.MistakeInputs">
-            <summary>
-                Gets the number of mistake inputs (mismatches).
-            </summary>
+            <summary>Gets the number of mismatches.</summary>
         </member>
         <member name="P:Bezoro.TypingSystem.Types.TypingMetrics.TotalInputs">
-            <summary>
-                Gets the total number of inputs recorded.
-            </summary>
+            <summary>Gets the total number of recorded inputs.</summary>
+        </member>
+        <member name="M:Bezoro.TypingSystem.Types.TypingMetrics.CreateSnapshot">
+            <summary>Copies all counters and elapsed time together for cross-thread presentation.</summary>
         </member>
         <member name="M:Bezoro.TypingSystem.Types.TypingMetrics.Record(Bezoro.TypingSystem.Types.TypingResult)">
-            <summary>
-                Records a validation result and updates the metrics.
-            </summary>
-            <param name="result">The validation result to record.</param>
+            <summary>Records a validated result atomically. No callbacks execute while updating counters.</summary>
         </member>
         <member name="M:Bezoro.TypingSystem.Types.TypingMetrics.Reset">
-            <summary>
-                Resets all tracked metrics and restarts the timer.
-            </summary>
+            <summary>Clears all counters and restarts elapsed time as one operation.</summary>
+        </member>
+        <member name="T:Bezoro.TypingSystem.Types.TypingMetricsSnapshot">
+            <summary>An immutable, coherent observation of one typing metrics collector.</summary>
+        </member>
+        <member name="P:Bezoro.TypingSystem.Types.TypingMetricsSnapshot.TotalInputs">
+            <summary>Gets the total number of recorded inputs.</summary>
+        </member>
+        <member name="P:Bezoro.TypingSystem.Types.TypingMetricsSnapshot.CorrectInputs">
+            <summary>Gets the number of correct inputs.</summary>
+        </member>
+        <member name="P:Bezoro.TypingSystem.Types.TypingMetricsSnapshot.MistakeInputs">
+            <summary>Gets the number of mismatches.</summary>
+        </member>
+        <member name="P:Bezoro.TypingSystem.Types.TypingMetricsSnapshot.FaultedInputs">
+            <summary>Gets the number of validation faults.</summary>
+        </member>
+        <member name="P:Bezoro.TypingSystem.Types.TypingMetricsSnapshot.Elapsed">
+            <summary>Gets elapsed time at capture.</summary>
+        </member>
+        <member name="P:Bezoro.TypingSystem.Types.TypingMetricsSnapshot.TotalEvaluated">
+            <summary>Gets the number of non-faulted inputs.</summary>
+        </member>
+        <member name="P:Bezoro.TypingSystem.Types.TypingMetricsSnapshot.Accuracy">
+            <summary>Gets correctly matched inputs as a fraction of evaluated inputs.</summary>
+        </member>
+        <member name="P:Bezoro.TypingSystem.Types.TypingMetricsSnapshot.CharactersPerMinute">
+            <summary>Gets correctly typed characters per minute at capture.</summary>
         </member>
         <member name="T:Bezoro.TypingSystem.Types.TypingResult">
             <summary>
