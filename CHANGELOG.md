@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Licensing
+
+- License framework-owned code under MIT, publish the same canonical license in the Unity package with stable importer metadata, and declare the SPDX identifier in package metadata. Third-party licenses remain unchanged.
+
 ### Concurrency and ownership review
 
 - Synchronize shared accounts, progress claims, histories, inventory transfers, simulation scheduling, attribute caches, typing metrics and word providers. Add coherent copied state for cross-thread readers while retaining allocation-free warmed operations.

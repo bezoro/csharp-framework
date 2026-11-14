@@ -107,6 +107,12 @@ The gameplay foundations also provide [deterministic random streams](src/Bezoro.
 
 Run the [composed gameplay demo](samples/Bezoro.Gameplay.ConsoleDemo/README.md) to exercise navigation, modifier expiry, and checkpoint replay together. The [C# 9 API consumer](samples/Bezoro.UnityApiSmoke/README.md) checks consumption through the Unity language level. See [foundation design and validation](docs/gameplay-foundations.md) for capacity, threading, and measurement details.
 
+## License
+
+Framework-owned code is available under the [MIT License](LICENSE), permitting commercial use, modification and redistribution, including in closed-source games, while retaining the copyright and license notice.
+
+Third-party components retain their own licenses. The Microsoft libraries shipped in the Unity package are covered by its [third-party notices](unity-package/THIRD-PARTY-NOTICES.md). The bundled Stockfish test engine remains covered by its [GPL license](tests/Bezoro.Chess.UCI.Protocol.Tests/TestResources/Engine/stockfish/Copying.txt) and is excluded from the Unity package.
+
 ## Build and contribute
 
 ```sh
@@ -120,6 +126,6 @@ Install PowerShell 7 for build-script tests. Chess integration tests use the bun
 
 Pushes to working branches do not start GitHub Actions. Updates to `main`, including merges, automatically validate and publish. Run local checks during development, and dispatch **Validate and publish Unity package** only when a consolidated pre-merge check is useful. Leave both publication flags disabled for validation; `validation_platform` can target Windows or Linux when diagnosing a platform-specific failure. Official publication requires `main` with `publish_upm` enabled.
 
-For pre-merge Chess Crush integration, `publish_candidate` publishes the selected source revision to the dedicated `upm-candidate/chesscrush` distribution branch. It requires both platforms and every test suite, shares the official staging/metadata checks and canonical version resolver, and leaves `main` and `upm` unchanged. Use the resulting complete Git commit in the game's Package Manager URL. Candidate and official flags are mutually exclusive. A published candidate is still a pre-merge build; validate its actual import and execution in Unity before accepting the consumer.
+For pre-merge Chess Crush integration, `publish_candidate` creates or updates `upm-candidate/chesscrush` on demand. It requires both platforms and every test suite, shares the official staging/metadata checks and canonical version resolver, and leaves `main` and `upm` unchanged. Use the resulting complete Git commit in the game's Package Manager URL. Candidate and official flags are mutually exclusive. A published candidate is still a pre-merge build; validate its actual import and execution in Unity before accepting the consumer. After integration, the temporary branch can be removed once consumers use the official package; retain historical candidate commits with archive tags. The integrated candidate `26719a83` is preserved as `archive/upm-candidate/chesscrush`.
 
 See [contribution guidelines](CONTRIBUTING.md), [change notes](CHANGELOG.md), and the [review report](docs/framework-review.md). Runtime compatibility must also be verified in the intended Unity/Godot player build; a successful .NET build does not establish IL2CPP, trimming, WebGL, or console support.

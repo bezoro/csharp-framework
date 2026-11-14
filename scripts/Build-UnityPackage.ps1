@@ -11,9 +11,13 @@ $templateRoot = Join-Path $repositoryRoot "unity-package"
 $outputRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot $OutputPath))
 $runtimeRoot = Join-Path $outputRoot "Runtime"
 $versionScript = Join-Path $PSScriptRoot "Get-PackageVersion.ps1"
+$licensePath = Join-Path $repositoryRoot "LICENSE"
 
 if (-not (Test-Path -LiteralPath $templateRoot)) {
 	throw "Unity package template not found at '$templateRoot'."
+}
+if (-not (Test-Path -LiteralPath $licensePath -PathType Leaf)) {
+	throw "Framework license not found at '$licensePath'."
 }
 
 if ([string]::IsNullOrWhiteSpace($PackageVersion)) {
@@ -49,6 +53,7 @@ foreach ($templateItem in Get-ChildItem -LiteralPath $templateRoot -Force) {
     Copy-Item -LiteralPath $templateItem.FullName -Destination $outputRoot -Recurse -Force
 }
 New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+Copy-Item -LiteralPath $licensePath -Destination (Join-Path $outputRoot "LICENSE.md") -Force
 
 $manifestPath = Join-Path $outputRoot "package.json"
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
