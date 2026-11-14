@@ -63,5 +63,5 @@ Convert Unity/Godot vectors at the adapter boundary and keep scene-object access
 
 ## Validation
 
-See the [tests](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/tests/Bezoro.Spatial.Tests/README.md) for differential and lifecycle coverage, and the [benchmarks](https://github.com/bezoro/csharp-framework/blob/0e73014d65f4c74f1842aac64a9be427dd3f0600/benchmarks/Bezoro.Spatial.Benchmarks/README.md) for reusable workloads.
+See the [tests](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/tests/Bezoro.Spatial.Tests/README.md) for differential and lifecycle coverage, and the [benchmarks](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/benchmarks/Bezoro.Spatial.Benchmarks/README.md) for reusable workloads.
 

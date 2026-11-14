@@ -1,7 +1,8 @@
 {
   "name": "com.bezoro.framework",
   "displayName": "Bezoro Framework",
-  "version": "0.1.0-preview.1703",
+  "version": "0.1.0-preview.1705",
+  "license": "MIT",
   "unity": "6000.0",
   "description": "Precompiled Bezoro Framework assemblies for Unity distributed through the Unity Package Manager from Git.",
   "keywords": [
