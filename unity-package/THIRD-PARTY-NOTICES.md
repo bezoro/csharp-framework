@@ -1,5 +1,7 @@
 # Third-party notices
 
+Framework-owned code uses the MIT license in [LICENSE.md](LICENSE.md). The notices below apply to the third-party libraries included with the package.
+
 The Microsoft runtime libraries listed in README.md are distributed under the MIT license below. Versions and upstream source links are recorded in README.md. Stockfish is not shipped in this Unity package.
 
 The MIT License (MIT)

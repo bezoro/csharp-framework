@@ -5,6 +5,10 @@ The build pipeline stages the assemblies and their NuGet runtime dependencies un
 
 Every staged asset and folder needs checked-in importer metadata, including XML documentation. Staging rejects missing metadata and invalid or duplicate GUIDs before publication; keep existing GUIDs when rebuilding the package.
 
+## License
+
+Framework-owned assemblies and documentation are distributed under the [MIT License](LICENSE.md), copied from the repository's canonical `LICENSE` during staging. Commercial and closed-source use is permitted with the copyright and license notice retained. Third-party libraries keep their upstream licenses; see [third-party notices](THIRD-PARTY-NOTICES.md).
+
 ## Versioning
 
 The published package version is resolved from SemVer Git tags by `scripts/Get-PackageVersion.ps1`.

@@ -27,6 +27,23 @@ public sealed class UnityPackageScriptTests
         File.Exists(Path.Combine(fixture.Path, "artifacts/package/Runtime/System.Memory.dll")).Should().BeFalse();
         File.Exists(Path.Combine(fixture.Path, "artifacts/package/Runtime/Bezoro.One.README.md")).Should().BeTrue();
         File.ReadAllText(Path.Combine(fixture.Path, "artifacts/package/package.json")).Should().Contain("1.2.3");
+        File.ReadAllText(Path.Combine(fixture.Path, "artifacts/package/LICENSE.md"))
+            .Should().Be(File.ReadAllText(Path.Combine(fixture.Path, "LICENSE")));
+        File.ReadAllText(Path.Combine(fixture.Path, "artifacts/package/LICENSE.md.meta"))
+            .Should().Be(File.ReadAllText(Path.Combine(fixture.Path, "unity-package/LICENSE.md.meta")));
+    }
+
+    [Fact]
+    public void StagingRejectsMissingFrameworkLicense()
+    {
+        using var fixture = new StagingFixture();
+        fixture.AddProject("Bezoro.One");
+        File.Delete(Path.Combine(fixture.Path, "LICENSE"));
+
+        var result = fixture.Run();
+
+        result.ExitCode.Should().NotBe(0);
+        result.Error.Should().Contain("Framework license not found");
     }
 
     [Fact]
@@ -212,8 +229,10 @@ public sealed class UnityPackageScriptTests
             Directory.CreateDirectory(System.IO.Path.Combine(Path, "unity-package"));
             foreach (var script in new[] { "Build-UnityPackage.ps1", "Get-PackageVersion.ps1" })
                 File.Copy(System.IO.Path.Combine(root, "scripts", script), System.IO.Path.Combine(Path, "scripts", script));
+            File.Copy(System.IO.Path.Combine(root, "LICENSE"), System.IO.Path.Combine(Path, "LICENSE"));
             File.WriteAllText(System.IO.Path.Combine(Path, "unity-package/package.json"), "{\"name\":\"test\",\"version\":\"0.0.0\"}");
             AddMetadata("package.json");
+            AddMetadata("LICENSE.md");
             AddMetadata("Runtime");
         }
 
