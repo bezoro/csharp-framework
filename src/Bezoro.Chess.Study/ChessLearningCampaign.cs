@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+using System.Collections.Immutable;
 using Bezoro.Chess.UCI.Protocol.API.Types;
 using Bezoro.Progression;
 
@@ -67,7 +67,7 @@ public sealed class ChessLearningCampaign
                     throw new ArgumentException("Boss fundamentals must be fundamental lessons in its prerequisite closure.", nameof(stages));
         }
         Id = id;
-        Stages = new ReadOnlyCollection<ChessLearningStage>(copied);
+        Stages = ImmutableList.CreateRange(copied);
     }
 
     /// <summary>Gets the application-selected campaign identity.</summary>

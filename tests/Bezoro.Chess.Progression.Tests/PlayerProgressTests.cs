@@ -11,6 +11,25 @@ namespace Bezoro.Chess.Progression.Tests;
 public sealed class PlayerProgressTests
 {
     [Fact]
+    public async Task PublicCollectionSynchronizationRootsCannotExposeMutableStorage()
+    {
+        using var fixture = new Fixture();
+        var app = await fixture.Open();
+        var stage = fixture.Catalog.Campaign.Stages[0];
+        object[] views = { fixture.Catalog.Quests, fixture.Catalog.Cosmetics.Definitions, fixture.Catalog.Campaign.Stages,
+            stage.Lesson.Steps, stage.Lesson.Fundamentals, app.Snapshot.History, app.Snapshot.Quests, app.Snapshot.Stages,
+            app.Snapshot.Cosmetics, app.Snapshot.Quests[0].Objectives, app.Snapshot.RewardBalances };
+        foreach (var view in views)
+        {
+            if (view is not System.Collections.ICollection collection) continue;
+            var root = collection.SyncRoot;
+            Assert.False(root is Array);
+            if (root is System.Collections.IList list) Assert.True(list.IsReadOnly);
+            if (root is System.Collections.IDictionary dictionary) Assert.True(dictionary.IsReadOnly);
+        }
+    }
+
+    [Fact]
     public async Task NewProfilePersistsMetadataFreeDefaultsAndFirstVisitWithoutGrantingUnclaimedRewards()
     {
         using var fixture = new Fixture();

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+using System.Collections.Immutable;
 using Bezoro.Chess.UCI.Protocol.API.Common.Extensions;
 using Bezoro.Chess.UCI.Protocol.API.Types;
 using Bezoro.Chess.UCI.Protocol.Internal;
@@ -10,7 +10,7 @@ public readonly struct GuidedLessonValidationResult
 {
     private readonly IReadOnlyList<string>? _messages;
     internal GuidedLessonValidationResult(IEnumerable<string> messages) =>
-        _messages = new ReadOnlyCollection<string>(messages.ToArray());
+        _messages = messages.ToImmutableList();
     /// <summary>Gets all validation errors.</summary>
     public IReadOnlyList<string> Messages => _messages ?? Array.Empty<string>();
     /// <summary>Gets whether authoring errors prevent starting a lesson.</summary>

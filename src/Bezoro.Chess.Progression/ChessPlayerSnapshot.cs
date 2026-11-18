@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Bezoro.PlayerProfiles;
 using Bezoro.Progression;
 
@@ -27,7 +28,7 @@ public sealed class ChessQuestSnapshot
             var objective = definition.Definition.Objectives[index];
             objectives[index] = new(objective.Counter, progress.GetObjectiveProgress(Id, index), objective.Target);
         }
-        Objectives = Array.AsReadOnly(objectives);
+        Objectives = ImmutableList.CreateRange(objectives);
         Rewards = definition.Definition.Rewards;
     }
     /// <summary>Gets the stable quest identity.</summary>
@@ -63,10 +64,10 @@ public sealed class ChessPlayerSnapshot
         ChessQuestSnapshot[] quests, ChessStageSnapshot[] stages, Dictionary<ProgressionId, long> rewards,
         ChessCosmeticSnapshot[] cosmetics, string boardId, string piecesId)
     {
-        Profile = profile; TrainingRating = rating; History = Array.AsReadOnly(history);
-        Quests = Array.AsReadOnly(quests); Stages = Array.AsReadOnly(stages);
-        RewardBalances = new System.Collections.ObjectModel.ReadOnlyDictionary<ProgressionId, long>(rewards);
-        Cosmetics = Array.AsReadOnly(cosmetics); EquippedBoardId = boardId; EquippedPiecesId = piecesId;
+        Profile = profile; TrainingRating = rating; History = ImmutableList.CreateRange(history);
+        Quests = ImmutableList.CreateRange(quests); Stages = ImmutableList.CreateRange(stages);
+        RewardBalances = rewards.ToImmutableDictionary();
+        Cosmetics = ImmutableList.CreateRange(cosmetics); EquippedBoardId = boardId; EquippedPiecesId = piecesId;
         Wins = history.Count(record => record.Outcome == PlayerMatchOutcome.Win);
         Draws = history.Count(record => record.Outcome == PlayerMatchOutcome.Draw);
         Losses = history.Length - Wins - Draws;
