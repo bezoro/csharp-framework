@@ -12,7 +12,6 @@ namespace Bezoro.Chess.UCI.Protocol.Domain.EngineClient;
 internal sealed class UciEngineCommandModule(
 	IUciTransport          transport,
 	UciLineWaiterRegistry  lineWaiters,
-	IUciLineSource         lineSource,
 	Action<EngineActivity> setActivity,
 	UciClientOptions       options,
     Action? ensureUsable = null
@@ -20,7 +19,8 @@ internal sealed class UciEngineCommandModule(
 {
 	private readonly Action<EngineActivity> _setActivity =
 		setActivity ?? throw new ArgumentNullException(nameof(setActivity));
-	private readonly IUciLineSource _lineSource   = lineSource ?? throw new ArgumentNullException(nameof(lineSource));
+	// Protected by _protocolGate. Standard UCI acknowledgments carry no request identity.
+	private bool _requiresRestart;
 	private readonly IUciTransport  _transport    = transport ?? throw new ArgumentNullException(nameof(transport));
 	private readonly SemaphoreSlim  _protocolGate = new(1, 1);
 	private readonly UciClientOptions _options = options;
@@ -95,9 +95,9 @@ internal sealed class UciEngineCommandModule(
     }
 
 
-	public async Task UciInitAsync(CancellationToken ct)
+	public async Task UciInitAsync(CancellationToken ct, bool newTransportSession = false)
 	{
-		await ExecuteSerializedCommandAsync(UciInitCoreAsync, ct).ConfigureAwait(false);
+		await ExecuteSerializedCommandAsync(UciInitCoreAsync, ct, newTransportSession).ConfigureAwait(false);
 	}
 
 	public async Task UciNewGameAsync(CancellationToken ct)
@@ -117,13 +117,16 @@ internal sealed class UciEngineCommandModule(
 	private static bool IsFenLine(string line) =>
 		line.AsSpan().TrimStart().StartsWith(UciConstants.Prefixes.FEN, StringComparison.OrdinalIgnoreCase);
 
-	private async Task ExecuteSerializedCommandAsync(Func<CancellationToken, Task> action, CancellationToken ct)
+	private async Task ExecuteSerializedCommandAsync(Func<CancellationToken, Task> action, CancellationToken ct, bool newTransportSession = false)
 	{
         ensureUsable?.Invoke();
 		await _protocolGate.WaitAsync(ct).ConfigureAwait(false);
 		try
 		{
             ensureUsable?.Invoke();
+			ct.ThrowIfCancellationRequested();
+			if (newTransportSession) _requiresRestart = false;
+			EnsureAcknowledgmentsUsable();
 			await action(ct).ConfigureAwait(false);
 		}
 		finally
@@ -136,7 +139,7 @@ internal sealed class UciEngineCommandModule(
 	{
 		await WriteAndWaitAsync(
 			UciConstants.Commands.IS_READY,
-			static l => l.Trim().Equals(UciConstants.Responses.READY_OK, StringComparison.OrdinalIgnoreCase),
+			IsReadyResponse,
 			_options.ReadyTimeout,
 			ct
 		).ConfigureAwait(false);
@@ -154,18 +157,38 @@ internal sealed class UciEngineCommandModule(
 		await IsReadyCoreAsync(ct).ConfigureAwait(false);
 	}
 
-	private async Task WriteAndWaitAsync(string command, Func<string, bool> predicate, TimeSpan timeout, CancellationToken ct)
+	private void EnsureAcknowledgmentsUsable()
+	{
+		if (_requiresRestart)
+			throw new InvalidOperationException("A protocol acknowledgment is unaccounted for. Stop and restart the engine before issuing another serialized command.");
+	}
+
+	private static bool IsReadyResponse(string line) =>
+		line.AsSpan().Trim().Equals(UciConstants.Responses.READY_OK.AsSpan(), StringComparison.OrdinalIgnoreCase);
+
+	private async Task WriteAndWaitAsync(string command, Func<string, bool> predicate, TimeSpan timeout, CancellationToken ct,
+		string? precedingCommand = null)
 	{
 		using var waiterCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-		var response = _lineWaiters.WaitForAsync(predicate, timeout, waiterCts.Token);
+		waiterCts.CancelAfter(timeout);
+		var token = waiterCts.Token;
+		token.ThrowIfCancellationRequested();
+		var response = _lineWaiters.WaitForAsync(predicate, Timeout.InfiniteTimeSpan, token);
 		try
 		{
-			await _transport.WriteLineAsync(command, ct).ConfigureAwait(false);
+			if (precedingCommand is not null)
+				await _transport.WriteLineAsync(precedingCommand, token).ConfigureAwait(false);
+			await _transport.WriteLineAsync(command, token).ConfigureAwait(false);
 			await response.ConfigureAwait(false);
+		}
+		catch
+		{
+			_requiresRestart = true;
+			throw;
 		}
 		finally
 		{
-			// A failed write must remove its waiter before another command can consume readyok.
+			// Join waiter removal before releasing the serialized command gate.
 			waiterCts.Cancel();
 			try { await response.ConfigureAwait(false); }
 			catch { /* The original write/wait error remains authoritative. */ }
@@ -218,11 +241,16 @@ internal sealed class UciEngineCommandModule(
 	{
 		var results = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-		void CaptureMoves(string line) => UciCommandBuilder.CollectMovesFromLine(line, results);
+		bool CaptureUntilReady(string line)
+		{
+			if (IsReadyResponse(line)) return true;
+			UciCommandBuilder.CollectMovesFromLine(line, results);
+			return false;
+		}
 
-		using var subscription = _lineSource.Subscribe(CaptureMoves);
-		await _transport.WriteLineAsync($"{UciConstants.Commands.GO_PERFT} 1", ct).ConfigureAwait(false);
-		await IsReadyCoreAsync(ct).ConfigureAwait(false);
+		// The read loop owns the collection until it removes this waiter on readyok.
+		await WriteAndWaitAsync(UciConstants.Commands.IS_READY, CaptureUntilReady, _options.ReadyTimeout, ct,
+			precedingCommand: UciConstants.Commands.GO_PERFT + " 1").ConfigureAwait(false);
 
 		return [.. results];
 	}
@@ -236,6 +264,8 @@ internal sealed class UciEngineCommandModule(
 		try
 		{
             ensureUsable?.Invoke();
+			ct.ThrowIfCancellationRequested();
+			EnsureAcknowledgmentsUsable();
 			return await action(ct).ConfigureAwait(false);
 		}
 		finally

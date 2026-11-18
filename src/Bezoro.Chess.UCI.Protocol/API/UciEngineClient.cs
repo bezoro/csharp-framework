@@ -137,7 +137,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 		);
 
 		_outputDispatcher = new(_lineWaiters, _searchCoordinator, ObserveProtocolMessage);
-		_commandModule    = new(_transport, _lineWaiters, this, SetActivity, _options, ThrowIfDisposed);
+		_commandModule    = new(_transport, _lineWaiters, SetActivity, _options, ThrowIfDisposed);
 	}
 
 	/// <summary>
@@ -408,7 +408,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 
 			try
 			{
-				await UciInitAsync(ct).ConfigureAwait(false);
+				await InitializeProtocolAsync(ct, newTransportSession: true).ConfigureAwait(false);
 				SetActivity(EngineActivity.Idle);
 			}
 			catch
@@ -493,11 +493,13 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 	/// <summary>
 	///     Sends "uci" to the engine and waits for "uciok" and "readyok" to confirm supported handshaking.
 	/// </summary>
-	public async Task UciInitAsync(CancellationToken ct)
+	public Task UciInitAsync(CancellationToken ct) => InitializeProtocolAsync(ct, newTransportSession: false);
+
+	private async Task InitializeProtocolAsync(CancellationToken ct, bool newTransportSession)
 	{
         ThrowIfDisposed();
 		ResetHandshakeMetadata();
-		await _commandModule.UciInitAsync(ct).ConfigureAwait(false);
+		await _commandModule.UciInitAsync(ct, newTransportSession).ConfigureAwait(false);
 		PromoteStandardCapabilities();
 	}
 

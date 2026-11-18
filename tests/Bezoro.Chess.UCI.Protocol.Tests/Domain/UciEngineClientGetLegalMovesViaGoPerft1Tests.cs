@@ -9,6 +9,34 @@ namespace Bezoro.Chess.UCI.Protocol.Tests.Domain;
 public class UciEngineClientGetLegalMovesViaGoPerft1Tests
 {
 	[Fact]
+	public async Task PerftCapture_IgnoresThrowingPublicObserversAndEndsExactlyAtReadyOk()
+	{
+		var (transport, channel) = UciEngineClientTestHelpers.CreateMockTransport();
+		await using var client = new UciEngineClient(transport);
+		transport.WriteLineAsync("uci", Arg.Any<CancellationToken>()).Returns(_ =>
+		{
+			channel.Writer.TryWrite("uciok");
+			return Task.CompletedTask;
+		});
+		var readyCount = 0;
+		transport.WriteLineAsync("isready", Arg.Any<CancellationToken>()).Returns(_ =>
+		{
+			channel.Writer.TryWrite("readyok");
+			if (++readyCount > 1) channel.Writer.TryWrite("b2b3");
+			return Task.CompletedTask;
+		});
+		transport.WriteLineAsync("go perft 1", Arg.Any<CancellationToken>()).Returns(_ =>
+		{
+			channel.Writer.TryWrite("e2e4: 1");
+			return Task.CompletedTask;
+		});
+		client.RawLineReceived += _ => throw new InvalidOperationException();
+		await client.StartAsync();
+		var moves = await client.GetLegalMovesViaPerftAsync(default);
+		Assert.Equal(new[] { "e2e4" }, moves.ToArray());
+	}
+
+	[Fact]
 	public async Task GetLegalMovesViaPerftAsync_WhenCalled_ShouldFilterInvalidMoves()
 	{
 		// Arrange

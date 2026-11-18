@@ -620,6 +620,12 @@ if (result.BestPv is { Wdl: { } wdl } pv && pv.ScoreBound == UciScoreBound.Exact
 
 The parser preserves WDL in `UciInfoPayload.Wdl` and `PrincipalVariation.Wdl`. Malformed distributions remain absent. `PrincipalVariation.ScoreBound` distinguishes exact scores from lower and upper search bounds. A bound must not be presented as an exact evaluation of move quality. These are engine self-play estimates, not an Elo-specific human prediction or a reproduction of Chess.com's private review algorithm. See the [Stockfish FAQ](https://official-stockfish.github.io/docs/stockfish-wiki/Stockfish-FAQ.html).
 
+## Readiness and perft responses
+
+A handshake or readiness timeout covers sending the command and receiving its acknowledgment. Custom transports must observe the supplied cancellation token while waiting for write capacity. If a write or acknowledgment fails, stop and restart the client before issuing another serialized protocol command. A queued readiness check fails before sending a new command, so a late `readyok` cannot satisfy it. Cancellation while waiting for the command gate leaves the active exchange intact.
+
+Perft captures moves in the protocol reader through the matching `readyok`. Exceptions from raw-output subscribers do not affect the move set.
+
 ## Search completion and restart
 
 `GoAsync` and `GoFireAndForgetAsync` share one active-search slot. Overlapping searches throw `InvalidOperationException`. Fire-and-forget searches forward live events without retaining an unbounded PV history. `StopSearchAsync` waits for the engine's `bestmove` response and the stopped search's cleanup before returning. After a successful stop, a new search can begin immediately without separately awaiting the original `GoAsync` task. A `readyok` response alone does not acknowledge that a search has stopped.
