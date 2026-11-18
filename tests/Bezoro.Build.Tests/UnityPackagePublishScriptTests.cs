@@ -58,6 +58,27 @@ public sealed class UnityPackagePublishScriptTests
         fixture.ReadGit("show", "upm:package.json").Should().Contain("1.2.4");
     }
 
+    [Fact]
+    public void IdenticalPackageAdvancesTheOfficialSourceWatermark()
+    {
+        using var fixture = new PublishFixture();
+        string first = fixture.CommitSource();
+        string delayed = fixture.CommitSource();
+        string latest = fixture.CommitSource();
+        fixture.WritePackageFile("package.json", "{\"version\":\"1.2.3\"}");
+        var initial = fixture.Publish(first);
+        initial.ExitCode.Should().Be(0, initial.Output);
+
+        var unchanged = fixture.Publish(latest);
+        unchanged.ExitCode.Should().Be(0, unchanged.Output);
+        fixture.ReadGit("log", "-1", "--format=%s", "upm").Should().EndWith(latest);
+
+        fixture.WritePackageFile("package.json", "{\"version\":\"1.2.4\"}");
+        var late = fixture.Publish(delayed);
+        late.ExitCode.Should().Be(0, late.Output);
+        fixture.ReadGit("show", "upm:package.json").Should().Contain("1.2.3");
+    }
+
     private sealed class PublishFixture : IDisposable
     {
         private const string Remote = "https://github.com/fixture/repository.git";

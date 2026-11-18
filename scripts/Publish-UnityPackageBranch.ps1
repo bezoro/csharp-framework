@@ -27,6 +27,10 @@ $sourceRevision = $env:GITHUB_SHA
 if ($sourceRevision -notmatch '^[0-9a-fA-F]{40}$') {
 	throw "GITHUB_SHA must identify the validated source commit."
 }
+& git -C $SourceRepositoryPath cat-file -e "$sourceRevision^{commit}"
+if ($LASTEXITCODE -ne 0) {
+	throw "The validated source commit is missing from the source checkout."
+}
 
 $publishRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("bezoro-upm-" + [System.Guid]::NewGuid().ToString("N"))
 $remoteUrl = "https://github.com/$($env:GITHUB_REPOSITORY).git"
@@ -53,11 +57,12 @@ for ($offset = 0; $offset -lt 2; $offset++) {
 $env:GIT_CONFIG_COUNT = ($configCount + 2).ToString([Globalization.CultureInfo]::InvariantCulture)
 
 try {
-	& git ls-remote --exit-code --heads $remoteUrl $Branch *> $null
+	& git ls-remote --exit-code --heads $remoteUrl "refs/heads/$Branch" *> $null
 	if ($LASTEXITCODE -notin 0, 2) {
 		throw "Failed to inspect branch '$Branch'."
 	}
 	$branchExists = $LASTEXITCODE -eq 0
+	$publishedRevision = $null
 
 	if ($branchExists) {
 		& git clone --depth 1 --branch $Branch $remoteUrl $publishRoot
@@ -115,24 +120,26 @@ try {
 		& git config user.name "github-actions[bot]"
 		& git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 		& git add --all
+		if ($LASTEXITCODE -ne 0) {
+			throw "Failed to stage Unity package contents."
+		}
 
 		& git diff --cached --quiet
-		if ($LASTEXITCODE -eq 0) {
+		if ($LASTEXITCODE -notin 0, 1) {
+			throw "Failed to inspect staged Unity package contents."
+		}
+		if ($LASTEXITCODE -eq 0 -and ($Branch -cne 'upm' -or $publishedRevision -eq $sourceRevision)) {
 			Write-Host "Unity package branch is already up to date."
 			return
 		}
 
-		& git commit -m "chore(upm): publish Unity package from $sourceRevision"
+		# An identical package at a new official revision still advances the source watermark.
+		& git commit --allow-empty -m "chore(upm): publish Unity package from $sourceRevision"
 		if ($LASTEXITCODE -ne 0) {
 			throw "Failed to commit Unity package contents."
 		}
 
-		if ($branchExists) {
-			& git push origin "HEAD:$Branch"
-		}
-		else {
-			& git push --set-upstream origin $Branch
-		}
+		& git push origin "HEAD:refs/heads/$Branch"
 
 		if ($LASTEXITCODE -ne 0) {
 			throw "Failed to push Unity package branch '$Branch'."
