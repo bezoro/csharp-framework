@@ -17,7 +17,15 @@ The published package version is resolved from SemVer Git tags by `scripts/Get-P
 - Commits after `v1.2.3` publish a preview based on Conventional Commits: fixes produce `1.2.4-preview.N`, features `1.3.0-preview.N`, and breaking changes `2.0.0-preview.N`. Before 1.0, breaking changes increment the minor version. `N` is the commit height since the stable tag.
 - Repositories with no SemVer tags publish from the initial preview line, for example `0.1.0-preview.1`.
 
-Set `BEZORO_PACKAGE_VERSION` or pass `-PackageVersion` to `scripts/Build-UnityPackage.ps1` to override the resolved version for local staging.
+For local staging, resolve the version once and use it for both the build and packaging:
+
+```powershell
+$env:BEZORO_PACKAGE_VERSION = ./scripts/Get-PackageVersion.ps1
+dotnet build bezoro.framework.sln -c Release
+./scripts/Build-UnityPackage.ps1 -Configuration Release
+```
+
+For an intentional override, set `BEZORO_PACKAGE_VERSION` to the desired version before building. The staging script checks the informational version of each framework DLL and rejects mismatches before replacing existing output.
 
 ## Install
 
@@ -29,7 +37,7 @@ https://github.com/bezoro/csharp-framework.git#upm
 
 ## Update behavior
 
-Unity Git dependencies are lock-file based. Updates to `main`, including merges, automatically run **Validate and publish Unity package** and update `upm` after validation. Pushes to working branches do not start CI. A manual run can perform a consolidated check, or publish from `main` when `publish_upm` is enabled. An existing Unity project stays pinned to the commit recorded in `Packages/packages-lock.json` until you update the package in Unity.
+Unity Git dependencies are lock-file based. Updates to `main`, including merges, automatically run **Validate and publish Unity package**. Once both platforms pass validation, the workflow publishes the exact package staged by the Linux job. An older run skips publication if the official branch already contains a newer source revision. Pushes to working branches do not start CI. A manual run can perform a consolidated check, or publish from `main` when `publish_upm` is enabled. An existing Unity project stays pinned to the commit recorded in `Packages/packages-lock.json` until you update the package in Unity.
 
 To move to the latest published package:
 
@@ -44,6 +52,7 @@ To move to the latest published package:
 - `Bezoro.Chess.Study.dll`
 - `Bezoro.Chess.Presentation.dll`
 - `Bezoro.Chess.Networking.dll`
+- `Bezoro.Chess.Progression.dll`
 - `Bezoro.Commerce.dll`
 - `Bezoro.PlayerProfiles.dll`
 - `Bezoro.Progression.dll`

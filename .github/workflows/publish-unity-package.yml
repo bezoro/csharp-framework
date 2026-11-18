@@ -104,12 +104,36 @@ jobs:
           }
           ./scripts/Test-Framework.ps1 @arguments
 
+      - name: Stage validated Unity package
+        id: stage
+        if: >-
+          runner.os == 'Linux' &&
+          ((github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish_upm)) ||
+          (github.event_name == 'workflow_dispatch' && inputs.publish_candidate && !inputs.publish_upm))
+        shell: pwsh
+        env:
+          BEZORO_PACKAGE_VERSION: ${{ steps.package-version.outputs.version }}
+        run: ./scripts/Build-UnityPackage.ps1 -Configuration Release -OutputPath artifacts/unity-package
+
+      - name: Upload validated Unity package
+        if: steps.stage.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-package
+          path: artifacts/unity-package/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
   publish-unity-package:
     needs: validate
     if: >-
       (github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish_upm)) ||
       (github.event_name == 'workflow_dispatch' && inputs.publish_candidate && !inputs.publish_upm)
     runs-on: ubuntu-latest
+    concurrency:
+      group: publish-${{ inputs.publish_candidate && 'upm-candidate-chesscrush' || 'upm' }}
+      queue: max
     permissions:
       contents: write
 
@@ -119,25 +143,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Download validated Unity package
+        uses: actions/download-artifact@v4
         with:
-          dotnet-version: 10.0.203
-
-      - name: Resolve package version
-        id: package-version
-        shell: pwsh
-        run: |
-          $version = ./scripts/Get-PackageVersion.ps1
-          "version=$version" >> $env:GITHUB_OUTPUT
-          Write-Host "Resolved package version $version"
-
-      - name: Build release binaries
-        run: dotnet build bezoro.framework.sln -c Release /p:ContinuousIntegrationBuild=true /p:Version=${{ steps.package-version.outputs.version }} /p:PackageVersion=${{ steps.package-version.outputs.version }} /p:InformationalVersion=${{ steps.package-version.outputs.version }}
-
-      - name: Build Unity package
-        shell: pwsh
-        run: ./scripts/Build-UnityPackage.ps1 -Configuration Release -OutputPath ./artifacts/unity-package -PackageVersion "${{ steps.package-version.outputs.version }}"
+          name: unity-package
+          path: artifacts/unity-package/
 
       - name: Publish validated UPM branch
         shell: pwsh

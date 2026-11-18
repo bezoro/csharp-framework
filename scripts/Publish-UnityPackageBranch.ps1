@@ -1,6 +1,7 @@
 param(
 	[string]$PackagePath,
-	[string]$Branch = "upm"
+	[string]$Branch = "upm",
+	[string]$SourceRepositoryPath = (Join-Path $PSScriptRoot "..")
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,6 +21,11 @@ if ([string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) {
 
 if ([string]::IsNullOrWhiteSpace($env:GITHUB_REPOSITORY)) {
 	throw "GITHUB_REPOSITORY must be set."
+}
+
+$sourceRevision = $env:GITHUB_SHA
+if ($sourceRevision -notmatch '^[0-9a-fA-F]{40}$') {
+	throw "GITHUB_SHA must identify the validated source commit."
 }
 
 $publishRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("bezoro-upm-" + [System.Guid]::NewGuid().ToString("N"))
@@ -48,12 +54,35 @@ $env:GIT_CONFIG_COUNT = ($configCount + 2).ToString([Globalization.CultureInfo]:
 
 try {
 	& git ls-remote --exit-code --heads $remoteUrl $Branch *> $null
+	if ($LASTEXITCODE -notin 0, 2) {
+		throw "Failed to inspect branch '$Branch'."
+	}
 	$branchExists = $LASTEXITCODE -eq 0
 
 	if ($branchExists) {
 		& git clone --depth 1 --branch $Branch $remoteUrl $publishRoot
 		if ($LASTEXITCODE -ne 0) {
 			throw "Failed to clone branch '$Branch'."
+		}
+
+		if ($Branch -ceq 'upm') {
+			$publication = & git -C $publishRoot log -1 --format=%s
+			if ($LASTEXITCODE -ne 0 -or $publication -notmatch '^chore\(upm\): publish Unity package from ([0-9a-fA-F]{40})$') {
+				throw "Cannot identify the source commit of the current UPM package."
+			}
+			$publishedRevision = $Matches[1]
+			& git -C $SourceRepositoryPath merge-base --is-ancestor $publishedRevision $sourceRevision
+			if ($LASTEXITCODE -eq 1) {
+				& git -C $SourceRepositoryPath merge-base --is-ancestor $sourceRevision $publishedRevision
+				if ($LASTEXITCODE -eq 0) {
+					Write-Host "UPM already publishes a newer source commit. Skipping $sourceRevision."
+					return
+				}
+				throw "The requested revision does not descend from the published UPM source."
+			}
+			if ($LASTEXITCODE -ne 0) {
+				throw "Failed to compare UPM source revisions. Use a complete source checkout."
+			}
 		}
 	}
 	else {
@@ -93,7 +122,6 @@ try {
 			return
 		}
 
-		$sourceRevision = if ([string]::IsNullOrWhiteSpace($env:GITHUB_SHA)) { "unknown" } else { $env:GITHUB_SHA }
 		& git commit -m "chore(upm): publish Unity package from $sourceRevision"
 		if ($LASTEXITCODE -ne 0) {
 			throw "Failed to commit Unity package contents."

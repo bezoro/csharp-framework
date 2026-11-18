@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
@@ -178,6 +180,24 @@ public sealed class UnityPackageScriptTests
         result.Error.Should().Contain("Missing runtime assembly");
     }
 
+    [Fact]
+    public void StagingRejectsAStaleBuildBeforeReplacingExistingOutput()
+    {
+        using var fixture = new StagingFixture();
+        fixture.AddProject("Bezoro.One");
+        var initial = fixture.Run();
+        initial.ExitCode.Should().Be(0, initial.Error);
+        string stagedPath = Path.Combine(fixture.Path, "artifacts/package/Runtime/Bezoro.One.dll");
+        byte[] original = File.ReadAllBytes(stagedPath);
+        fixture.WriteAssembly("Bezoro.One", "1.2.2");
+
+        var result = fixture.Run();
+
+        result.ExitCode.Should().NotBe(0);
+        result.Error.Should().Contain("informational version '1.2.2'").And.Contain("'1.2.3'");
+        File.ReadAllBytes(stagedPath).Should().Equal(original);
+    }
+
     [Theory]
     [InlineData(".")]
     [InlineData("src")]
@@ -243,7 +263,7 @@ public sealed class UnityPackageScriptTests
             Directory.CreateDirectory(output);
             File.WriteAllText(System.IO.Path.Combine(project, name + ".csproj"), "<Project />");
             File.WriteAllText(System.IO.Path.Combine(project, "README.md"), name);
-            File.WriteAllText(System.IO.Path.Combine(output, name + ".dll"), name);
+            WriteAssembly(name, "1.2.3");
             File.WriteAllText(System.IO.Path.Combine(output, name + ".xml"), "<doc>" + name + "</doc>");
             AddMetadata("Runtime/" + name + ".dll");
             AddMetadata("Runtime/" + name + ".README.md");
@@ -253,6 +273,16 @@ public sealed class UnityPackageScriptTests
                 File.WriteAllText(System.IO.Path.Combine(output, dependency.Name), dependency.Content);
                 AddMetadata("Runtime/" + dependency.Name);
             }
+        }
+
+        public void WriteAssembly(string name, string version)
+        {
+            var assembly = new PersistedAssemblyBuilder(new AssemblyName(name), typeof(object).Assembly);
+            assembly.DefineDynamicModule(name);
+            assembly.SetCustomAttribute(new CustomAttributeBuilder(
+                typeof(AssemblyInformationalVersionAttribute).GetConstructor([typeof(string)])!, [version]));
+            string output = System.IO.Path.Combine(Path, "src", name, "bin/Release/netstandard2.1", name + ".dll");
+            assembly.Save(output);
         }
 
         private void AddMetadata(string assetPath)
