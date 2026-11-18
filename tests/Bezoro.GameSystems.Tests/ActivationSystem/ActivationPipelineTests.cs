@@ -17,6 +17,29 @@ namespace Bezoro.GameSystems.Tests.ActivationSystem;
 public class ActivationPipelineTests
 {
 	[Fact]
+	public void FullCompletionQueueDoesNotBlockActivationDispatch()
+	{
+		using var world = new World();
+		var events = new ActivationEventsResource(maxCapacity: 1);
+		events.Enqueue(new ActivationCompletedEvent(10));
+		world.SetResource(events);
+		world.AddActivationPipeline();
+		int activations = 0;
+		world.GetOrCreateActivationCommandQueue().Register(() => activations++);
+
+		world.Tick(0f);
+		Assert.Equal(1, activations);
+		Assert.True(events.TryDequeue(out var previous));
+		Assert.Equal(10, previous.ActivatedCount);
+
+		world.Tick(0f);
+		Assert.True(events.TryDequeue(out var completed));
+		Assert.Equal(1, completed.ActivatedCount);
+		world.Tick(0f);
+		Assert.Equal(0, events.Count);
+	}
+
+	[Fact]
 	public void SmallBatchesRetainHighestPriorityAcrossMultipleCandidateGroups()
 	{
 		using var world = new World();

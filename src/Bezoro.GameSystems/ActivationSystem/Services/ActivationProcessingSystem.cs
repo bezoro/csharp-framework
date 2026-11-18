@@ -96,7 +96,7 @@ public sealed class ActivationProcessingSystem : ISystem
 
 			var eventData = new ActivationCompletedEvent(runtime.ActivatedCount);
 			ref var events = ref world.GetOrCreateResource<ActivationEventsResource>();
-			events.Enqueue(in eventData);
+			if (!events.TryEnqueue(in eventData)) return;
 
 			try
 			{
