@@ -721,33 +721,25 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 		}
 		if (first == length) return originalCount;
 
-		int words = ((length - first - 1) / 32) + 1;
-		uint[]? rented = null;
-		Span<uint> removed = words <= 64 ? stackalloc uint[words] :
-			(rented = System.Buffers.ArrayPool<uint>.Shared.Rent(words)).AsSpan(0, words);
+		int remaining = length - first - 1;
+		bool[]? rented = null;
+		Span<bool> keep = remaining <= 256 ? stackalloc bool[remaining] :
+			(rented = System.Buffers.ArrayPool<bool>.Shared.Rent(remaining)).AsSpan(0, remaining);
 		try
 		{
-			removed.Clear();
-			removed[0] = 1;
-			for (int i = first + 1; i < length; i++)
+			for (int offset = 0; offset < keep.Length; offset++)
 			{
-				bool remove = match(_items[i]);
+				keep[offset] = !match(_items[first + 1 + offset]);
 				if (Version != version) throw new InvalidOperationException("The removal predicate must not mutate the array.");
-				int offset = i - first;
-				if (remove) removed[offset / 32] |= 1u << (offset % 32);
 			}
 			int write = first;
-			for (int i = first + 1; i < length; i++)
-			{
-				int offset = i - first;
-				if ((removed[offset / 32] & (1u << (offset % 32))) == 0)
-					_items[write++] = _items[i];
-			}
+			for (int offset = 0; offset < keep.Length; offset++)
+				if (keep[offset]) _items[write++] = _items[first + 1 + offset];
 			return (uint)write;
 		}
 		finally
 		{
-			if (rented != null) System.Buffers.ArrayPool<uint>.Shared.Return(rented);
+			if (rented != null) System.Buffers.ArrayPool<bool>.Shared.Return(rented);
 		}
 	}
 
