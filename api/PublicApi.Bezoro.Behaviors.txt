@@ -63,7 +63,7 @@ namespace Bezoro.Behaviors
         protected override Bezoro.BehaviorTrees.BehaviorStatus OnTick(ref TContext context, ref Bezoro.BehaviorTrees.BehaviorBudget budget) { }
         public bool TryDispatch(ulong activationVersion, Bezoro.StateMachines.SignalId signal, ref TContext context) { }
     }
-    public sealed class StatechartBehavior<TContext> : Bezoro.Behaviors.Behavior<TContext>, Bezoro.Statecharts.IStatechartHandler<TContext>
+    public sealed class StatechartBehavior<TContext> : Bezoro.Behaviors.Behavior<TContext>
     {
         public StatechartBehavior(Bezoro.Statecharts.StatechartDefinition definition, Bezoro.Statecharts.IStatechartHandler<TContext>? handler = null, System.ReadOnlySpan<Bezoro.Behaviors.StateBehaviorBinding<TContext>> bindings = default, System.ReadOnlySpan<Bezoro.StateMachines.StateId> successStates = default, System.ReadOnlySpan<Bezoro.StateMachines.StateId> failureStates = default, Bezoro.Behaviors.BehaviorCompositionLimits limits = default, int maximumCompletionsPerTick = 16) { }
         public System.ReadOnlySpan<Bezoro.StateMachines.StateId> ActiveStates { get; }
@@ -94,7 +94,7 @@ namespace Bezoro.Behaviors
         public void Bind(Bezoro.BehaviorTrees.BehaviorActionHandle action, Bezoro.Behaviors.Behavior<TContext> child) { }
         public Bezoro.Behaviors.TreeBehavior<TContext> Build(Bezoro.Behaviors.BehaviorCompositionLimits limits = default) { }
     }
-    public sealed class TreeBehavior<TContext> : Bezoro.Behaviors.Behavior<TContext>, Bezoro.BehaviorTrees.IBehaviorTreeHandler<TContext>, Bezoro.Conditions.IConditionEvaluator<TContext>
+    public sealed class TreeBehavior<TContext> : Bezoro.Behaviors.Behavior<TContext>
     {
         public TreeBehavior(Bezoro.BehaviorTrees.BehaviorTreeDefinition definition, Bezoro.BehaviorTrees.IBehaviorTreeHandler<TContext>? handler = null, System.ReadOnlySpan<Bezoro.Behaviors.TreeBehaviorBinding<TContext>> bindings = default, Bezoro.Behaviors.BehaviorCompositionLimits limits = default) { }
         public System.ReadOnlySpan<Bezoro.Behaviors.TreeBehaviorBinding<TContext>> Bindings { get; }

@@ -451,6 +451,7 @@ namespace Bezoro.ECS.Types
     public sealed class CommandStream : System.IDisposable
     {
         public bool HasCommands { get; }
+        public int RemainingCapacity { get; }
         public Bezoro.ECS.Types.Entity CreateEntity() { }
         public Bezoro.ECS.Types.Entity CreateEntity<T>(in T component)
             where T :  struct { }

@@ -804,6 +804,7 @@ namespace Bezoro.Chess.UCI.Protocol.API.Types
         public int ChannelCapacity { get; init; }
         public int FlushBatchSize { get; init; }
         public bool KillEntireProcessTree { get; init; }
+        public int MaxIncomingLineLength { get; init; }
         public int MaxLineLength { get; init; }
         public string NewLine { get; init; }
         public bool OutgoingSingleWriter { get; init; }
@@ -913,6 +914,7 @@ namespace Bezoro.Chess.UCI.Protocol.API.Types
         public System.TimeSpan DisplayBoardCheckersGracePeriod { get; init; }
         public System.TimeSpan DisplayBoardFenTimeout { get; init; }
         public System.TimeSpan InfiniteSearchTimeout { get; init; }
+        public int MaxAdvertisedOptions { get; init; }
         public int MaxCapturedPrincipalVariations { get; init; }
         public System.TimeSpan MaximumDepthSearchTimeout { get; init; }
         public System.TimeSpan MinimumDepthSearchTimeout { get; init; }
