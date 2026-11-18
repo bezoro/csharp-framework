@@ -7,6 +7,20 @@ namespace Bezoro.Chess.UCI.Protocol.Tests.Domain;
 public class UciEngineClientLifecycleRegressionTests
 {
 	[Fact]
+	public async Task ThrowingReaderCancellationCallback_DoesNotSkipTransportShutdown()
+	{
+		var (transport, client) = CreateResponsiveClient(token =>
+			token.Register(static () => throw new InvalidOperationException("Cancellation callback failed.")));
+		await using var disposable = client;
+		await client.StartAsync();
+
+		var error = await Assert.ThrowsAsync<AggregateException>(() => client.StopAsync());
+
+		Assert.IsType<InvalidOperationException>(Assert.Single(error.InnerExceptions));
+		await transport.Received(1).StopAsync(Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
 	public async Task StopCancellationAfterAdmission_ShouldCompleteTransportShutdown()
 	{
 		var (transport, client) = CreateResponsiveClient();
@@ -85,9 +99,16 @@ public class UciEngineClientLifecycleRegressionTests
 		await FluentActions.Awaiting(() => client.StartAsync()).Should().ThrowAsync<ObjectDisposedException>();
 	}
 
-	private static (IUciTransport transport, UciEngineClient client) CreateResponsiveClient()
+	private static (IUciTransport transport, UciEngineClient client) CreateResponsiveClient(Action<CancellationToken>? onRead = null)
 	{
 		var (transport, channel) = UciEngineClientTestHelpers.CreateMockTransport();
+		if (onRead is not null)
+			transport.ReadLinesAsync(Arg.Any<CancellationToken>()).Returns(call =>
+			{
+				var token = call.Arg<CancellationToken>();
+				onRead(token);
+				return UciEngineClientTestHelpers.StreamFromChannel(channel.Reader, token);
+			});
 		transport.WriteLineAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
 		{
 			string command = (string)call[0];

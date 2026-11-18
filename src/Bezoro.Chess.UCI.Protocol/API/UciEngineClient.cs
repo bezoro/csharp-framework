@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Bezoro.Chess.UCI.Protocol.Domain.Common.Constants;
@@ -465,9 +466,21 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 			_readerTask       = null;
 		}
 
+		Exception? cancellationFailure = null;
+		try { ctsToCancel.Cancel(); }
+		catch (Exception error) { cancellationFailure = error; }
+
 		try
 		{
-			ctsToCancel.Cancel();
+			// Closing the producer also releases a reader waiting on the transport.
+			await _transport.StopAsync(CancellationToken.None).ConfigureAwait(false);
+		}
+		catch (Exception stopFailure) when (cancellationFailure is not null)
+		{
+			throw new AggregateException(cancellationFailure, stopFailure);
+		}
+		finally
+		{
 			if (readerTaskToAwait is { })
 				try
 				{
@@ -477,15 +490,12 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 				{
 					/* best-effort */
 				}
-		}
-		finally
-		{
 			ctsToCancel.Dispose();
 		}
 
-		// Once the reader is retired, transport shutdown must run to completion.
-		await _transport.StopAsync(CancellationToken.None).ConfigureAwait(false);
 		SetActivity(EngineActivity.Idle);
+		if (cancellationFailure is not null)
+			ExceptionDispatchInfo.Capture(cancellationFailure).Throw();
 		ct.ThrowIfCancellationRequested();
 	}
 
@@ -614,6 +624,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 		{
 			await foreach (string line in _transport.ReadLinesAsync(token).ConfigureAwait(false))
 			{
+				if (token.IsCancellationRequested) break;
 				PublishRawLineSafe(line);
 
 				try
