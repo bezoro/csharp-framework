@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Bezoro.Chess.UCI.Protocol.API;
 using Bezoro.Chess.UCI.Protocol.API.Types;
 
@@ -214,6 +215,13 @@ public sealed class AuthoritativeChessMatch : IDisposable
                 if (_snapshot.State.MoveHistory.Length >= _maximumHalfmoves)
                     throw new InvalidOperationException("The host's move-history budget was reached.");
                 UciChessMoveService.ValidateSearchMoves(search, _snapshot.State.LegalMoves);
+                if (_snapshot.State.PendingPromotion is { } promotion)
+                {
+                    var candidates = search.HasSearchMoves ? search.SearchMoves : _snapshot.State.LegalMoves;
+                    var choices = candidates.Where(move => move.StartsWith(promotion.MovePrefix, StringComparison.OrdinalIgnoreCase)).ToImmutableArray();
+                    if (choices.IsEmpty) throw new ArgumentException("The search must include a pending promotion choice.", nameof(search));
+                    search = search with { SearchMoves = choices };
+                }
                 if (_engineCancellation is not null)
                     throw new InvalidOperationException("An engine turn is already outstanding.");
                 cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -316,6 +324,7 @@ public sealed class AuthoritativeChessMatch : IDisposable
                 _takebackOffer = null;
                 break;
             case ChessMatchCommandKind.ClaimDraw:
+                if (command.Move is not null && _snapshot.State.PendingPromotion.HasValue) return Reject(ChessMatchCommandStatus.InvalidAction);
                 if (command.Move is null)
                 {
                     if (!_snapshot.State.ClaimableResult.HasValue) return Reject(ChessMatchCommandStatus.InvalidAction);
@@ -354,7 +363,8 @@ public sealed class AuthoritativeChessMatch : IDisposable
 
     private bool IsLegalMoveLocked(string? move)
     {
-        if (move is null) return false;
+        if (move is null || _snapshot.State.PendingPromotion is { } pending &&
+            !move.StartsWith(pending.MovePrefix, StringComparison.Ordinal)) return false;
         foreach (string legal in _snapshot.State.LegalMoves)
             if (string.Equals(legal, move, StringComparison.Ordinal)) return true;
         return false;
@@ -369,7 +379,8 @@ public sealed class AuthoritativeChessMatch : IDisposable
 
     private void ApplyMoveLocked(string move)
     {
-        _match.ApplyMove(move);
+        if (_snapshot.State.PendingPromotion.HasValue) _match.ChoosePromotion(move[4]);
+        else _match.ApplyMove(move);
         _takebackOffer = null;
     }
 

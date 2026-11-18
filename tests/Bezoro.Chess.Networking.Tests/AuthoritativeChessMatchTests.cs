@@ -210,6 +210,22 @@ public sealed class AuthoritativeChessMatchTests
     }
 
     [Fact]
+    public async Task RestoredPendingPromotionAcceptsOnlyAMatchingCompleteMove()
+    {
+        using var local = new Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession(
+            claimableDrawPolicy: PlayableMatchClaimableDrawPolicy.ClaimRequired,
+            drawOfferPolicy: PlayableMatchDrawOfferPolicy.ExpireOnMove);
+        await local.LoadMatchAsync(new(Fen.Parse("7k/P7/8/8/8/8/8/7K w - - 0 1")!.Value));
+        local.ApplyMove("a7a8");
+        using var host = AuthoritativeChessMatch.Restore(Guid.NewGuid(), local.CaptureSave());
+        Assert.Equal(ChessMatchCommandStatus.InvalidAction, Submit(host, ChessPlayerSeat.White, 1, ChessMatchCommandKind.Move, "h1g1").Status);
+        var receipt = Submit(host, ChessPlayerSeat.White, 1, ChessMatchCommandKind.Move, "a7a8n");
+        Assert.Equal(ChessMatchCommandStatus.Accepted, receipt.Status);
+        Assert.Equal("a7a8n", Assert.Single(receipt.Snapshot.State.MoveHistory).Move);
+        Assert.Null(receipt.Snapshot.State.PendingPromotion);
+    }
+
+    [Fact]
     public void IntendedMoveDrawClaimDoesNotExecuteTheDeclaredMove()
     {
         var fen = Fen.Parse("4k3/8/8/8/8/8/8/R3K3 w Q - 99 1")!.Value;

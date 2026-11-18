@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using Bezoro.Chess.Presentation;
 using Bezoro.Chess.UCI.Protocol.API.Types;
 using UnityEngine;
@@ -34,6 +35,8 @@ namespace Bezoro.Chess.UnitySample
         private ChessHighlightPalette palette;
         private ChessPieceSkin skin;
         private ChessSquare? selectedSquare;
+        private PendingPromotionRequest? localPromotion;
+        private PendingPromotionRequest? PendingPromotion => state.PendingPromotion ?? localPromotion;
         private bool hasPosition;
 
         /// <summary>Submit through the game's local or network command controller.</summary>
@@ -56,7 +59,10 @@ namespace Bezoro.Chess.UnitySample
         /// </summary>
         public void Present(in PlayableMatchState authoritativeState, PlayableMatchEvent? animation = null)
         {
-            var previousPromotion = hasPosition ? state.PendingPromotion : null;
+            var previousPromotion = hasPosition ? PendingPromotion : null;
+            if (authoritativeState.PendingPromotion.HasValue || authoritativeState.Result.IsTerminal ||
+                state.PositionKey != authoritativeState.PositionKey || state.Fen.Raw != authoritativeState.Fen.Raw)
+                localPromotion = null;
             state = authoritativeState;
             hasPosition = true;
             Reconcile();
@@ -65,14 +71,14 @@ namespace Bezoro.Chess.UnitySample
                 var value = animation.Value;
                 ActiveRenderer.Animate(in value);
             }
-            if (!SamePromotion(previousPromotion, state.PendingPromotion))
-                PromotionChanged?.Invoke(state.PendingPromotion);
+            if (!SamePromotion(previousPromotion, PendingPromotion))
+                PromotionChanged?.Invoke(PendingPromotion);
         }
 
         /// <summary>Connect a renderer's hit test to these bottom-left-origin cell coordinates.</summary>
         public void SelectCell(int column, int row)
         {
-            if (!hasPosition || !InteractionEnabled || state.Result.IsTerminal || state.PendingPromotion.HasValue)
+            if (!hasPosition || !InteractionEnabled || state.Result.IsTerminal || PendingPromotion.HasValue)
                 return;
             var square = ChessBoardCoordinates.FromDisplayCell(column, row, orientation);
             var highlights = board.GetHighlights(square);
@@ -82,7 +88,18 @@ namespace Bezoro.Chess.UnitySample
                 string move = UciCoordinateMove.Create(selectedSquare.Value, square).Notation;
                 selectedSquare = null;
                 Reconcile();
-                MoveRequested?.Invoke(move);
+                ImmutableArray<char>.Builder choices = null;
+                foreach (var legal in state.LegalMoves)
+                    if (legal.Length == 5 && legal.StartsWith(move, StringComparison.Ordinal))
+                        (choices ??= ImmutableArray.CreateBuilder<char>(4)).Add(legal[4]);
+                if (choices == null) MoveRequested?.Invoke(move);
+                else
+                {
+                    var side = state.Fen.ActiveColor;
+                    localPromotion = new PendingPromotionRequest(move, side, side == 'w' ? 'P' : 'p',
+                        move.Substring(0, 2), move.Substring(2, 2), state.PositionKey, state.Fen, choices.ToImmutable());
+                    PromotionChanged?.Invoke(localPromotion);
+                }
                 return;
             }
             selectedSquare = selectedSquare == square ? null : square;
@@ -92,12 +109,18 @@ namespace Bezoro.Chess.UnitySample
         /// <summary>Connect the promotion panel's four buttons using q, r, b or n.</summary>
         public void ChoosePromotion(char piece)
         {
-            if (!hasPosition || !InteractionEnabled || !state.PendingPromotion.HasValue) return;
+            if (!hasPosition || !InteractionEnabled || !PendingPromotion.HasValue) return;
             char normalized = char.ToLowerInvariant(piece);
-            foreach (char allowed in state.PendingPromotion.Value.AllowedPromotionPieces)
+            foreach (char allowed in PendingPromotion.Value.AllowedPromotionPieces)
                 if (allowed == normalized)
                 {
-                    PromotionChosen?.Invoke(normalized);
+                    if (localPromotion is PendingPromotionRequest local)
+                    {
+                        localPromotion = null;
+                        PromotionChanged?.Invoke(null);
+                        MoveRequested?.Invoke(local.MovePrefix + normalized);
+                    }
+                    else PromotionChosen?.Invoke(normalized);
                     return;
                 }
             throw new ArgumentException("This piece is not an allowed promotion choice.", nameof(piece));

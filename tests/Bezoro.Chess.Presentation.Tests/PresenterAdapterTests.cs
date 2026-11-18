@@ -57,6 +57,29 @@ public sealed class PresenterAdapterTests
     }
 
     [Fact]
+    public async Task DestinationSelectionCollectsPromotionBeforeSubmittingACompleteMove()
+    {
+        using var match = new UciPlayableMatchSession();
+        await match.LoadMatchAsync(new(Fen.Parse("7k/P7/8/8/8/8/8/7K w - - 0 1")!.Value));
+        var presenter = Create(new RecordingRenderer(), new RecordingRenderer());
+        var state = match.Refresh();
+        presenter.Present(in state);
+        var moves = new List<string>();
+        presenter.MoveRequested += moves.Add;
+        var choices = new List<PendingPromotionRequest?>();
+        presenter.PromotionChanged += choices.Add;
+        presenter.SelectCell(0, 6);
+        presenter.SelectCell(0, 7);
+        Assert.Empty(moves);
+        Assert.Contains('n', Assert.Single(choices)!.Value.AllowedPromotionPieces);
+        presenter.Present(in state);
+        presenter.ChoosePromotion('N');
+        Assert.Equal("a7a8n", Assert.Single(moves));
+        Assert.Null(choices[1]);
+        Assert.Empty(match.CurrentState.MoveHistory);
+    }
+
+    [Fact]
     public async Task PromotionPanel_ChangesOnlyWhenThePendingChoiceChanges()
     {
         using var match = new UciPlayableMatchSession();
