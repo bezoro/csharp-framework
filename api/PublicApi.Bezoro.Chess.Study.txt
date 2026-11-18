@@ -1,0 +1,265 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Chess.Study
+{
+    public sealed class ChessLearningCampaign
+    {
+        public ChessLearningCampaign(string id, System.Collections.Generic.IEnumerable<Bezoro.Chess.Study.ChessLearningStage> stages) { }
+        public string Id { get; }
+        public System.Collections.Generic.IReadOnlyList<Bezoro.Chess.Study.ChessLearningStage> Stages { get; }
+        public Bezoro.Progression.StoryCatalog Story { get; }
+        public Bezoro.Chess.Study.ChessLearningStage GetStage(Bezoro.Progression.ProgressionId id) { }
+        public Bezoro.Chess.Study.ChessLearningStage GetStage(string lessonId) { }
+        public static Bezoro.Chess.Study.ChessLearningCampaign CreateFoundations() { }
+    }
+    public sealed class ChessLearningStage
+    {
+        public ChessLearningStage(Bezoro.Progression.ProgressionId id, Bezoro.Chess.Study.GuidedLessonDefinition lesson, System.ReadOnlySpan<Bezoro.Progression.StoryPrerequisite> prerequisites = default) { }
+        public Bezoro.Progression.ProgressionId Id { get; }
+        public Bezoro.Chess.Study.GuidedLessonDefinition Lesson { get; }
+        public Bezoro.Progression.StoryStageDefinition Progression { get; }
+        public System.Collections.Generic.IReadOnlyList<string> ReinforcedFundamentals { get; }
+    }
+    public sealed class ChessLesson
+    {
+        public ChessLesson(Bezoro.Chess.UCI.Protocol.API.Types.Fen startingPosition, System.Collections.Generic.IEnumerable<System.Collections.Generic.IEnumerable<string>> acceptedLines, int maxNodes = 4096, int maxMovesPerLine = 256) { }
+        public char LearnerSide { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen StartingPosition { get; }
+        public Bezoro.Chess.Study.ChessLessonAttempt StartAttempt() { }
+    }
+    public sealed class ChessLessonAttempt
+    {
+        public int HintCount { get; }
+        public bool IsCompleted { get; }
+        public int MistakeCount { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen Position { get; }
+        public string GetHint(int index) { }
+        public void Reset() { }
+        public Bezoro.Chess.Study.LessonMoveResult TryPlay(string move) { }
+        public bool Undo() { }
+    }
+    public sealed class ChessLessonCompletion
+    {
+        public System.Guid AttemptId { get; }
+        public string DefinitionFingerprint { get; }
+        public string LessonId { get; }
+        public int MistakeCount { get; }
+    }
+    public static class ChessNotation
+    {
+        public static string ParseSan(Bezoro.Chess.UCI.Protocol.API.Types.Fen position, string san) { }
+        public static string ToSan(Bezoro.Chess.UCI.Protocol.API.Types.Fen position, string move) { }
+    }
+    public sealed class ChessPuzzleDefinition
+    {
+        public ChessPuzzleDefinition(int maxLearnerMoves, string? instruction = null) { }
+        public string Instruction { get; }
+        public int MaxLearnerMoves { get; }
+    }
+    public sealed class ChessStudy
+    {
+        public ChessStudy(Bezoro.Chess.UCI.Protocol.API.Types.Fen? startingPosition = default, int maxNodes = 4096) { }
+        public Bezoro.Chess.Study.StudyNode Current { get; }
+        public int NodeCount { get; }
+        public string Result { get; }
+        public Bezoro.Chess.Study.StudyNode Root { get; }
+        public System.Collections.Generic.IReadOnlyDictionary<string, string> Tags { get; }
+        public void AddAnnotation(Bezoro.Chess.Study.StudyNode node, byte glyph) { }
+        public System.Collections.Immutable.ImmutableArray<string> GetCurrentMoves() { }
+        public void GoTo(Bezoro.Chess.Study.StudyNode node) { }
+        public Bezoro.Chess.Study.StudyNode Play(string move) { }
+        public Bezoro.Chess.Study.StudyNode PlaySan(string san) { }
+        public bool Redo(int variationIndex = 0) { }
+        public void SetComment(Bezoro.Chess.Study.StudyNode node, string comment) { }
+        public void SetLeadingComment(Bezoro.Chess.Study.StudyNode node, string comment) { }
+        public void SetTag(string name, string value) { }
+        public bool Undo() { }
+    }
+    public static class GuidedLessonCatalog
+    {
+        public static int Compare(int leftOrder, string? leftId, int rightOrder, string? rightId) { }
+        public static Bezoro.Chess.Study.GuidedLessonValidationResult Validate(System.Collections.Generic.IEnumerable<Bezoro.Chess.Study.GuidedLessonDefinition?>? lessons) { }
+        public static Bezoro.Chess.Study.GuidedLessonValidationResult ValidateIdentities(System.Collections.Generic.IEnumerable<Bezoro.Chess.Study.GuidedLessonDefinition?>? lessons) { }
+    }
+    public enum GuidedLessonCategory
+    {
+        Rules = 0,
+        Opening = 1,
+        Strategy = 2,
+        Tactics = 3,
+        Challenge = 4,
+    }
+    public sealed class GuidedLessonDefinition
+    {
+        public GuidedLessonDefinition(string? id, string? title, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup? initialSetup, System.Collections.Generic.IEnumerable<Bezoro.Chess.Study.GuidedLessonStep>? steps, string? description = null, Bezoro.Chess.Study.GuidedLessonCategory category = 0, Bezoro.Chess.Study.GuidedLessonDifficulty difficulty = 0, int order = 0, Bezoro.Chess.Study.GuidedLessonKind kind = 0, System.Collections.Generic.IEnumerable<string>? fundamentals = null, Bezoro.Chess.Study.GuidedLessonMode mode = 0, Bezoro.Chess.Study.ChessPuzzleDefinition? puzzle = null) { }
+        public Bezoro.Chess.Study.GuidedLessonCategory Category { get; }
+        public string Description { get; }
+        public Bezoro.Chess.Study.GuidedLessonDifficulty Difficulty { get; }
+        public string Fingerprint { get; }
+        public System.Collections.Generic.IReadOnlyList<string> Fundamentals { get; }
+        public string Id { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup? InitialSetup { get; }
+        public Bezoro.Chess.Study.GuidedLessonKind Kind { get; }
+        public Bezoro.Chess.Study.GuidedLessonMode Mode { get; }
+        public int Order { get; }
+        public Bezoro.Chess.Study.ChessPuzzleDefinition? Puzzle { get; }
+        public System.Collections.Generic.IReadOnlyList<Bezoro.Chess.Study.GuidedLessonStep> Steps { get; }
+        public string Title { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen GetPositionBeforeStep(int index) { }
+    }
+    public enum GuidedLessonDifficulty
+    {
+        Beginner = 0,
+        Normal = 1,
+        Advanced = 2,
+    }
+    public enum GuidedLessonKind
+    {
+        Fundamental = 0,
+        Boss = 1,
+    }
+    public enum GuidedLessonMode
+    {
+        Scripted = 0,
+        GoalPuzzle = 1,
+    }
+    public readonly struct GuidedLessonMoveRequest : System.IEquatable<Bezoro.Chess.Study.GuidedLessonMoveRequest>
+    {
+        public GuidedLessonMoveRequest(bool CanSubmitMove, string Feedback) { }
+        public bool CanSubmitMove { get; init; }
+        public string Feedback { get; init; }
+    }
+    public static class GuidedLessonMoves
+    {
+        public static bool IsExpected(string? expected, string? candidate, bool allowPendingPromotion = true) { }
+    }
+    public enum GuidedLessonObjective
+    {
+        None = 0,
+        MovePiece = 1,
+        Capture = 2,
+        GiveCheck = 3,
+        EscapeCheck = 4,
+        Checkmate = 5,
+        Promote = 6,
+        Castle = 7,
+    }
+    public enum GuidedLessonPhase
+    {
+        Inactive = 0,
+        LoadingSetup = 1,
+        ShowingExplanation = 2,
+        ReadyForPlayerMove = 3,
+        WaitingForMoveResult = 4,
+        WaitingForOpponentReply = 5,
+        Completed = 6,
+        Failed = 7,
+    }
+    public sealed class GuidedLessonPlayer
+    {
+        public GuidedLessonPlayer() { }
+        public Bezoro.Chess.Study.ChessLessonCompletion? Completion { get; }
+        public int CurrentStepIndex { get; }
+        public int MistakeCount { get; }
+        public Bezoro.Chess.Study.GuidedLessonPhase Phase { get; }
+        public bool AcceptsPromotion(char piece) { }
+        public bool BeginLoading(Bezoro.Chess.Study.GuidedLessonDefinition lesson, out string error, System.Collections.Generic.IReadOnlyList<string>? setupErrors = null) { }
+        public Bezoro.Chess.Study.GuidedLessonStepResult CompleteAcceptedMove(Bezoro.Chess.Study.GuidedLessonPosition state) { }
+        public Bezoro.Chess.Study.GuidedLessonStepResult CompleteOpponentReply(Bezoro.Chess.Study.GuidedLessonPosition state) { }
+        public void CompleteSetupLoading() { }
+        public Bezoro.Chess.Study.GuidedLessonStepResult ContinueExplanationStep() { }
+        public Bezoro.Chess.Study.GuidedLessonMoveRequest EvaluateMoveRequest(string move, int playedMoveCount = 0) { }
+        public void Fail(string? feedback) { }
+        public Bezoro.Chess.Study.GuidedLessonStepResult ObserveAcceptedMove(Bezoro.Chess.Study.GuidedLessonPosition state) { }
+        public bool ObserveUndo(Bezoro.Chess.Study.GuidedLessonPosition state) { }
+        public Bezoro.Chess.Study.GuidedLessonProjection Project() { }
+        public void Reset() { }
+        public bool Start(Bezoro.Chess.Study.GuidedLessonDefinition lesson, out string error) { }
+    }
+    public readonly struct GuidedLessonPosition
+    {
+        public GuidedLessonPosition(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup history, Bezoro.Chess.UCI.Protocol.API.Types.Fen position) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup History { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen Position { get; }
+    }
+    public readonly struct GuidedLessonProjection
+    {
+        public bool AcceptsMoveRequests { get; }
+        public bool AcceptsUndoRequests { get; }
+        public System.Collections.Generic.IReadOnlyList<char> AllowedPromotionPieces { get; }
+        public int CurrentStepIndex { get; }
+        public string Feedback { get; }
+        public string Instruction { get; }
+        public bool IsActive { get; }
+        public int LearnerMoves { get; }
+        public int MaxLearnerMoves { get; }
+        public Bezoro.Chess.Study.GuidedLessonPhase Phase { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciCoordinateMove? RequiredMove { get; }
+        public int StepCount { get; }
+        public string Title { get; }
+        public System.Collections.Generic.IReadOnlyList<string> GetAllowedMoves(System.Collections.Generic.IEnumerable<string> hostLegalMoves) { }
+        public int GetUndoPlyCount(int requestedCount) { }
+    }
+    public sealed class GuidedLessonStep
+    {
+        public GuidedLessonStep(string? instruction = null, string? beforeMoveExplanation = null, string? expectedPlayerMove = null, string? opponentReply = null, string? afterMoveExplanation = null, Bezoro.Chess.Study.GuidedLessonObjective objective = 0) { }
+        public string AfterMoveExplanation { get; }
+        public string BeforeMoveExplanation { get; }
+        public string ExpectedPlayerMove { get; }
+        public string Instruction { get; }
+        public Bezoro.Chess.Study.GuidedLessonObjective Objective { get; }
+        public string OpponentReply { get; }
+    }
+    public readonly struct GuidedLessonStepResult : System.IEquatable<Bezoro.Chess.Study.GuidedLessonStepResult>
+    {
+        public GuidedLessonStepResult(bool DidAdvance, bool IsLessonComplete, string Feedback, string OpponentReply, bool NeedsOpponentMove = false) { }
+        public bool DidAdvance { get; init; }
+        public string Feedback { get; init; }
+        public bool HasOpponentReply { get; }
+        public bool IsLessonComplete { get; init; }
+        public bool NeedsOpponentMove { get; init; }
+        public string OpponentReply { get; init; }
+    }
+    public readonly struct GuidedLessonValidationResult
+    {
+        public bool HasErrors { get; }
+        public System.Collections.Generic.IReadOnlyList<string> Messages { get; }
+    }
+    public static class GuidedLessonValidator
+    {
+        public static Bezoro.Chess.Study.GuidedLessonValidationResult Validate(Bezoro.Chess.Study.GuidedLessonDefinition lesson, System.Collections.Generic.IReadOnlyList<string>? setupErrors = null) { }
+    }
+    public readonly struct LessonMoveResult
+    {
+        public bool Accepted { get; }
+        public bool Completed { get; }
+        public string? LearnerMove { get; }
+        public string? OpponentReply { get; }
+    }
+    public static class Pgn
+    {
+        public static Bezoro.Chess.Study.ChessStudy Parse(string text, Bezoro.Chess.Study.PgnReadLimits? limits = null) { }
+        public static string Write(Bezoro.Chess.Study.ChessStudy study) { }
+    }
+    public sealed class PgnReadLimits
+    {
+        public PgnReadLimits(int maxInputCharacters = 4194304, int maxNodes = 4096, int maxVariationDepth = 128, int maxTokenCharacters = 16384) { }
+        public int MaxInputCharacters { get; }
+        public int MaxNodes { get; }
+        public int MaxTokenCharacters { get; }
+        public int MaxVariationDepth { get; }
+    }
+    public sealed class StudyNode
+    {
+        public int AnnotationCount { get; }
+        public string Comment { get; }
+        public int Depth { get; }
+        public string LeadingComment { get; }
+        public string? Move { get; }
+        public Bezoro.Chess.Study.StudyNode? Parent { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen Position { get; }
+        public string? San { get; }
+        public int VariationCount { get; }
+        public byte GetAnnotation(int index) { }
+        public Bezoro.Chess.Study.StudyNode GetVariation(int index) { }
+    }
+}

@@ -1,0 +1,28 @@
+// netstandard2.0
+namespace Bezoro.ECS.SourceGen.Generators
+{
+    [Microsoft.CodeAnalysis.Generator]
+    public sealed class ForEachJobSourceGenerator : Microsoft.CodeAnalysis.IIncrementalGenerator
+    {
+        public ForEachJobSourceGenerator() { }
+        public void Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext context) { }
+    }
+    [Microsoft.CodeAnalysis.Generator]
+    public sealed class QuerySourceGenerator : Microsoft.CodeAnalysis.IIncrementalGenerator
+    {
+        public QuerySourceGenerator() { }
+        public void Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext context) { }
+    }
+    [Microsoft.CodeAnalysis.Generator]
+    public sealed class SplitFieldSourceGenerator : Microsoft.CodeAnalysis.IIncrementalGenerator
+    {
+        public SplitFieldSourceGenerator() { }
+        public void Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext context) { }
+    }
+    [Microsoft.CodeAnalysis.Generator]
+    public sealed class SystemMetadataGenerator : Microsoft.CodeAnalysis.IIncrementalGenerator
+    {
+        public SystemMetadataGenerator() { }
+        public void Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext context) { }
+    }
+}

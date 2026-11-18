@@ -1,0 +1,67 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Persistence
+{
+    public sealed class AtomicFileSaveStore : Bezoro.Persistence.ISaveStore
+    {
+        public AtomicFileSaveStore(string rootDirectory, int maximumPayloadBytes, bool flushToDisk = true) { }
+        public bool FlushToDisk { get; }
+        public int MaximumPayloadBytes { get; }
+        public string RootDirectory { get; }
+        public System.Threading.Tasks.ValueTask DeleteAsync(string slot, System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.ValueTask<Bezoro.Persistence.SaveReadResult> ReadAsync(string slot, System.Memory<byte> destination, uint? expectedSchemaVersion = default, System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.ValueTask WriteAsync(string slot, uint schemaVersion, System.ReadOnlyMemory<byte> payload, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public static class Crc32
+    {
+        public static uint Append(uint checksum, System.ReadOnlySpan<byte> data) { }
+        public static uint Compute(System.ReadOnlySpan<byte> data) { }
+    }
+    public interface ISaveStore
+    {
+        System.Threading.Tasks.ValueTask DeleteAsync(string slot, System.Threading.CancellationToken cancellationToken = default);
+        System.Threading.Tasks.ValueTask<Bezoro.Persistence.SaveReadResult> ReadAsync(string slot, System.Memory<byte> destination, uint? expectedSchemaVersion = default, System.Threading.CancellationToken cancellationToken = default);
+        System.Threading.Tasks.ValueTask WriteAsync(string slot, uint schemaVersion, System.ReadOnlyMemory<byte> payload, System.Threading.CancellationToken cancellationToken = default);
+    }
+    public static class SaveEnvelope
+    {
+        public const ushort FormatVersion = 1;
+        public const int HeaderSize = 32;
+        public const int MaximumPayloadLength = 2147483615;
+        public static Bezoro.Persistence.SaveReadStatus Decode(System.ReadOnlySpan<byte> source, int maximumPayloadBytes, out Bezoro.Persistence.SaveEnvelopeHeader header, out System.ReadOnlySpan<byte> payload, uint? expectedSchemaVersion = default) { }
+        public static Bezoro.Persistence.SaveReadStatus DecodeHeader(System.ReadOnlySpan<byte> source, int maximumPayloadBytes, out Bezoro.Persistence.SaveEnvelopeHeader header) { }
+        public static int GetEncodedLength(int payloadLength) { }
+        public static int Write(uint schemaVersion, System.ReadOnlySpan<byte> payload, System.Span<byte> destination) { }
+        public static void WriteHeader(uint schemaVersion, System.ReadOnlySpan<byte> payload, System.Span<byte> destination) { }
+    }
+    public readonly struct SaveEnvelopeHeader : System.IEquatable<Bezoro.Persistence.SaveEnvelopeHeader>
+    {
+        public uint Checksum { get; }
+        public ushort FormatVersion { get; }
+        public ulong PayloadLength { get; }
+        public uint SchemaVersion { get; }
+    }
+    public readonly struct SaveReadResult : System.IEquatable<Bezoro.Persistence.SaveReadResult>
+    {
+        public int BytesWritten { get; }
+        public Bezoro.Persistence.SaveEnvelopeHeader Header { get; }
+        public bool IsSuccess { get; }
+        public int RequiredCapacity { get; }
+        public Bezoro.Persistence.SaveReadStatus Status { get; }
+    }
+    public enum SaveReadStatus
+    {
+        Unknown = 0,
+        Success = 1,
+        NotFound = 2,
+        HeaderTooShort = 3,
+        InvalidMagic = 4,
+        UnsupportedFormatVersion = 5,
+        InvalidHeader = 6,
+        PayloadTooLarge = 7,
+        TruncatedPayload = 8,
+        TrailingData = 9,
+        ChecksumMismatch = 10,
+        SchemaMismatch = 11,
+        DestinationTooSmall = 12,
+    }
+}

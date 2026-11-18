@@ -1,0 +1,56 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Inventory
+{
+    public sealed class ItemCatalog
+    {
+        public ItemCatalog(System.ReadOnlySpan<Bezoro.Inventory.ItemDefinition> definitions) { }
+        public int Count { get; }
+        public System.ReadOnlySpan<Bezoro.Inventory.ItemDefinition> Definitions { get; }
+        public Bezoro.Inventory.ItemDefinition GetDefinition(Bezoro.Inventory.ItemId item) { }
+        public bool TryGetDefinition(Bezoro.Inventory.ItemId item, out Bezoro.Inventory.ItemDefinition definition) { }
+    }
+    public readonly struct ItemDefinition : System.IEquatable<Bezoro.Inventory.ItemDefinition>
+    {
+        public ItemDefinition(Bezoro.Inventory.ItemId item, int maximumStackSize) { }
+        public Bezoro.Inventory.ItemId Item { get; }
+        public int MaximumStackSize { get; }
+    }
+    public readonly struct ItemId : System.IEquatable<Bezoro.Inventory.ItemId>
+    {
+        public ItemId(uint value) { }
+        public bool IsValid { get; }
+        public uint Value { get; }
+        public bool Equals(Bezoro.Inventory.ItemId other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Bezoro.Inventory.ItemId left, Bezoro.Inventory.ItemId right) { }
+        public static bool operator ==(Bezoro.Inventory.ItemId left, Bezoro.Inventory.ItemId right) { }
+    }
+    public readonly struct ItemStack : System.IEquatable<Bezoro.Inventory.ItemStack>
+    {
+        public ItemStack(Bezoro.Inventory.ItemId item, int quantity) { }
+        public bool IsEmpty { get; }
+        public Bezoro.Inventory.ItemId Item { get; }
+        public int Quantity { get; }
+    }
+    public sealed class SlotInventory
+    {
+        public SlotInventory(Bezoro.Inventory.ItemCatalog catalog, int capacity) { }
+        public int Capacity { get; }
+        public Bezoro.Inventory.ItemCatalog Catalog { get; }
+        public Bezoro.Inventory.ItemStack this[int index] { get; }
+        public int OccupiedSlotCount { get; }
+        public void Clear() { }
+        public void CopyTo(System.Span<Bezoro.Inventory.ItemStack> destination) { }
+        public Bezoro.Inventory.ItemStack[] CreateSnapshot() { }
+        public long GetAvailableCapacity(Bezoro.Inventory.ItemId item) { }
+        public long GetQuantity(Bezoro.Inventory.ItemId item) { }
+        public bool TryAdd(Bezoro.Inventory.ItemStack stack) { }
+        public bool TryAdd(Bezoro.Inventory.ItemId item, long quantity) { }
+        public bool TryInsertAt(int index, Bezoro.Inventory.ItemStack stack) { }
+        public bool TryRemove(Bezoro.Inventory.ItemId item, long quantity) { }
+        public bool TryRestore(System.ReadOnlySpan<Bezoro.Inventory.ItemStack> snapshot) { }
+        public bool TryTakeAt(int index, int quantity, out Bezoro.Inventory.ItemStack taken) { }
+        public bool TryTransferTo(Bezoro.Inventory.SlotInventory destination, Bezoro.Inventory.ItemId item, long quantity) { }
+    }
+}

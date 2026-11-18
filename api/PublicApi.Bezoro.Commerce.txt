@@ -1,0 +1,101 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Commerce
+{
+    public sealed class CommerceAccount
+    {
+        public CommerceAccount(Bezoro.Commerce.StoreCatalog catalog, Bezoro.Commerce.CommerceAccountSnapshot snapshot, int receiptCapacity = 1024) { }
+        public CommerceAccount(Bezoro.Commerce.StoreCatalog catalog, string accountId, int receiptCapacity = 1024) { }
+        public string AccountId { get; }
+        public Bezoro.Commerce.StoreCatalog Catalog { get; }
+        public string? EquippedSkinId { get; }
+        public int OwnedSkinCount { get; }
+        public int ReceiptCapacity { get; }
+        public int ReceiptCount { get; }
+        public Bezoro.Commerce.CommerceAccountSnapshot CreateSnapshot() { }
+        public Bezoro.Commerce.CommerceTransactionResult CreditCurrency(string transactionId, string currencyId, long amount) { }
+        public long GetBalance(string currencyId) { }
+        public Bezoro.Commerce.CommerceTransactionResult GrantSkin(string transactionId, string skinId) { }
+        public bool OwnsSkin(string skinId) { }
+        public Bezoro.Commerce.CommerceTransactionResult Purchase(string transactionId, string offerId, System.DateTimeOffset now) { }
+        public bool TryEquipSkin(string skinId) { }
+        public bool TryGetReceipt(string transactionId, out Bezoro.Commerce.CommerceReceipt receipt) { }
+    }
+    public sealed class CommerceAccountSnapshot
+    {
+        public CommerceAccountSnapshot(string accountId, System.ReadOnlySpan<Bezoro.Commerce.WalletBalance> balances, System.ReadOnlySpan<string> ownedSkins, System.ReadOnlySpan<Bezoro.Commerce.CommerceReceipt> receipts, string? equippedSkinId = null) { }
+        public string AccountId { get; }
+        public System.ReadOnlySpan<Bezoro.Commerce.WalletBalance> Balances { get; }
+        public string? EquippedSkinId { get; }
+        public System.ReadOnlySpan<string> OwnedSkins { get; }
+        public System.ReadOnlySpan<Bezoro.Commerce.CommerceReceipt> Receipts { get; }
+    }
+    public enum CommerceOperation
+    {
+        CreditCurrency = 0,
+        GrantSkin = 1,
+        Purchase = 2,
+    }
+    public readonly struct CommerceReceipt
+    {
+        public CommerceReceipt(string transactionId, Bezoro.Commerce.CommerceOperation operation, string targetId, long amount, long balanceAfter) { }
+        public long Amount { get; }
+        public long BalanceAfter { get; }
+        public bool IsValid { get; }
+        public Bezoro.Commerce.CommerceOperation Operation { get; }
+        public string TargetId { get; }
+        public string TransactionId { get; }
+    }
+    public readonly struct CommerceTransactionResult
+    {
+        public Bezoro.Commerce.CommerceReceipt? Receipt { get; }
+        public Bezoro.Commerce.CommerceTransactionStatus Status { get; }
+        public bool Succeeded { get; }
+    }
+    public enum CommerceTransactionStatus
+    {
+        Uninitialized = 0,
+        Applied = 1,
+        AlreadyApplied = 2,
+        ConflictingTransaction = 3,
+        InsufficientFunds = 4,
+        AlreadyOwned = 5,
+        UnknownProduct = 6,
+        OfferUnavailable = 7,
+        ReceiptCapacityReached = 8,
+        BalanceOverflow = 9,
+    }
+    public readonly struct SkinDefinition
+    {
+        public SkinDefinition(string skinId, string? asset2D, string? asset3D) { }
+        public string? Asset2D { get; }
+        public string? Asset3D { get; }
+        public bool IsValid { get; }
+        public string SkinId { get; }
+    }
+    public sealed class StoreCatalog
+    {
+        public StoreCatalog(System.ReadOnlySpan<Bezoro.Commerce.SkinDefinition> skins, System.ReadOnlySpan<Bezoro.Commerce.StoreOffer> offers) { }
+        public System.ReadOnlySpan<Bezoro.Commerce.StoreOffer> Offers { get; }
+        public System.ReadOnlySpan<Bezoro.Commerce.SkinDefinition> Skins { get; }
+        public bool TryGetOffer(string offerId, out Bezoro.Commerce.StoreOffer offer) { }
+        public bool TryGetSkin(string skinId, out Bezoro.Commerce.SkinDefinition skin) { }
+    }
+    public readonly struct StoreOffer
+    {
+        public StoreOffer(string offerId, string skinId, string currencyId, long price, System.DateTimeOffset? startsAt = default, System.DateTimeOffset? endsAt = default) { }
+        public string CurrencyId { get; }
+        public System.DateTimeOffset? EndsAt { get; }
+        public bool IsValid { get; }
+        public string OfferId { get; }
+        public long Price { get; }
+        public string SkinId { get; }
+        public System.DateTimeOffset? StartsAt { get; }
+        public bool IsAvailableAt(System.DateTimeOffset now) { }
+    }
+    public readonly struct WalletBalance
+    {
+        public WalletBalance(string currencyId, long amount) { }
+        public long Amount { get; }
+        public string CurrencyId { get; }
+    }
+}

@@ -1,0 +1,70 @@
+// net10.0, netstandard2.1
+namespace Bezoro.StateMachines
+{
+    public readonly struct SignalHandle { }
+    public readonly struct SignalId : System.IEquatable<Bezoro.StateMachines.SignalId>
+    {
+        public SignalId(int value) { }
+        public int Value { get; }
+        public bool Equals(Bezoro.StateMachines.SignalId other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override string ToString() { }
+        public static bool operator !=(Bezoro.StateMachines.SignalId left, Bezoro.StateMachines.SignalId right) { }
+        public static bool operator ==(Bezoro.StateMachines.SignalId left, Bezoro.StateMachines.SignalId right) { }
+    }
+    public readonly struct StateHandle { }
+    public readonly struct StateId : System.IEquatable<Bezoro.StateMachines.StateId>
+    {
+        public StateId(int value) { }
+        public int Value { get; }
+        public bool Equals(Bezoro.StateMachines.StateId other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override string ToString() { }
+        public static bool operator !=(Bezoro.StateMachines.StateId left, Bezoro.StateMachines.StateId right) { }
+        public static bool operator ==(Bezoro.StateMachines.StateId left, Bezoro.StateMachines.StateId right) { }
+    }
+    public sealed class StateMachineBuilder
+    {
+        public StateMachineBuilder() { }
+        public Bezoro.StateMachines.StateMachineDefinition Build() { }
+        public Bezoro.StateMachines.SignalId Resolve(Bezoro.StateMachines.SignalHandle signal) { }
+        public Bezoro.StateMachines.StateId Resolve(Bezoro.StateMachines.StateHandle state) { }
+        public Bezoro.StateMachines.SignalHandle Signal() { }
+        public void StartIn(Bezoro.StateMachines.StateHandle state) { }
+        public Bezoro.StateMachines.StateHandle State() { }
+        public void Transition(Bezoro.StateMachines.StateHandle from, Bezoro.StateMachines.SignalHandle on, Bezoro.StateMachines.StateHandle to) { }
+    }
+    public sealed class StateMachineDefinition
+    {
+        public StateMachineDefinition(int stateCount, int signalCount, System.ReadOnlySpan<Bezoro.StateMachines.StateTransition> transitions, Bezoro.StateMachines.StateId initialState = default) { }
+        public Bezoro.StateMachines.StateId InitialState { get; }
+        public int SignalCount { get; }
+        public int StateCount { get; }
+        public int TransitionCount { get; }
+        public System.ReadOnlySpan<Bezoro.StateMachines.StateTransition> Transitions { get; }
+        public Bezoro.StateMachines.StateStep Step(Bezoro.StateMachines.StateId currentState, Bezoro.StateMachines.SignalId signal) { }
+        public bool TryGetTransition(Bezoro.StateMachines.StateId currentState, Bezoro.StateMachines.SignalId signal, out Bezoro.StateMachines.StateTransition transition) { }
+    }
+    public readonly struct StateStep
+    {
+        public Bezoro.StateMachines.StateId CurrentState { get; }
+        public bool HasStateChanged { get; }
+        public bool HasTransition { get; }
+        public Bezoro.StateMachines.StateId PreviousState { get; }
+        public Bezoro.StateMachines.SignalId Signal { get; }
+    }
+    public readonly struct StateTransition : System.IEquatable<Bezoro.StateMachines.StateTransition>
+    {
+        public StateTransition(Bezoro.StateMachines.StateId source, Bezoro.StateMachines.SignalId signal, Bezoro.StateMachines.StateId target) { }
+        public Bezoro.StateMachines.SignalId Signal { get; }
+        public Bezoro.StateMachines.StateId Source { get; }
+        public Bezoro.StateMachines.StateId Target { get; }
+        public bool Equals(Bezoro.StateMachines.StateTransition other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Bezoro.StateMachines.StateTransition left, Bezoro.StateMachines.StateTransition right) { }
+        public static bool operator ==(Bezoro.StateMachines.StateTransition left, Bezoro.StateMachines.StateTransition right) { }
+    }
+}

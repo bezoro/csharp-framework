@@ -1,0 +1,2549 @@
+// net10.0
+namespace Bezoro.Core.Abstractions
+{
+    public interface IPoolPolicy<T>
+        where T :  class
+    {
+        T Create();
+        void OnDiscard(T item);
+        bool Reset(T item);
+        bool Validate(T item);
+    }
+    public interface IPool<T>
+        where T :  class
+    {
+        int AvailableCount { get; }
+        int MaxCapacity { get; }
+        Bezoro.Core.Types.PoolStatistics Statistics { get; }
+        int TotalCount { get; }
+        void Clear();
+        T Rent();
+        System.Threading.Tasks.ValueTask<T> RentAsync(System.Threading.CancellationToken cancellationToken = default);
+        System.Threading.Tasks.ValueTask<T?> RentAsync(System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default);
+        Bezoro.Core.Types.Pool.PooledObjectHandle<T> RentHandle();
+        bool Return(T item);
+        int TrimExcess();
+        int TrimExcess(Bezoro.Core.Types.Percent targetUtilization);
+        bool TryRent([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? item);
+    }
+    public interface IPooledObject
+    {
+        void OnRent();
+        bool OnReturn();
+    }
+    public interface IProcessable
+    {
+        void Process();
+    }
+}
+namespace Bezoro.Core.Binary
+{
+    public ref struct BinarySpanReader
+    {
+        public BinarySpanReader(System.ReadOnlySpan<byte> source) { }
+        public int Position { get; }
+        public int Remaining { get; }
+        public System.ReadOnlySpan<byte> UnreadSpan { get; }
+        public bool TryReadByte(out byte value) { }
+        public bool TryReadBytes(int byteCount, out System.ReadOnlySpan<byte> value) { }
+        public bool TryReadDouble(out double value) { }
+        public bool TryReadInt16(out short value) { }
+        public bool TryReadInt32(out int value) { }
+        public bool TryReadInt64(out long value) { }
+        public bool TryReadLengthPrefixedBytes(int maximumLength, out System.ReadOnlySpan<byte> value) { }
+        public bool TryReadSingle(out float value) { }
+        public bool TryReadUInt16(out ushort value) { }
+        public bool TryReadUInt32(out uint value) { }
+        public bool TryReadUInt64(out ulong value) { }
+    }
+    public ref struct BinarySpanWriter
+    {
+        public BinarySpanWriter(System.Span<byte> destination) { }
+        public int Position { get; }
+        public int Remaining { get; }
+        public System.ReadOnlySpan<byte> WrittenSpan { get; }
+        public bool TryWriteByte(byte value) { }
+        public bool TryWriteBytes([System.Runtime.CompilerServices.ScopedRef] System.ReadOnlySpan<byte> value) { }
+        public bool TryWriteDouble(double value) { }
+        public bool TryWriteInt16(short value) { }
+        public bool TryWriteInt32(int value) { }
+        public bool TryWriteInt64(long value) { }
+        public bool TryWriteLengthPrefixedBytes([System.Runtime.CompilerServices.ScopedRef] System.ReadOnlySpan<byte> value) { }
+        public bool TryWriteSingle(float value) { }
+        public bool TryWriteUInt16(ushort value) { }
+        public bool TryWriteUInt32(uint value) { }
+        public bool TryWriteUInt64(ulong value) { }
+    }
+}
+namespace Bezoro.Core.CodeGen
+{
+    public class CSharpCodeBuilder
+    {
+        public CSharpCodeBuilder() { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder AddField(string name, string type, string accessibility = "private", bool isReadonly = false, string? initialValue = null) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder AddMethod(string name, string returnType = "void", string accessibility = "public", bool isStatic = false, string[]? parameters = null, System.Action<Bezoro.Core.CodeGen.CodeWriter>? bodyWriter = null, string[]? attributes = null) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder AddProperty(string name, string type, string accessibility = "public", bool hasGetter = true, bool hasSetter = true, string? setterAccessibility = null) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder AddUsing(string nameSpace) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder BeginClass(string className, string accessibility = "public", bool isStatic = false, string? baseClass = null, string[]? interfaces = null) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder BeginNamespace(string nameSpace) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder EndClass() { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder EndNamespace() { }
+        public string Generate() { }
+    }
+    public class CSharpFileGenerator
+    {
+        public CSharpFileGenerator(string outputPath) { }
+        public void Generate() { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder GetBuilder() { }
+    }
+    public class CodeWriter
+    {
+        public CodeWriter() { }
+        public Bezoro.Core.CodeGen.CodeWriter AddUsing(string nameSpace) { }
+        public Bezoro.Core.CodeGen.CodeWriter AddUsingRange(System.Collections.Generic.IEnumerable<string> namespaces) { }
+        public System.IDisposable BeginScope(string? declaration = null) { }
+        public void EndScope(string closer = "}") { }
+        public override string ToString() { }
+        public Bezoro.Core.CodeGen.CodeWriter Write(string text) { }
+        public Bezoro.Core.CodeGen.CodeWriter WriteLine(string line = "") { }
+    }
+}
+namespace Bezoro.Core.Collections
+{
+    public sealed class BitSet
+    {
+        public BitSet(int length) { }
+        public int Count { get; }
+        public bool this[int index] { get; set; }
+        public int Length { get; }
+        public void Clear() { }
+        public bool Contains(int index) { }
+        public void ExceptWith(Bezoro.Core.Collections.BitSet other) { }
+        public int FindNextSetBit(int startIndex = 0) { }
+        public Bezoro.Core.Collections.BitSet.Enumerator GetEnumerator() { }
+        public void IntersectWith(Bezoro.Core.Collections.BitSet other) { }
+        public bool Reset(int index) { }
+        public bool Set(int index, bool value = true) { }
+        public void SetAll() { }
+        public bool Toggle(int index) { }
+        public void UnionWith(Bezoro.Core.Collections.BitSet other) { }
+        public void XorWith(Bezoro.Core.Collections.BitSet other) { }
+        public struct Enumerator
+        {
+            public int Current { get; }
+            public bool MoveNext() { }
+        }
+    }
+    public sealed class RingBuffer<T> : System.Collections.Generic.IEnumerable<T>, System.Collections.Generic.IReadOnlyCollection<T>, System.Collections.Generic.IReadOnlyList<T>, System.Collections.IEnumerable
+    {
+        public RingBuffer(int capacity) { }
+        public int Capacity { get; }
+        public int Count { get; }
+        public bool IsFull { get; }
+        public T this[int index] { get; }
+        public void Clear() { }
+        public int CopyTo(System.Span<T> destination) { }
+        public T Dequeue() { }
+        public void Enqueue(T value) { }
+        public bool EnqueueOverwrite(T value, out T overwritten) { }
+        public Bezoro.Core.Collections.RingBuffer<T>.Enumerator GetEnumerator() { }
+        public bool TryDequeue(out T value) { }
+        public bool TryEnqueue(T value) { }
+        public bool TryPeek(out T value) { }
+        public struct Enumerator : System.Collections.Generic.IEnumerator<T>, System.Collections.IEnumerator, System.IDisposable
+        {
+            public T Current { get; }
+            public void Dispose() { }
+            public bool MoveNext() { }
+            public void Reset() { }
+        }
+    }
+    public readonly struct SlotHandle : System.IEquatable<Bezoro.Core.Collections.SlotHandle>
+    {
+        public bool IsDefault { get; }
+        public bool Equals(Bezoro.Core.Collections.SlotHandle other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Bezoro.Core.Collections.SlotHandle left, Bezoro.Core.Collections.SlotHandle right) { }
+        public static bool operator ==(Bezoro.Core.Collections.SlotHandle left, Bezoro.Core.Collections.SlotHandle right) { }
+    }
+    public sealed class SlotMap<T> : System.Collections.Generic.IEnumerable<T>, System.Collections.Generic.IReadOnlyCollection<T>, System.Collections.IEnumerable
+    {
+        public SlotMap(int capacity) { }
+        public int AvailableCapacity { get; }
+        public int Capacity { get; }
+        public int Count { get; }
+        public T this[Bezoro.Core.Collections.SlotHandle handle] { get; set; }
+        public System.ReadOnlySpan<T> Values { get; }
+        public Bezoro.Core.Collections.SlotHandle Add(T value) { }
+        public void Clear() { }
+        public bool Contains(Bezoro.Core.Collections.SlotHandle handle) { }
+        public Bezoro.Core.Collections.SlotMap<T>.Enumerator GetEnumerator() { }
+        public Bezoro.Core.Collections.SlotHandle GetHandleAt(int denseIndex) { }
+        public bool Remove(Bezoro.Core.Collections.SlotHandle handle) { }
+        public bool TryAdd(T value, out Bezoro.Core.Collections.SlotHandle handle) { }
+        public bool TryGet(Bezoro.Core.Collections.SlotHandle handle, out T value) { }
+        public bool TryRemove(Bezoro.Core.Collections.SlotHandle handle, out T value) { }
+        public struct Enumerator : System.Collections.Generic.IEnumerator<T>, System.Collections.IEnumerator, System.IDisposable
+        {
+            public T Current { get; }
+            public void Dispose() { }
+            public bool MoveNext() { }
+            public void Reset() { }
+        }
+    }
+}
+namespace Bezoro.Core.Extensions
+{
+    public static class ActionExtensions
+    {
+        public static void SafeInvoke(this System.Action handler) { }
+    }
+    public static class ArrayExtensions
+    {
+        public static bool AreEqual<T>(this T[] array, T[] b) { }
+        public static bool AreEqual<T>(this T[] array2d, T[] b) { }
+        public static bool Contains<T>(this T[] array, T element, out int index)
+            where T :  class { }
+        public static bool ContainsStruct<T>(this T[] array, T element, out int index)
+            where T :  struct, System.IEquatable<T> { }
+        public static int CountEmptyIndices<T>(this T?[] array)
+            where T :  class { }
+        public static int CountEmptyIndices<T>(this T[] array, int validSize)
+            where T :  class { }
+        public static int CountFilledIndices<T>(this T?[] array)
+            where T :  class { }
+        public static T[] Flatten<T>(this T[] array) { }
+        public static bool IsNullOrEmpty<T>(this T[]? array2d) { }
+        public static void ProcessArray<T>(this T?[] array)
+            where T : Bezoro.Core.Abstractions.IProcessable { }
+        public static void ProcessArray<T>(this T?[] array, System.Action<T> action) { }
+        public static System.Threading.Tasks.Task ProcessArrayAsync<T>(this T?[] array, System.Func<T, System.Threading.Tasks.Task> action) { }
+        public static System.Threading.Tasks.Task ProcessAsync<T>(this T[] array, System.Func<T, int, int, System.Threading.CancellationToken, System.Threading.Tasks.Task> processFunc, System.Threading.CancellationToken cancellationToken = default) { }
+        public static bool TryFindFirstEmptyIndex<T>(this T?[] array, out int index)
+            where T :  class { }
+    }
+    public static class ByteExtensions
+    {
+        public static bool IsBetween(this byte value, byte min, byte max) { }
+    }
+    public static class CharExtensions
+    {
+        public static bool IsEmpty(this char c) { }
+        public static char ThrowIfEmpty(this char c) { }
+        public static char ThrowIfLetter(this char c) { }
+        public static char ThrowIfLowerCase(this char c) { }
+        public static char ThrowIfNumber(this char c) { }
+        public static char ThrowIfSymbol(this char c) { }
+        public static char ThrowIfUpperCase(this char c) { }
+    }
+    public static class CollectionExtensions
+    {
+        public static void AddRange<T>(this System.Collections.Generic.ICollection<T> collection, System.Collections.Generic.ICollection<T> items) { }
+        public static T Find<T>(this System.Collections.Generic.ICollection<T> collection, T value) { }
+        public static bool IsEmpty<T>(this System.Collections.Generic.ICollection<T> collection) { }
+        public static bool IsNull<T>([System.Diagnostics.CodeAnalysis.NotNullWhen(false)] this System.Collections.Generic.ICollection<T?>? collection) { }
+        public static bool IsNullOrEmpty<T>([System.Diagnostics.CodeAnalysis.NotNullWhen(false)] this System.Collections.Generic.ICollection<T?>? collection) { }
+        public static System.Collections.Generic.ICollection<T> ThrowIfEmpty<T>(this System.Collections.Generic.ICollection<T> collection, [System.Runtime.CompilerServices.CallerArgumentExpression("collection")] string? paramName = null) { }
+    }
+    public static class DecimalExtensions
+    {
+        public static bool IsBetween(this decimal value, decimal min, decimal max) { }
+    }
+    public static class DoubleExtensions
+    {
+        public static bool ApproxEquals(this double value, double other, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static int ApproxSign(this double value, double epsilon = 1E-15) { }
+        public static bool IsApproxGreaterThan(this double value, double other, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsApproxGreaterThanOrEqual(this double value, double other, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsApproxLessThan(this double value, double other, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsApproxLessThanOrEqual(this double value, double other, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsApproxZero(this double value, double epsilon = 1E-15) { }
+        public static bool IsBetween(this double value, double min, double max) { }
+    }
+    public static class EnumExtensions
+    {
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Black(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Blue(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Bold(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Brown(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Capitalize(this System.Enum value) { }
+        public static string Color(this System.Enum value, Bezoro.Core.Types.Color color) { }
+        public static string Color(this System.Enum value, string colorName) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Cyan(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Gray(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Green(this System.Enum value) { }
+        public static bool IsDefined<T>(this T value)
+            where T : System.Enum { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Italic(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Lowercase(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Magenta(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Orange(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Purple(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Red(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Size(this System.Enum value, int size) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Strikethrough(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Underline(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Uppercase(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string White(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Yellow(this System.Enum value) { }
+    }
+    public static class EnumerableExtensions
+    {
+        public static bool HasAny(this System.Collections.IEnumerable source) { }
+        public static bool HasAny<T>(this System.Collections.Generic.IEnumerable<T> source) { }
+        public static bool IsNullOrEmpty(this System.Collections.IEnumerable? source) { }
+        public static bool IsNullOrEmpty<T>(this System.Collections.Generic.IEnumerable<T>? source) { }
+        public static string PrettyJoin<T>(this System.Collections.Generic.IEnumerable<T> source, string separator = ", ") { }
+        public static bool TryGetCount(this System.Collections.IEnumerable source, out int count) { }
+        public static bool TryGetCount<T>(this System.Collections.Generic.IEnumerable<T> source, out int count) { }
+    }
+    public static class FloatExtensions
+    {
+        public static bool ApproxEquals(this float value, float other, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static int ApproxSign(this float value, float epsilon = 1E-06) { }
+        public static bool IsApproxGreaterThan(this float value, float other, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsApproxGreaterThanOrEqual(this float value, float other, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsApproxLessThan(this float value, float other, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsApproxLessThanOrEqual(this float value, float other, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsApproxZero(this float value, float epsilon = 1E-06) { }
+        public static bool IsBetween(this float value, float min, float max) { }
+        public static float Map(this float value, float fromMin, float fromMax, float toMin, float toMax) { }
+        public static float ThrowIfLessOrEqualThan(this float f, float min) { }
+        public static float ThrowIfLessThan(this float f, float min) { }
+        public static float ThrowIfOverOrEqualThan(this float f, float max) { }
+        public static float ThrowIfOverThan(this float f, float max) { }
+    }
+    public static class GenericExtensions
+    {
+        public static bool IsBetween<T>(this T value, T min, T max)
+            where T : System.IComparable<T> { }
+        public static bool IsDefault<T>(this T value)
+            where T :  struct { }
+        public static bool IsNull<T>([System.Diagnostics.CodeAnalysis.NotNullWhen(false)] this T? value) { }
+        public static bool IsOneOf<T>(this T value, [System.Runtime.CompilerServices.ParamCollection] [System.Runtime.CompilerServices.ScopedRef] System.ReadOnlySpan<T> candidates)
+            where T : System.IEquatable<T>? { }
+        public static bool IsOneOf<T>(this T value, params T[] candidates) { }
+        [System.Obsolete("Use ThrowIf(bool, string?, string?) instead.")]
+        public static T ThrowIf<T>(this T value, System.Linq.Expressions.Expression<System.Func<T, bool>> predicate, string? paramName = null, System.Exception? customException = null) { }
+        public static T ThrowIf<T>(this T value, bool condition, string? paramName = null, string? message = null, [System.Runtime.CompilerServices.CallerArgumentExpression("condition")] string? conditionExpr = null, [System.Runtime.CompilerServices.CallerArgumentExpression("value")] string? valueExpr = null) { }
+        public static T ThrowIfEmpty<T>(this T sequence, [System.Runtime.CompilerServices.CallerArgumentExpression("sequence")] string? paramName = null)
+            where T : System.Collections.IEnumerable { }
+        public static T ThrowIfNull<T>([System.Diagnostics.CodeAnalysis.NotNull] this T? value, [System.Runtime.CompilerServices.CallerArgumentExpression("value")] string? paramName = null) { }
+        public static Bezoro.Core.Types.SingleItemEnumerable<T> Yield<T>(this T item) { }
+    }
+    public static class IntExtensions
+    {
+        public static int Abs(this int value) { }
+        public static int Clamp(this int value, int min, int max) { }
+        public static int ClampMax(this int value, int max) { }
+        public static int ClampMin(this int value, int min) { }
+        public static bool IsBetween(this int value, int min, int max) { }
+        public static bool IsEven(this int value) { }
+        public static bool IsNegative(this int value) { }
+        public static bool IsOdd(this int value) { }
+        public static bool IsPositive(this int value) { }
+        public static bool IsZero(this int value) { }
+        public static int RoundToNearest(this int value, int nearest) { }
+        public static int Sign(this int value) { }
+        public static int ThrowIfLessThan(this int value, int min) { }
+        public static int ThrowIfMoreThan(this int value, int max) { }
+    }
+    public static class LongExtensions
+    {
+        public static bool IsBetween(this long value, long min, long max) { }
+    }
+    public static class MemoryExtensions
+    {
+        public static System.Memory<T> ThrowIfEmpty<T>(this System.Memory<T> memory, [System.Runtime.CompilerServices.CallerArgumentExpression("memory")] string? paramName = null) { }
+        public static System.ReadOnlyMemory<T> ThrowIfEmpty<T>(this System.ReadOnlyMemory<T> memory, [System.Runtime.CompilerServices.CallerArgumentExpression("memory")] string? paramName = null) { }
+    }
+    public static class MutableSpanExtensions
+    {
+        public static System.Span<T> RemoveAtOrdered<T>(this System.Span<T> span, int index) { }
+        public static System.Span<T> RemoveAtSwapBack<T>(this System.Span<T> span, int index) { }
+    }
+    public static class NumericExtensions
+    {
+        public static int CeilingDivide(this int value, int divisor) { }
+        public static long CeilingDivide(this long value, long divisor) { }
+        public static int EuclideanModulo(this int value, int modulus) { }
+        public static long EuclideanModulo(this long value, long modulus) { }
+        public static int FloorDivide(this int value, int divisor) { }
+        public static long FloorDivide(this long value, long divisor) { }
+    }
+    public static class SortedSpanExtensions
+    {
+        public static int LowerBound<T>(this System.ReadOnlySpan<T> span, T value, System.Collections.Generic.IComparer<T>? comparer = null) { }
+        public static int LowerBound<T>(this System.Span<T> span, T value, System.Collections.Generic.IComparer<T>? comparer = null) { }
+        public static int UpperBound<T>(this System.ReadOnlySpan<T> span, T value, System.Collections.Generic.IComparer<T>? comparer = null) { }
+        public static int UpperBound<T>(this System.Span<T> span, T value, System.Collections.Generic.IComparer<T>? comparer = null) { }
+    }
+    public static class SpanExtensions
+    {
+        public static System.ReadOnlySpan<T> ThrowIfEmpty<T>(this System.ReadOnlySpan<T> span, [System.Runtime.CompilerServices.CallerArgumentExpression("span")] string? paramName = null) { }
+        public static System.Span<T> ThrowIfEmpty<T>(this System.Span<T> span, [System.Runtime.CompilerServices.CallerArgumentExpression("span")] string? paramName = null) { }
+    }
+    public static class StringExtensions
+    {
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Amber(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Black(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Blue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string BlueViolet(this string text) { }
+        public static string Bold(this string text) { }
+        public static string Bracketed(this string text, int padding = 0, Bezoro.Core.Types.Color color = default, char bracket = [) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Brown(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string BurlyWood(this string text) { }
+        public static string Capitalize(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Chocolate(this string text) { }
+        public static string Color(this string text, Bezoro.Core.Types.Color color) { }
+        public static string Color(this string text, string colorName) { }
+        public static string Color(this string text, uint rgba32) { }
+        public static string Color(this string text, byte r, byte g, byte b, byte a = 255) { }
+        public static string Color(this string text, float r, float g, float b, float a = 1) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string ColorHex(this string text, string hexOrCss) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Coral(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string CornflowerBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Crimson(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Cyan(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkGoldenrod(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkGray(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkKhaki(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkOrange(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkOrchid(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkRed(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkViolet(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DeepBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DeepSkyBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DimGray(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DodgerBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string FireBrick(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string ForestGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Gainsboro(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Gold(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Goldenrod(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Gray(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Green(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string IndianRed(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Indigo(this string text) { }
+        public static bool IsEmpty(this string text) { }
+        public static bool IsNullOrEmpty(this string? text) { }
+        public static bool IsNullOrWhiteSpace(this string? text) { }
+        public static bool IsWhiteSpace(this string text) { }
+        public static string Italic(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Khaki(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Lavender(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LemonChiffon(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightGray(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightOrange(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightRed(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightYellow(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Lime(this string text) { }
+        public static string Lowercase(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Magenta(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Maroon(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string MediumOrchid(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string MediumPurple(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string MediumSeaGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Navy(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonOrange(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonPink(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonPurple(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonYellow(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Olive(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Orange(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string OrangeRed(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Orchid(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PaleGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelLavender(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelOrange(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelPink(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelPurple(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelTurquoise(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelYellow(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Peach(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Peru(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Pink(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Plum(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Purple(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Red(this string text) { }
+        public static string Repeat(this string str, uint count = 1) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string RosyBrown(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string RoyalBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SaddleBrown(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Salmon(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SandyBrown(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SeaGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Sienna(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Silver(this string text) { }
+        public static string Size(this string text, int size) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SkyBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SlateGray(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SpringGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SteelBlue(this string text) { }
+        public static string Strikethrough(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Tan(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Tangerine(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Teal(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Tomato(this string text) { }
+        public static string Underline(this string text) { }
+        public static string Uppercase(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Violet(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string White(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string WhiteSmoke(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Yellow(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string YellowGreen(this string text) { }
+    }
+    public static class TypeExtensions
+    {
+        public static bool IsAnonymous(this System.Type type) { }
+        public static bool IsNull(this System.Type componentType) { }
+        public static bool IsStatic(this System.Type type) { }
+    }
+}
+namespace Bezoro.Core.Helpers
+{
+    public static class ArrayConverter
+    {
+        public static T[] Flatten<T>(T[] from) { }
+        public static T[] Reshape<T>(T[] from, int rows, int columns) { }
+    }
+    public static class ArrayHelper
+    {
+        public static T[] Add<T>(ref T[] array, T item) { }
+        public static T[] AddUnique<T>(ref T[] array, T item) { }
+        public static bool CompareArrays<T>(T[] first, T[] second) { }
+        public static float DistanceSquared(System.Numerics.Vector3 a, System.Numerics.Vector3 b) { }
+        public static T?[] RemoveElement<T>(ref T?[] array, T item)
+            where T :  class { }
+    }
+    public sealed class ArrayIsFullException : System.Exception
+    {
+        public ArrayIsFullException() { }
+    }
+    public static class DoubleComparer
+    {
+        public const double DEFAULT_DOUBLE_EPSILON = 1E-15D;
+        public const double DEFAULT_DOUBLE_RELATIVE_EPSILON = 1E-14D;
+        public static bool AreEqual(double a, double b, double epsilon = 1E-15) { }
+        public static bool AreEqualRelative(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool AreEqualRobust(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsGreaterThan(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsGreaterThanOrEqual(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsLessThan(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsLessThanOrEqual(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsZero(double value, double epsilon = 1E-15) { }
+        public static int Sign(double value, double epsilon = 1E-15) { }
+    }
+    [System.Obsolete("Use direct exception construction instead.")]
+    public static class ExceptionHelper
+    {
+        public static void ThrowException<TException>(string errorMessage)
+            where TException : System.Exception { }
+        public static void ThrowException<T>(object? objectInstance = null, string? methodName = null, string? message = null)
+            where T : System.Exception { }
+    }
+    public static class FloatComparer
+    {
+        public const float DEFAULT_FLOAT_EPSILON = 1E-06F;
+        public const float DEFAULT_FLOAT_RELATIVE_EPSILON = 1E-05F;
+        public static bool AreEqual(float a, float b, float epsilon = 1E-06) { }
+        public static bool AreEqualRelative(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool AreEqualRobust(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsGreaterThan(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsGreaterThanOrEqual(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsLessThan(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsLessThanOrEqual(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsZero(float value, float epsilon = 1E-06) { }
+        public static int Sign(float value, float epsilon = 1E-06) { }
+    }
+    [System.Obsolete("Use focused guard extensions or direct validation instead.")]
+    public static class ValidationHelper
+    {
+        public static void Condition(bool condition, string errorMessage, object? caller = null, string? methodName = null) { }
+        public static void IsFalse(bool condition, string errorMessage = "") { }
+        public static void IsFalse<TException>(bool condition, string errorMessage = "")
+            where TException : System.Exception { }
+        public static void IsNotNull<T>(T obj)
+            where T :  class { }
+        public static void IsPositiveValue(float value, string paramName = "value", object? caller = null, string? methodName = null) { }
+        public static void IsSubclassOf<T>(object caller, string methodName, System.Type type) { }
+        public static void IsWithinRange(int file, int rank, int min, int max) { }
+        public static void ListNotNullOrEmpty<T>(System.Collections.Generic.List<T> list, string paramName = "list", object? caller = null, string? methodName = null) { }
+        public static void String(string value, string paramName = "value", object? caller = null, string? methodName = null) { }
+        public static void ThrowIfObjectIsNull(object objectToValidate, string? paramName = null, string? exceptionMessage = null, object? caller = null, string? methodName = null) { }
+        public static void ValueNotAboveMax(int value, int max, string valueName = "value", string maxName = "max", object? caller = null, string? methodName = null) { }
+    }
+}
+namespace Bezoro.Core.Numerics
+{
+    public static class ScalarMath
+    {
+        public static double Damp(double current, double target, double rate, double elapsedTime) { }
+        public static float Damp(float current, float target, float rate, float elapsedTime) { }
+        public static double InverseLerpClamped(double value, double from, double to) { }
+        public static float InverseLerpClamped(float value, float from, float to) { }
+        public static double LerpClamped(double from, double to, double amount) { }
+        public static float LerpClamped(float from, float to, float amount) { }
+        public static double MoveTowards(double current, double target, double maxDelta) { }
+        public static float MoveTowards(float current, float target, float maxDelta) { }
+        public static double RemapClamped(double value, double fromMin, double fromMax, double toMin, double toMax) { }
+        public static float RemapClamped(float value, float fromMin, float fromMax, float toMin, float toMax) { }
+        public static double Wrap(double value, double min, double max) { }
+        public static float Wrap(float value, float min, float max) { }
+    }
+}
+namespace Bezoro.Core.Randomness
+{
+    public static class Pcg32
+    {
+        public const string AlgorithmId = "pcg32-xsh-rr-64-32-v1";
+        public static double NextDouble(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static int NextInt32(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static int NextInt32(ref Bezoro.Core.Randomness.Pcg32State state, int minInclusive, int maxExclusive) { }
+        public static long NextInt64(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static long NextInt64(ref Bezoro.Core.Randomness.Pcg32State state, long minInclusive, long maxExclusive) { }
+        public static float NextSingle(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static uint NextUInt32(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static uint NextUInt32(ref Bezoro.Core.Randomness.Pcg32State state, uint exclusiveUpperBound) { }
+        public static ulong NextUInt64(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static ulong NextUInt64(ref Bezoro.Core.Randomness.Pcg32State state, ulong exclusiveUpperBound) { }
+        public static void Shuffle<T>(ref Bezoro.Core.Randomness.Pcg32State state, System.Span<T> values) { }
+    }
+    public readonly struct Pcg32State : System.IEquatable<Bezoro.Core.Randomness.Pcg32State>
+    {
+        public const ulong MaxStream = 9223372036854775807ul;
+        public Pcg32State(ulong value, ulong stream) { }
+        public ulong Stream { get; }
+        public ulong Value { get; }
+        public bool Equals(Bezoro.Core.Randomness.Pcg32State other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public Bezoro.Core.Randomness.Pcg32State Next(out uint value) { }
+        public static Bezoro.Core.Randomness.Pcg32State Create(ulong seed, ulong stream = 0) { }
+        public static bool operator !=(Bezoro.Core.Randomness.Pcg32State left, Bezoro.Core.Randomness.Pcg32State right) { }
+        public static bool operator ==(Bezoro.Core.Randomness.Pcg32State left, Bezoro.Core.Randomness.Pcg32State right) { }
+    }
+    public sealed class WeightedIndexTable
+    {
+        public WeightedIndexTable(System.ReadOnlySpan<ulong> weights) { }
+        public int Count { get; }
+        public ulong TotalWeight { get; }
+        public int GetIndexForTicket(ulong ticket) { }
+        public ulong GetWeight(int index) { }
+        public int Pick(ref Bezoro.Core.Randomness.Pcg32State state) { }
+    }
+}
+namespace Bezoro.Core.Types
+{
+    [System.Diagnostics.DebuggerDisplay("Index={Index}, Found={IsFound}, ArrayLength={ArrayLength}")]
+    public readonly struct ArrayElementInfo<T> : System.IEquatable<Bezoro.Core.Types.ArrayElementInfo<T>>, System.IFormattable, System.ISpanFormattable
+    {
+        public uint ArrayLength { get; }
+        public T Element { get; }
+        public uint? Index { get; }
+        public bool IsFound { get; }
+        public System.Type RuntimeElementType { get; }
+        public static System.Type ElementType { get; }
+        public void Deconstruct(out uint? index, out T? element, out uint arrayLength) { }
+        public bool Equals(Bezoro.Core.Types.ArrayElementInfo<T> other) { }
+        public override bool Equals(object? obj) { }
+        public T? GetElementOrDefault() { }
+        public T? GetElementOrDefault(T defaultValue) { }
+        public override int GetHashCode() { }
+        public override string ToString() { }
+        public string ToString(string? format, System.IFormatProvider? formatProvider) { }
+        public bool TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) { }
+        public bool TryGetElement([System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out T element, out uint index) { }
+        public static Bezoro.Core.Types.ArrayElementInfo<T> Found(uint index, T element, uint arrayLength) { }
+        public static Bezoro.Core.Types.ArrayElementInfo<T> NotFound(T? searchedElement, uint arrayLength) { }
+        public static uint? op_Explicit(Bezoro.Core.Types.ArrayElementInfo<T> info) { }
+        public static bool op_Implicit(Bezoro.Core.Types.ArrayElementInfo<T> info) { }
+        public static bool operator !=(Bezoro.Core.Types.ArrayElementInfo<T> left, Bezoro.Core.Types.ArrayElementInfo<T> right) { }
+        public static bool operator ==(Bezoro.Core.Types.ArrayElementInfo<T> left, Bezoro.Core.Types.ArrayElementInfo<T> right) { }
+    }
+    [System.Diagnostics.DebuggerDisplay("Color(R={R}, G={G}, B={B}, A={A})")]
+    [System.Serializable]
+    public readonly struct Color : System.IEquatable<Bezoro.Core.Types.Color>, System.IFormattable, System.ISpanFormattable
+    {
+        public Color() { }
+        public Color(byte R, byte G, byte B, byte A) { }
+        public Color(float R, float G, float B, float A) { }
+        public byte A { get; init; }
+        public float Af { get; }
+        public byte B { get; init; }
+        public float Bf { get; }
+        public byte G { get; init; }
+        public float Gf { get; }
+        public float Luminance { get; }
+        public byte R { get; init; }
+        public float Rf { get; }
+        public static Bezoro.Core.Types.Color Black { get; }
+        public static Bezoro.Core.Types.Color Gray { get; }
+        public static Bezoro.Core.Types.Color Transparent { get; }
+        public static Bezoro.Core.Types.Color White { get; }
+        public void Deconstruct(out byte r, out byte g, out byte b, out byte a) { }
+        public void Deconstruct(out float r, out float g, out float b, out float a) { }
+        public uint ToAbgr32() { }
+        public uint ToArgb32() { }
+        public uint ToRgba32() { }
+        public override string ToString() { }
+        public string ToString(string? format, System.IFormatProvider? formatProvider) { }
+        public bool TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) { }
+        public Bezoro.Core.Types.Color WithA(byte a) { }
+        public Bezoro.Core.Types.Color WithA(float a) { }
+        public Bezoro.Core.Types.Color WithB(byte b) { }
+        public Bezoro.Core.Types.Color WithG(byte g) { }
+        public Bezoro.Core.Types.Color WithR(byte r) { }
+        public static Bezoro.Core.Types.Color AlphaBlend(Bezoro.Core.Types.Color dst, Bezoro.Core.Types.Color src) { }
+        public static Bezoro.Core.Types.Color AlphaBlendLinear(Bezoro.Core.Types.Color dst, Bezoro.Core.Types.Color src) { }
+        public static Bezoro.Core.Types.Color FromAbgr32(uint abgr) { }
+        public static Bezoro.Core.Types.Color FromArgb(byte a, byte r, byte g, byte b) { }
+        public static Bezoro.Core.Types.Color FromArgb(float a, float r, float g, float b) { }
+        public static Bezoro.Core.Types.Color FromArgb32(uint argb) { }
+        public static Bezoro.Core.Types.Color FromRgb(byte r, byte g, byte b) { }
+        public static Bezoro.Core.Types.Color FromRgb(float r, float g, float b) { }
+        public static Bezoro.Core.Types.Color FromRgba32(uint rgba) { }
+        public static bool TryParse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider, out Bezoro.Core.Types.Color result) { }
+        public static Bezoro.Core.Types.Color op_Explicit(System.Numerics.Vector4 v) { }
+        public static System.Numerics.Vector4 op_Implicit(Bezoro.Core.Types.Color c) { }
+        public static System.Drawing.Color op_Implicit(Bezoro.Core.Types.Color color) { }
+    }
+    [System.Serializable]
+    public sealed class Grid2D<T> : System.IDisposable
+    {
+        public Grid2D(int width, int height, bool usePooling = false) { }
+        public Grid2D(int width, int height, T defaultValue, bool usePooling = false) { }
+        public int Height { get; }
+        public T& this[int x, int y] { get; }
+        public int Length { get; }
+        public int Width { get; }
+        public Bezoro.Core.Types.GridSpan2D<T> AsGridSpan() { }
+        public Bezoro.Core.Types.ReadOnlyGridSpan2D<T> AsReadOnlyGridSpan() { }
+        public System.ReadOnlySpan<T> AsReadOnlySpan() { }
+        public System.Span<T> AsSpan() { }
+        public void Clear() { }
+        public void Dispose() { }
+        public void Fill(T value) { }
+        public System.Span<T> GetRow(int y) { }
+        public System.ReadOnlySpan<T> GetRowReadOnly(int y) { }
+        public bool IsInBounds(int x, int y) { }
+        public bool TryGet(int x, int y, out T value) { }
+        public bool TrySet(int x, int y, T value) { }
+    }
+    public ref struct GridSpan2D<T>
+    {
+        public readonly int Height;
+        public readonly int Width;
+        public GridSpan2D(System.Span<T> data, int width, int height) { }
+        public T& this[int x, int y] { get; }
+        public int Length { get; }
+        public Bezoro.Core.Types.ReadOnlyGridSpan2D<T> AsReadOnly() { }
+        public System.Span<T> AsSpan() { }
+        public void Clear() { }
+        public void Fill(T value) { }
+        public System.Span<T> GetRow(int y) { }
+        public bool IsInBounds(int x, int y) { }
+    }
+    public interface IFailureReason { }
+    public enum MaxValueUpdateMode
+    {
+        ClampCurrent = 0,
+        PreservePercentage = 1,
+    }
+    [System.Diagnostics.DebuggerDisplay("{Value}%")]
+    public readonly struct Percent : System.IComparable<Bezoro.Core.Types.Percent>, System.IEquatable<Bezoro.Core.Types.Percent>, System.IFormattable, System.ISpanFormattable
+    {
+        public static readonly Bezoro.Core.Types.Percent Full;
+        public static readonly Bezoro.Core.Types.Percent Half;
+        public static readonly Bezoro.Core.Types.Percent Ninety;
+        public static readonly Bezoro.Core.Types.Percent Quarter;
+        public static readonly Bezoro.Core.Types.Percent ThreeQuarters;
+        public static readonly Bezoro.Core.Types.Percent Zero;
+        public Percent(byte value) { }
+        public Percent(uint current, uint max) { }
+        public byte Value { get; }
+        public int CompareTo(Bezoro.Core.Types.Percent other) { }
+        public bool Equals(Bezoro.Core.Types.Percent other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public float ToRatio() { }
+        public override string ToString() { }
+        public string ToString(string? format, System.IFormatProvider? formatProvider) { }
+        public bool TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) { }
+        public static Bezoro.Core.Types.Percent FromTotals([System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "current",
+                "max"})] params System.ValueTuple<uint, uint>[] totals) { }
+        public static Bezoro.Core.Types.Percent FromTotals([System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "current",
+                "max"})] System.ValueTuple<uint, uint> first, [System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "current",
+                "max"})] System.ValueTuple<uint, uint> second) { }
+        public static Bezoro.Core.Types.Percent op_Explicit(byte value) { }
+        public static byte op_Implicit(Bezoro.Core.Types.Percent percent) { }
+        public static bool operator !=(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+        public static bool operator <(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+        public static bool operator <=(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+        public static bool operator ==(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+        public static bool operator >(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+        public static bool operator >=(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+    }
+    public readonly struct PoolOptions : System.IEquatable<Bezoro.Core.Types.PoolOptions>
+    {
+        public PoolOptions() { }
+        public PoolOptions(int InitialCapacity = 0, int MaxCapacity = -1, bool EnableAsyncWait = true, bool ValidateOnRent = true, bool TrackStatistics = false) { }
+        public bool EnableAsyncWait { get; init; }
+        public int InitialCapacity { get; init; }
+        public int MaxCapacity { get; init; }
+        public bool TrackStatistics { get; init; }
+        public bool ValidateOnRent { get; init; }
+        public static Bezoro.Core.Types.PoolOptions Default { get; }
+        public static Bezoro.Core.Types.PoolOptions HighThroughput { get; }
+    }
+    public sealed class PoolPolicy<T> : Bezoro.Core.Abstractions.IPoolPolicy<T>
+        where T :  class
+    {
+        public PoolPolicy(System.Func<T> factory, System.Func<T, bool>? reset = null, System.Func<T, bool>? validate = null, System.Action<T>? onDiscard = null) { }
+        public T Create() { }
+        public void OnDiscard(T item) { }
+        public bool Reset(T item) { }
+        public bool Validate(T item) { }
+    }
+    [System.Diagnostics.DebuggerDisplay("Rented={TotalRented}, Returned={TotalReturned}, Created={TotalCreated}")]
+    public readonly struct PoolStatistics : System.IEquatable<Bezoro.Core.Types.PoolStatistics>
+    {
+        public long TotalAsyncWaits { get; init; }
+        public long TotalCreated { get; init; }
+        public long TotalDiscarded { get; init; }
+        public long TotalRented { get; init; }
+        public long TotalReturned { get; init; }
+        public long TotalTimeouts { get; init; }
+        public Bezoro.Core.Types.Percent Utilization { get; init; }
+    }
+    public readonly ref struct ReadOnlyGridSpan2D<T>
+    {
+        public readonly int Height;
+        public readonly int Width;
+        public ReadOnlyGridSpan2D(System.ReadOnlySpan<T> data, int width, int height) { }
+        public T& this[int x, int y] { get; }
+        public int Length { get; }
+        public System.ReadOnlySpan<T> AsSpan() { }
+        public System.ReadOnlySpan<T> GetRow(int y) { }
+        public bool IsInBounds(int x, int y) { }
+    }
+    public static class ResultFactory
+    {
+        public static Bezoro.Core.Types.Result<T> Failed<T>(Bezoro.Core.Types.IFailureReason reason)
+            where T :  notnull { }
+        public static Bezoro.Core.Types.Result<T> Succeeded<T>(in T data)
+            where T :  notnull { }
+    }
+    [System.Runtime.CompilerServices.SkipLocalsInit]
+    public readonly struct Result<T> : System.IEquatable<Bezoro.Core.Types.Result<T>>
+        where T :  notnull
+    {
+        public Bezoro.Core.Types.IFailureReason? Failure { get; }
+        public bool Success { get; }
+        public Bezoro.Core.Types.Result<TNew> Bind<TNew>(System.Func<T, Bezoro.Core.Types.Result<TNew>> bind)
+            where TNew :  notnull { }
+        public Bezoro.Core.Types.Result<TNew> Bind<TState, TNew>(TState state, System.Func<T, TState, Bezoro.Core.Types.Result<TNew>> bind)
+            where TNew :  notnull { }
+        public bool Equals(Bezoro.Core.Types.Result<T> other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public T? GetValueOrDefault() { }
+        public T GetValueOrDefault(T defaultValue) { }
+        public Bezoro.Core.Types.Result<TNew> Map<TNew>(System.Func<T, TNew> transform)
+            where TNew :  notnull { }
+        public Bezoro.Core.Types.Result<TNew> Map<TState, TNew>(TState state, System.Func<T, TState, TNew> transform)
+            where TNew :  notnull { }
+        public void Match(System.Action<T> onSuccess, System.Action<Bezoro.Core.Types.IFailureReason> onFailure) { }
+        public TResult Match<TResult>(System.Func<T, TResult> onSuccess, System.Func<Bezoro.Core.Types.IFailureReason, TResult> onFailure) { }
+        public void Match<TState>(TState state, System.Action<T, TState> onSuccess, System.Action<Bezoro.Core.Types.IFailureReason, TState> onFailure) { }
+        public TResult Match<TState, TResult>(TState state, System.Func<T, TState, TResult> onSuccess, System.Func<Bezoro.Core.Types.IFailureReason, TState, TResult> onFailure) { }
+        public bool TryGet([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? data) { }
+        public static Bezoro.Core.Types.Result<T> Failed(Bezoro.Core.Types.IFailureReason reason) { }
+        public static Bezoro.Core.Types.Result<T> Succeeded(in T data) { }
+        public static Bezoro.Core.Types.Result<T> op_Implicit(T data) { }
+        public static bool operator !=(Bezoro.Core.Types.Result<T> left, Bezoro.Core.Types.Result<T> right) { }
+        public static bool operator ==(Bezoro.Core.Types.Result<T> left, Bezoro.Core.Types.Result<T> right) { }
+    }
+    public readonly struct SingleItemEnumerable<T> : System.Collections.Generic.IEnumerable<T>, System.Collections.Generic.IReadOnlyCollection<T>, System.Collections.Generic.IReadOnlyList<T>, System.Collections.IEnumerable
+    {
+        public SingleItemEnumerable(T item) { }
+        public int Count { get; }
+        public T this[int index] { get; }
+        public Bezoro.Core.Types.SingleItemEnumerable<T>.Enumerator GetEnumerator() { }
+        public struct Enumerator : System.Collections.Generic.IEnumerator<T>, System.Collections.IEnumerator, System.IDisposable
+        {
+            public T Current { get; }
+            public void Dispose() { }
+            public bool MoveNext() { }
+            public void Reset() { }
+        }
+    }
+    public abstract class Singleton<T>
+        where T :  class
+    {
+        protected Singleton() { }
+        public static T Instance { get; }
+        public static bool IsOverridden { get; }
+        public static bool IsValueCreated { get; }
+        public static void ConfigureFactory(System.Func<T> factory) { }
+        [System.Obsolete("Use ConfigureFactory(Func<T>) or ConfigureFactoryAndRecreate(Func<T>) instead.")]
+        public static void ConfigureFactory(System.Func<T> factory, bool recreateIfInitialized) { }
+        public static void ConfigureFactoryAndRecreate(System.Func<T> factory) { }
+        public static void Initialize(System.Func<T> factory) { }
+        public static System.IDisposable Override(System.Func<T> factory) { }
+        public static void Reset() { }
+        [System.Obsolete("Use Reset() or ResetAndDispose() instead.")]
+        public static void Reset(bool disposeInstances) { }
+        public static void ResetAndDispose() { }
+        public static bool TryGet([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? instance) { }
+    }
+    [System.Diagnostics.DebuggerDisplay("Count = {Count}, Capacity = {Capacity}")]
+    public sealed class SwapbackArray<T> : System.Collections.Generic.IEnumerable<T>, System.Collections.Generic.IReadOnlyCollection<T>, System.Collections.Generic.IReadOnlyList<T>, System.Collections.IEnumerable
+    {
+        public SwapbackArray(System.Collections.Generic.ICollection<T> collection) { }
+        public SwapbackArray(System.Collections.Generic.IEnumerable<T> collection) { }
+        public SwapbackArray(uint initialCapacity = 4) { }
+        public uint Capacity { get; }
+        public uint Count { get; }
+        public bool IsEmpty { get; }
+        public bool IsFull { get; }
+        public T this[uint index] { get; set; }
+        public uint MaxArrayLength { get; }
+        public uint MinimumArraySize { get; }
+        public Bezoro.Core.Types.Percent ShrinkThresholdPercent { get; set; }
+        public uint Version { get; }
+        public void Add(T item) { }
+        public void AddRange(System.Collections.Generic.IEnumerable<T> collection) { }
+        public void AddRange(System.ReadOnlySpan<T> span) { }
+        public void AddUnchecked(T item) { }
+        public System.Span<T> AsMutableSpanUnsafe() { }
+        public System.Collections.Generic.IReadOnlyCollection<T> AsReadOnlyCollection() { }
+        public System.ReadOnlySpan<T> AsSpan() { }
+        public void Clear() { }
+        [System.Obsolete("Use Clear() or ClearRetainingCapacity() instead.")]
+        public void Clear(bool trim) { }
+        public void ClearRetainingCapacity() { }
+        public bool Contains(T item) { }
+        public void CopyTo(System.Span<T> destination) { }
+        public void CopyTo(T[] destination, uint destinationIndex = 0) { }
+        public void EnsureCapacity(uint min) { }
+        public Bezoro.Core.Types.SwapbackArray<T>.SwapbackArrayEnumerator GetEnumerator() { }
+        public uint IndexOf(T item) { }
+        public void InsertAt(uint index, T item) { }
+        public void Remove(T item) { }
+        public uint RemoveAll(System.Predicate<T> match) { }
+        public void ReplaceAt(uint index, T item) { }
+        public T[] ToArray() { }
+        public void TrimExcess(Bezoro.Core.Types.Percent minimumUtilizationThreshold = default) { }
+        public bool TryGet(uint index, out T? value) { }
+        public bool TryGetIndex(T item, out uint index) { }
+        [System.Obsolete("Use TryGetIndex(T, out uint) instead.")]
+        public bool TryIndexOf(T item, out uint? index) { }
+        public bool TryPeek(out T? value) { }
+        public bool TryPopBack(out T value) { }
+        public bool TryRemove(T item) { }
+        public bool TryRemoveAt(uint index) { }
+        public struct SwapbackArrayEnumerator : System.Collections.Generic.IEnumerator<T>, System.Collections.IEnumerator, System.IDisposable
+        {
+            public T Current { get; }
+            public void Dispose() { }
+            public bool MoveNext() { }
+            public void Reset() { }
+        }
+    }
+    public static class Try
+    {
+        public static void Do(System.Action action, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task DoAsync(System.Func<System.Threading.Tasks.Task> action, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task DoAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task> action, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static T? Get<T>(System.Func<T?> func, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<T?> GetAsync<T>(System.Func<System.Threading.Tasks.Task<T?>> func, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<T?> GetAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T?>> func, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static T GetOrDefault<T>(System.Func<T> func, System.Func<T> defaultValueFactory, System.Action<System.Exception>? onException = null) { }
+        public static T GetOrDefault<T>(System.Func<T> func, T defaultValue, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<T> GetOrDefaultAsync<T>(System.Func<System.Threading.Tasks.Task<T>> func, System.Func<T> defaultValueFactory, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<T> GetOrDefaultAsync<T>(System.Func<System.Threading.Tasks.Task<T>> func, T defaultValue, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<T> GetOrDefaultAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> func, System.Func<T> defaultValueFactory, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static System.Threading.Tasks.Task<T> GetOrDefaultAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> func, T defaultValue, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static bool TryDo(System.Action action, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<bool> TryDoAsync(System.Func<System.Threading.Tasks.Task> action, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<bool> TryDoAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task> action, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+        [return: System.Runtime.CompilerServices.TupleElementNames(new string?[]?[] {
+                "Success",
+                "Value"})]
+        public static System.ValueTuple<bool, T?> TryGet<T>(System.Func<T?> func, System.Action<System.Exception>? onException = null) { }
+        [return: System.Runtime.CompilerServices.TupleElementNames(new string?[]?[] {
+                "Success",
+                "Value"})]
+        public static System.Threading.Tasks.Task<System.ValueTuple<bool, T?>> TryGetAsync<T>(System.Func<System.Threading.Tasks.Task<T?>> func, System.Action<System.Exception>? onException = null) { }
+        [return: System.Runtime.CompilerServices.TupleElementNames(new string?[]?[] {
+                "Success",
+                "Value"})]
+        public static System.Threading.Tasks.Task<System.ValueTuple<bool, T?>> TryGetAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T?>> func, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public readonly struct UIntRange : System.IEquatable<Bezoro.Core.Types.UIntRange>
+    {
+        public UIntRange(uint value) { }
+        public UIntRange(uint max, uint current, uint min = 0) { }
+        public uint Current { get; }
+        public uint Max { get; }
+        public uint Min { get; }
+        public Bezoro.Core.Types.Percent Percentage { get; }
+        public Bezoro.Core.Types.UIntRange AddToCurrent(uint value) { }
+        public Bezoro.Core.Types.UIntRange DecreaseMax(uint value, Bezoro.Core.Types.MaxValueUpdateMode mode) { }
+        public Bezoro.Core.Types.UIntRange IncreaseMax(uint value, Bezoro.Core.Types.MaxValueUpdateMode mode) { }
+        public Bezoro.Core.Types.UIntRange MaximizeCurrent() { }
+        public Bezoro.Core.Types.UIntRange SetCurrent(uint value) { }
+        public Bezoro.Core.Types.UIntRange SetCurrentToMinimum() { }
+        public Bezoro.Core.Types.UIntRange SetMax(uint value, Bezoro.Core.Types.MaxValueUpdateMode mode) { }
+        public Bezoro.Core.Types.UIntRange SubtractFromCurrent(uint value) { }
+    }
+    [System.Diagnostics.DebuggerDisplay("({X}, {Y})")]
+    public readonly struct UIntVector2 : System.IEquatable<Bezoro.Core.Types.UIntVector2>, System.IFormattable, System.ISpanFormattable
+    {
+        public UIntVector2(uint X, uint Y) { }
+        public uint X { get; init; }
+        public uint Y { get; init; }
+        public override string ToString() { }
+        public string ToString(string? format, System.IFormatProvider? formatProvider) { }
+        public System.Numerics.Vector2 ToVector2() { }
+        public bool TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) { }
+        public static Bezoro.Core.Types.UIntVector2 FromVector2(System.Numerics.Vector2 v) { }
+        public static bool TryFromVector2(System.Numerics.Vector2 v, out Bezoro.Core.Types.UIntVector2? result) { }
+        public static Bezoro.Core.Types.UIntVector2 op_Explicit(System.Numerics.Vector2 v) { }
+        public static System.Numerics.Vector2 op_Implicit(Bezoro.Core.Types.UIntVector2 v) { }
+    }
+}
+namespace Bezoro.Core.Types.Exceptions
+{
+    public class EmptyCollectionException : System.Exception
+    {
+        public EmptyCollectionException(string collectionName) { }
+    }
+    public class ValueTooLargeException : System.Exception
+    {
+        public ValueTooLargeException(float value, float max) { }
+    }
+    public class ValueTooSmallException : System.Exception
+    {
+        public ValueTooSmallException(float value, float min) { }
+    }
+}
+namespace Bezoro.Core.Types.Pool
+{
+    [System.Diagnostics.DebuggerDisplay("Available={AvailableCount}, Total={TotalCount}, Max={MaxCapacity}")]
+    public sealed class ObjectPool<T> : Bezoro.Core.Abstractions.IPool<T>, System.IDisposable
+        where T :  class
+    {
+        public ObjectPool(System.Func<T> factory) { }
+        public ObjectPool(Bezoro.Core.Abstractions.IPoolPolicy<T> policy, Bezoro.Core.Types.PoolOptions options = default) { }
+        public ObjectPool(System.Func<T> factory, Bezoro.Core.Types.PoolOptions options) { }
+        public int AvailableCount { get; }
+        public int MaxCapacity { get; }
+        public Bezoro.Core.Types.PoolStatistics Statistics { get; }
+        public int TotalCount { get; }
+        public void Clear() { }
+        public void Dispose() { }
+        public T Rent() { }
+        public System.Threading.Tasks.ValueTask<T> RentAsync(System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.ValueTask<T?> RentAsync(System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default) { }
+        public Bezoro.Core.Types.Pool.PooledObjectHandle<T> RentHandle() { }
+        public bool Return(T item) { }
+        public int TrimExcess() { }
+        public int TrimExcess(Bezoro.Core.Types.Percent targetUtilization) { }
+        public bool TryRent([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? item) { }
+    }
+    public class PoolExhaustedException : System.Exception
+    {
+        public PoolExhaustedException(System.Type pooledType, int maxCapacity) { }
+        public int MaxCapacity { get; }
+        public System.Type PooledType { get; }
+    }
+    [System.Diagnostics.DebuggerDisplay("Value={DebuggerValue}, IsDisposed={IsDisposed}")]
+    public readonly struct PooledObjectHandle<T> : System.IDisposable
+        where T :  class
+    {
+        public bool IsDisposed { get; }
+        public T Value { get; }
+        public void Dispose() { }
+        public static T op_Implicit(Bezoro.Core.Types.Pool.PooledObjectHandle<T> handle) { }
+    }
+}
+namespace Bezoro.Core.Utilities
+{
+    public static class Constants
+    {
+        public const string AMPERSAND = "&";
+        public const string AND = "&";
+        public const string ANIMATION = "Animation";
+        public const string ASSETS = "Assets";
+        public const string ASTERISK = "*";
+        public const string AT = "@";
+        public const string AUDIO = "Audio";
+        public const string BACKSLASH = "\\";
+        public const string BACKTICK = "`";
+        public const string BEZORO = "Bezoro";
+        public const string CARET = "^";
+        public const string COLON = ":";
+        public const string COMMA = ",";
+        public const string CONFIG = "Config";
+        public const string DATA = "Data";
+        public const string DEBUG = "Debug";
+        public const int DEFAULT_ASSET_MENU_ORDER = 0;
+        public const string DEVELOP = "Develop";
+        public const string DOLLAR_SIGN = "$";
+        public const string DOT = ".";
+        public const string EDITOR = "Editor";
+        public const string EMPTY = "";
+        public const string EQUALS = "=";
+        public const string EXCLAMATION_MARK = "!";
+        public const string FONT = "Font";
+        public const string GAME = "Game";
+        public const string HASH = "#";
+        public const string HYPHEN = "-";
+        public const int LAST_INIT_ORDER = 2147483647;
+        public const int MANAGER_INIT_ORDER = -2147483648;
+        public const string MATERIAL = "Material";
+        public const string MODEL = "Model";
+        public const string NEWLINE = "\n";
+        public const string PERCENT = "%";
+        public const string PIPE = "|";
+        public const string PROJECT_FOLDER_NAME = "_Project";
+        public const string PROJECT_SETTINGS = "ProjectSettings";
+        public const string QUESTION_MARK = "?";
+        public const string QUOTE = "\"";
+        public const int REGULAR_INIT_ORDER = 0;
+        public const string RESOURCES = "Resources";
+        public const string RUNTIME = "Runtime";
+        public const string SCENE = "Scene";
+        public const float SECONDS_PER_MILLISECOND = 0.001F;
+        public const string SEMICOLON = ";";
+        public const string SETTINGS = "Settings";
+        public const string SHADER = "Shader";
+        public const string SINGLE_QUOTE = "\'";
+        public const string SLASH = "/";
+        public const string SPACE = " ";
+        public const string TAB = "\t";
+        public const string TEXTURE = "Texture";
+        public const string TILDE = "~";
+        public const string UNDERSCORE = "_";
+        public static class GameInitialization
+        {
+            public const string CONFIG_ASSET_MENU_FILE_NAME = "Game_Initialization_Config";
+            public const int CONFIG_ASSET_MENU_ORDER = 0;
+            public const string CONFIG_ASSET_MENU_PATH = "Bezoro/Runtime/Config/Game Initialization";
+        }
+    }
+    public static class StringTags
+    {
+        public static void Clear() { }
+        public static System.Collections.Generic.IEnumerable<string> GetRegisteredTags() { }
+        public static string Process(string input) { }
+        public static void Register(string tagName, System.Func<object> valueProvider, bool allowOverwrite = false) { }
+        public static void RegisterValue(string tagName, object value, bool allowOverwrite = false) { }
+        public static void Unregister(string tagName) { }
+    }
+    public sealed class TicketLock
+    {
+        public TicketLock() { }
+        public object SyncRoot { get; }
+        public void ExecuteOrdered(System.Action action) { }
+    }
+}
+
+// netstandard2.1
+namespace Bezoro.Core.Abstractions
+{
+    public interface IPoolPolicy<T>
+        where T :  class
+    {
+        T Create();
+        void OnDiscard(T item);
+        bool Reset(T item);
+        bool Validate(T item);
+    }
+    public interface IPool<T>
+        where T :  class
+    {
+        int AvailableCount { get; }
+        int MaxCapacity { get; }
+        Bezoro.Core.Types.PoolStatistics Statistics { get; }
+        int TotalCount { get; }
+        void Clear();
+        T Rent();
+        System.Threading.Tasks.ValueTask<T> RentAsync(System.Threading.CancellationToken cancellationToken = default);
+        System.Threading.Tasks.ValueTask<T?> RentAsync(System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default);
+        Bezoro.Core.Types.Pool.PooledObjectHandle<T> RentHandle();
+        bool Return(T item);
+        int TrimExcess();
+        int TrimExcess(Bezoro.Core.Types.Percent targetUtilization);
+        bool TryRent([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? item);
+    }
+    public interface IPooledObject
+    {
+        void OnRent();
+        bool OnReturn();
+    }
+    public interface IProcessable
+    {
+        void Process();
+    }
+}
+namespace Bezoro.Core.Binary
+{
+    public ref struct BinarySpanReader
+    {
+        public BinarySpanReader(System.ReadOnlySpan<byte> source) { }
+        public int Position { get; }
+        public int Remaining { get; }
+        public System.ReadOnlySpan<byte> UnreadSpan { get; }
+        public bool TryReadByte(out byte value) { }
+        public bool TryReadBytes(int byteCount, out System.ReadOnlySpan<byte> value) { }
+        public bool TryReadDouble(out double value) { }
+        public bool TryReadInt16(out short value) { }
+        public bool TryReadInt32(out int value) { }
+        public bool TryReadInt64(out long value) { }
+        public bool TryReadLengthPrefixedBytes(int maximumLength, out System.ReadOnlySpan<byte> value) { }
+        public bool TryReadSingle(out float value) { }
+        public bool TryReadUInt16(out ushort value) { }
+        public bool TryReadUInt32(out uint value) { }
+        public bool TryReadUInt64(out ulong value) { }
+    }
+    public ref struct BinarySpanWriter
+    {
+        public BinarySpanWriter(System.Span<byte> destination) { }
+        public int Position { get; }
+        public int Remaining { get; }
+        public System.ReadOnlySpan<byte> WrittenSpan { get; }
+        public bool TryWriteByte(byte value) { }
+        public bool TryWriteBytes(System.ReadOnlySpan<byte> value) { }
+        public bool TryWriteDouble(double value) { }
+        public bool TryWriteInt16(short value) { }
+        public bool TryWriteInt32(int value) { }
+        public bool TryWriteInt64(long value) { }
+        public bool TryWriteLengthPrefixedBytes(System.ReadOnlySpan<byte> value) { }
+        public bool TryWriteSingle(float value) { }
+        public bool TryWriteUInt16(ushort value) { }
+        public bool TryWriteUInt32(uint value) { }
+        public bool TryWriteUInt64(ulong value) { }
+    }
+}
+namespace Bezoro.Core.CodeGen
+{
+    public class CSharpCodeBuilder
+    {
+        public CSharpCodeBuilder() { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder AddField(string name, string type, string accessibility = "private", bool isReadonly = false, string? initialValue = null) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder AddMethod(string name, string returnType = "void", string accessibility = "public", bool isStatic = false, string[]? parameters = null, System.Action<Bezoro.Core.CodeGen.CodeWriter>? bodyWriter = null, string[]? attributes = null) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder AddProperty(string name, string type, string accessibility = "public", bool hasGetter = true, bool hasSetter = true, string? setterAccessibility = null) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder AddUsing(string nameSpace) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder BeginClass(string className, string accessibility = "public", bool isStatic = false, string? baseClass = null, string[]? interfaces = null) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder BeginNamespace(string nameSpace) { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder EndClass() { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder EndNamespace() { }
+        public string Generate() { }
+    }
+    public class CSharpFileGenerator
+    {
+        public CSharpFileGenerator(string outputPath) { }
+        public void Generate() { }
+        public Bezoro.Core.CodeGen.CSharpCodeBuilder GetBuilder() { }
+    }
+    public class CodeWriter
+    {
+        public CodeWriter() { }
+        public Bezoro.Core.CodeGen.CodeWriter AddUsing(string nameSpace) { }
+        public Bezoro.Core.CodeGen.CodeWriter AddUsingRange(System.Collections.Generic.IEnumerable<string> namespaces) { }
+        public System.IDisposable BeginScope(string? declaration = null) { }
+        public void EndScope(string closer = "}") { }
+        public override string ToString() { }
+        public Bezoro.Core.CodeGen.CodeWriter Write(string text) { }
+        public Bezoro.Core.CodeGen.CodeWriter WriteLine(string line = "") { }
+    }
+}
+namespace Bezoro.Core.Collections
+{
+    public sealed class BitSet
+    {
+        public BitSet(int length) { }
+        public int Count { get; }
+        public bool this[int index] { get; set; }
+        public int Length { get; }
+        public void Clear() { }
+        public bool Contains(int index) { }
+        public void ExceptWith(Bezoro.Core.Collections.BitSet other) { }
+        public int FindNextSetBit(int startIndex = 0) { }
+        public Bezoro.Core.Collections.BitSet.Enumerator GetEnumerator() { }
+        public void IntersectWith(Bezoro.Core.Collections.BitSet other) { }
+        public bool Reset(int index) { }
+        public bool Set(int index, bool value = true) { }
+        public void SetAll() { }
+        public bool Toggle(int index) { }
+        public void UnionWith(Bezoro.Core.Collections.BitSet other) { }
+        public void XorWith(Bezoro.Core.Collections.BitSet other) { }
+        public struct Enumerator
+        {
+            public int Current { get; }
+            public bool MoveNext() { }
+        }
+    }
+    public sealed class RingBuffer<T> : System.Collections.Generic.IEnumerable<T>, System.Collections.Generic.IReadOnlyCollection<T>, System.Collections.Generic.IReadOnlyList<T>, System.Collections.IEnumerable
+    {
+        public RingBuffer(int capacity) { }
+        public int Capacity { get; }
+        public int Count { get; }
+        public bool IsFull { get; }
+        public T this[int index] { get; }
+        public void Clear() { }
+        public int CopyTo(System.Span<T> destination) { }
+        public T Dequeue() { }
+        public void Enqueue(T value) { }
+        public bool EnqueueOverwrite(T value, out T overwritten) { }
+        public Bezoro.Core.Collections.RingBuffer<T>.Enumerator GetEnumerator() { }
+        public bool TryDequeue(out T value) { }
+        public bool TryEnqueue(T value) { }
+        public bool TryPeek(out T value) { }
+        public struct Enumerator : System.Collections.Generic.IEnumerator<T>, System.Collections.IEnumerator, System.IDisposable
+        {
+            public T Current { get; }
+            public void Dispose() { }
+            public bool MoveNext() { }
+            public void Reset() { }
+        }
+    }
+    public readonly struct SlotHandle : System.IEquatable<Bezoro.Core.Collections.SlotHandle>
+    {
+        public bool IsDefault { get; }
+        public bool Equals(Bezoro.Core.Collections.SlotHandle other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Bezoro.Core.Collections.SlotHandle left, Bezoro.Core.Collections.SlotHandle right) { }
+        public static bool operator ==(Bezoro.Core.Collections.SlotHandle left, Bezoro.Core.Collections.SlotHandle right) { }
+    }
+    public sealed class SlotMap<T> : System.Collections.Generic.IEnumerable<T>, System.Collections.Generic.IReadOnlyCollection<T>, System.Collections.IEnumerable
+    {
+        public SlotMap(int capacity) { }
+        public int AvailableCapacity { get; }
+        public int Capacity { get; }
+        public int Count { get; }
+        public T this[Bezoro.Core.Collections.SlotHandle handle] { get; set; }
+        public System.ReadOnlySpan<T> Values { get; }
+        public Bezoro.Core.Collections.SlotHandle Add(T value) { }
+        public void Clear() { }
+        public bool Contains(Bezoro.Core.Collections.SlotHandle handle) { }
+        public Bezoro.Core.Collections.SlotMap<T>.Enumerator GetEnumerator() { }
+        public Bezoro.Core.Collections.SlotHandle GetHandleAt(int denseIndex) { }
+        public bool Remove(Bezoro.Core.Collections.SlotHandle handle) { }
+        public bool TryAdd(T value, out Bezoro.Core.Collections.SlotHandle handle) { }
+        public bool TryGet(Bezoro.Core.Collections.SlotHandle handle, out T value) { }
+        public bool TryRemove(Bezoro.Core.Collections.SlotHandle handle, out T value) { }
+        public struct Enumerator : System.Collections.Generic.IEnumerator<T>, System.Collections.IEnumerator, System.IDisposable
+        {
+            public T Current { get; }
+            public void Dispose() { }
+            public bool MoveNext() { }
+            public void Reset() { }
+        }
+    }
+}
+namespace Bezoro.Core.Extensions
+{
+    public static class ActionExtensions
+    {
+        public static void SafeInvoke(this System.Action handler) { }
+    }
+    public static class ArrayExtensions
+    {
+        public static bool AreEqual<T>(this T[] array, T[] b) { }
+        public static bool AreEqual<T>(this T[] array2d, T[] b) { }
+        public static bool Contains<T>(this T[] array, T element, out int index)
+            where T :  class { }
+        public static bool ContainsStruct<T>(this T[] array, T element, out int index)
+            where T :  struct, System.IEquatable<T> { }
+        public static int CountEmptyIndices<T>(this T?[] array)
+            where T :  class { }
+        public static int CountEmptyIndices<T>(this T[] array, int validSize)
+            where T :  class { }
+        public static int CountFilledIndices<T>(this T?[] array)
+            where T :  class { }
+        public static T[] Flatten<T>(this T[] array) { }
+        public static bool IsNullOrEmpty<T>(this T[]? array2d) { }
+        public static void ProcessArray<T>(this T?[] array)
+            where T : Bezoro.Core.Abstractions.IProcessable { }
+        public static void ProcessArray<T>(this T?[] array, System.Action<T> action) { }
+        public static System.Threading.Tasks.Task ProcessArrayAsync<T>(this T?[] array, System.Func<T, System.Threading.Tasks.Task> action) { }
+        public static System.Threading.Tasks.Task ProcessAsync<T>(this T[] array, System.Func<T, int, int, System.Threading.CancellationToken, System.Threading.Tasks.Task> processFunc, System.Threading.CancellationToken cancellationToken = default) { }
+        public static bool TryFindFirstEmptyIndex<T>(this T?[] array, out int index)
+            where T :  class { }
+    }
+    public static class ByteExtensions
+    {
+        public static bool IsBetween(this byte value, byte min, byte max) { }
+    }
+    public static class CharExtensions
+    {
+        public static bool IsEmpty(this char c) { }
+        public static char ThrowIfEmpty(this char c) { }
+        public static char ThrowIfLetter(this char c) { }
+        public static char ThrowIfLowerCase(this char c) { }
+        public static char ThrowIfNumber(this char c) { }
+        public static char ThrowIfSymbol(this char c) { }
+        public static char ThrowIfUpperCase(this char c) { }
+    }
+    public static class CollectionExtensions
+    {
+        public static void AddRange<T>(this System.Collections.Generic.ICollection<T> collection, System.Collections.Generic.ICollection<T> items) { }
+        public static T Find<T>(this System.Collections.Generic.ICollection<T> collection, T value) { }
+        public static bool IsEmpty<T>(this System.Collections.Generic.ICollection<T> collection) { }
+        public static bool IsNull<T>([System.Diagnostics.CodeAnalysis.NotNullWhen(false)] this System.Collections.Generic.ICollection<T?>? collection) { }
+        public static bool IsNullOrEmpty<T>([System.Diagnostics.CodeAnalysis.NotNullWhen(false)] this System.Collections.Generic.ICollection<T?>? collection) { }
+        public static System.Collections.Generic.ICollection<T> ThrowIfEmpty<T>(this System.Collections.Generic.ICollection<T> collection, [System.Runtime.CompilerServices.CallerArgumentExpression("collection")] string? paramName = null) { }
+    }
+    public static class DecimalExtensions
+    {
+        public static bool IsBetween(this decimal value, decimal min, decimal max) { }
+    }
+    public static class DoubleExtensions
+    {
+        public static bool ApproxEquals(this double value, double other, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static int ApproxSign(this double value, double epsilon = 1E-15) { }
+        public static bool IsApproxGreaterThan(this double value, double other, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsApproxGreaterThanOrEqual(this double value, double other, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsApproxLessThan(this double value, double other, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsApproxLessThanOrEqual(this double value, double other, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsApproxZero(this double value, double epsilon = 1E-15) { }
+        public static bool IsBetween(this double value, double min, double max) { }
+    }
+    public static class EnumExtensions
+    {
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Black(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Blue(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Bold(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Brown(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Capitalize(this System.Enum value) { }
+        public static string Color(this System.Enum value, Bezoro.Core.Types.Color color) { }
+        public static string Color(this System.Enum value, string colorName) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Cyan(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Gray(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Green(this System.Enum value) { }
+        public static bool IsDefined<T>(this T value)
+            where T : System.Enum { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Italic(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Lowercase(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Magenta(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Orange(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Purple(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Red(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Size(this System.Enum value, int size) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Strikethrough(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Underline(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Uppercase(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string White(this System.Enum value) { }
+        [System.Obsolete("Use value.ToString() with the corresponding string extension instead.")]
+        public static string Yellow(this System.Enum value) { }
+    }
+    public static class EnumerableExtensions
+    {
+        public static bool HasAny(this System.Collections.IEnumerable source) { }
+        public static bool HasAny<T>(this System.Collections.Generic.IEnumerable<T> source) { }
+        public static bool IsNullOrEmpty(this System.Collections.IEnumerable? source) { }
+        public static bool IsNullOrEmpty<T>(this System.Collections.Generic.IEnumerable<T>? source) { }
+        public static string PrettyJoin<T>(this System.Collections.Generic.IEnumerable<T> source, string separator = ", ") { }
+        public static bool TryGetCount(this System.Collections.IEnumerable source, out int count) { }
+        public static bool TryGetCount<T>(this System.Collections.Generic.IEnumerable<T> source, out int count) { }
+    }
+    public static class FloatExtensions
+    {
+        public static bool ApproxEquals(this float value, float other, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static int ApproxSign(this float value, float epsilon = 1E-06) { }
+        public static bool IsApproxGreaterThan(this float value, float other, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsApproxGreaterThanOrEqual(this float value, float other, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsApproxLessThan(this float value, float other, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsApproxLessThanOrEqual(this float value, float other, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsApproxZero(this float value, float epsilon = 1E-06) { }
+        public static bool IsBetween(this float value, float min, float max) { }
+        public static float Map(this float value, float fromMin, float fromMax, float toMin, float toMax) { }
+        public static float ThrowIfLessOrEqualThan(this float f, float min) { }
+        public static float ThrowIfLessThan(this float f, float min) { }
+        public static float ThrowIfOverOrEqualThan(this float f, float max) { }
+        public static float ThrowIfOverThan(this float f, float max) { }
+    }
+    public static class GenericExtensions
+    {
+        public static bool IsBetween<T>(this T value, T min, T max)
+            where T : System.IComparable<T> { }
+        public static bool IsDefault<T>(this T value)
+            where T :  struct { }
+        public static bool IsNull<T>([System.Diagnostics.CodeAnalysis.NotNullWhen(false)] this T? value) { }
+        public static bool IsOneOf<T>(this T value, params T[] candidates) { }
+        [System.Obsolete("Use ThrowIf(bool, string?, string?) instead.")]
+        public static T ThrowIf<T>(this T value, System.Linq.Expressions.Expression<System.Func<T, bool>> predicate, string? paramName = null, System.Exception? customException = null) { }
+        public static T ThrowIf<T>(this T value, bool condition, string? paramName = null, string? message = null, [System.Runtime.CompilerServices.CallerArgumentExpression("condition")] string? conditionExpr = null, [System.Runtime.CompilerServices.CallerArgumentExpression("value")] string? valueExpr = null) { }
+        public static T ThrowIfEmpty<T>(this T sequence, [System.Runtime.CompilerServices.CallerArgumentExpression("sequence")] string? paramName = null)
+            where T : System.Collections.IEnumerable { }
+        public static T ThrowIfNull<T>([System.Diagnostics.CodeAnalysis.NotNull] this T? value, [System.Runtime.CompilerServices.CallerArgumentExpression("value")] string? paramName = null) { }
+        public static Bezoro.Core.Types.SingleItemEnumerable<T> Yield<T>(this T item) { }
+    }
+    public static class IntExtensions
+    {
+        public static int Abs(this int value) { }
+        public static int Clamp(this int value, int min, int max) { }
+        public static int ClampMax(this int value, int max) { }
+        public static int ClampMin(this int value, int min) { }
+        public static bool IsBetween(this int value, int min, int max) { }
+        public static bool IsEven(this int value) { }
+        public static bool IsNegative(this int value) { }
+        public static bool IsOdd(this int value) { }
+        public static bool IsPositive(this int value) { }
+        public static bool IsZero(this int value) { }
+        public static int RoundToNearest(this int value, int nearest) { }
+        public static int Sign(this int value) { }
+        public static int ThrowIfLessThan(this int value, int min) { }
+        public static int ThrowIfMoreThan(this int value, int max) { }
+    }
+    public static class LongExtensions
+    {
+        public static bool IsBetween(this long value, long min, long max) { }
+    }
+    public static class MemoryExtensions
+    {
+        public static System.Memory<T> ThrowIfEmpty<T>(this System.Memory<T> memory, [System.Runtime.CompilerServices.CallerArgumentExpression("memory")] string? paramName = null) { }
+        public static System.ReadOnlyMemory<T> ThrowIfEmpty<T>(this System.ReadOnlyMemory<T> memory, [System.Runtime.CompilerServices.CallerArgumentExpression("memory")] string? paramName = null) { }
+    }
+    public static class MutableSpanExtensions
+    {
+        public static System.Span<T> RemoveAtOrdered<T>(this System.Span<T> span, int index) { }
+        public static System.Span<T> RemoveAtSwapBack<T>(this System.Span<T> span, int index) { }
+    }
+    public static class NumericExtensions
+    {
+        public static int CeilingDivide(this int value, int divisor) { }
+        public static long CeilingDivide(this long value, long divisor) { }
+        public static int EuclideanModulo(this int value, int modulus) { }
+        public static long EuclideanModulo(this long value, long modulus) { }
+        public static int FloorDivide(this int value, int divisor) { }
+        public static long FloorDivide(this long value, long divisor) { }
+    }
+    public static class SortedSpanExtensions
+    {
+        public static int LowerBound<T>(this System.ReadOnlySpan<T> span, T value, System.Collections.Generic.IComparer<T>? comparer = null) { }
+        public static int LowerBound<T>(this System.Span<T> span, T value, System.Collections.Generic.IComparer<T>? comparer = null) { }
+        public static int UpperBound<T>(this System.ReadOnlySpan<T> span, T value, System.Collections.Generic.IComparer<T>? comparer = null) { }
+        public static int UpperBound<T>(this System.Span<T> span, T value, System.Collections.Generic.IComparer<T>? comparer = null) { }
+    }
+    public static class SpanExtensions
+    {
+        public static System.ReadOnlySpan<T> ThrowIfEmpty<T>(this System.ReadOnlySpan<T> span, [System.Runtime.CompilerServices.CallerArgumentExpression("span")] string? paramName = null) { }
+        public static System.Span<T> ThrowIfEmpty<T>(this System.Span<T> span, [System.Runtime.CompilerServices.CallerArgumentExpression("span")] string? paramName = null) { }
+    }
+    public static class StringExtensions
+    {
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Amber(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Black(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Blue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string BlueViolet(this string text) { }
+        public static string Bold(this string text) { }
+        public static string Bracketed(this string text, int padding = 0, Bezoro.Core.Types.Color color = default, char bracket = [) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Brown(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string BurlyWood(this string text) { }
+        public static string Capitalize(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Chocolate(this string text) { }
+        public static string Color(this string text, Bezoro.Core.Types.Color color) { }
+        public static string Color(this string text, string colorName) { }
+        public static string Color(this string text, uint rgba32) { }
+        public static string Color(this string text, byte r, byte g, byte b, byte a = 255) { }
+        public static string Color(this string text, float r, float g, float b, float a = 1) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string ColorHex(this string text, string hexOrCss) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Coral(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string CornflowerBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Crimson(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Cyan(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkGoldenrod(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkGray(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkKhaki(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkOrange(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkOrchid(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkRed(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DarkViolet(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DeepBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DeepSkyBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DimGray(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string DodgerBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string FireBrick(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string ForestGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Gainsboro(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Gold(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Goldenrod(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Gray(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Green(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string IndianRed(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Indigo(this string text) { }
+        public static bool IsEmpty(this string text) { }
+        public static bool IsNullOrEmpty(this string? text) { }
+        public static bool IsNullOrWhiteSpace(this string? text) { }
+        public static bool IsWhiteSpace(this string text) { }
+        public static string Italic(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Khaki(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Lavender(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LemonChiffon(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightGray(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightOrange(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightRed(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string LightYellow(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Lime(this string text) { }
+        public static string Lowercase(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Magenta(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Maroon(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string MediumOrchid(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string MediumPurple(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string MediumSeaGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Navy(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonOrange(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonPink(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonPurple(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string NeonYellow(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Olive(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Orange(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string OrangeRed(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Orchid(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PaleGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelLavender(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelOrange(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelPink(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelPurple(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelTurquoise(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string PastelYellow(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Peach(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Peru(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Pink(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Plum(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Purple(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Red(this string text) { }
+        public static string Repeat(this string str, uint count = 1) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string RosyBrown(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string RoyalBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SaddleBrown(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Salmon(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SandyBrown(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SeaGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Sienna(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Silver(this string text) { }
+        public static string Size(this string text, int size) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SkyBlue(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SlateGray(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SpringGreen(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string SteelBlue(this string text) { }
+        public static string Strikethrough(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Tan(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Tangerine(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Teal(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Tomato(this string text) { }
+        public static string Underline(this string text) { }
+        public static string Uppercase(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Violet(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string White(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string WhiteSmoke(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string Yellow(this string text) { }
+        [System.Obsolete("Use Color(string) or Color(Color) instead.")]
+        public static string YellowGreen(this string text) { }
+    }
+    public static class TypeExtensions
+    {
+        public static bool IsAnonymous(this System.Type type) { }
+        public static bool IsNull(this System.Type componentType) { }
+        public static bool IsStatic(this System.Type type) { }
+    }
+}
+namespace Bezoro.Core.Helpers
+{
+    public static class ArrayConverter
+    {
+        public static T[] Flatten<T>(T[] from) { }
+        public static T[] Reshape<T>(T[] from, int rows, int columns) { }
+    }
+    public static class ArrayHelper
+    {
+        public static T[] Add<T>(ref T[] array, T item) { }
+        public static T[] AddUnique<T>(ref T[] array, T item) { }
+        public static bool CompareArrays<T>(T[] first, T[] second) { }
+        public static float DistanceSquared(System.Numerics.Vector3 a, System.Numerics.Vector3 b) { }
+        public static T?[] RemoveElement<T>(ref T?[] array, T item)
+            where T :  class { }
+    }
+    public sealed class ArrayIsFullException : System.Exception
+    {
+        public ArrayIsFullException() { }
+    }
+    public static class DoubleComparer
+    {
+        public const double DEFAULT_DOUBLE_EPSILON = 1E-15D;
+        public const double DEFAULT_DOUBLE_RELATIVE_EPSILON = 1E-14D;
+        public static bool AreEqual(double a, double b, double epsilon = 1E-15) { }
+        public static bool AreEqualRelative(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool AreEqualRobust(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsGreaterThan(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsGreaterThanOrEqual(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsLessThan(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsLessThanOrEqual(double a, double b, double absoluteEpsilon = 1E-15, double relativeEpsilon = 1E-14) { }
+        public static bool IsZero(double value, double epsilon = 1E-15) { }
+        public static int Sign(double value, double epsilon = 1E-15) { }
+    }
+    [System.Obsolete("Use direct exception construction instead.")]
+    public static class ExceptionHelper
+    {
+        public static void ThrowException<TException>(string errorMessage)
+            where TException : System.Exception { }
+        public static void ThrowException<T>(object? objectInstance = null, string? methodName = null, string? message = null)
+            where T : System.Exception { }
+    }
+    public static class FloatComparer
+    {
+        public const float DEFAULT_FLOAT_EPSILON = 1E-06F;
+        public const float DEFAULT_FLOAT_RELATIVE_EPSILON = 1E-05F;
+        public static bool AreEqual(float a, float b, float epsilon = 1E-06) { }
+        public static bool AreEqualRelative(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool AreEqualRobust(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsGreaterThan(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsGreaterThanOrEqual(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsLessThan(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsLessThanOrEqual(float a, float b, float absoluteEpsilon = 1E-06, float relativeEpsilon = 1E-05) { }
+        public static bool IsZero(float value, float epsilon = 1E-06) { }
+        public static int Sign(float value, float epsilon = 1E-06) { }
+    }
+    [System.Obsolete("Use focused guard extensions or direct validation instead.")]
+    public static class ValidationHelper
+    {
+        public static void Condition(bool condition, string errorMessage, object? caller = null, string? methodName = null) { }
+        public static void IsFalse(bool condition, string errorMessage = "") { }
+        public static void IsFalse<TException>(bool condition, string errorMessage = "")
+            where TException : System.Exception { }
+        public static void IsNotNull<T>(T obj)
+            where T :  class { }
+        public static void IsPositiveValue(float value, string paramName = "value", object? caller = null, string? methodName = null) { }
+        public static void IsSubclassOf<T>(object caller, string methodName, System.Type type) { }
+        public static void IsWithinRange(int file, int rank, int min, int max) { }
+        public static void ListNotNullOrEmpty<T>(System.Collections.Generic.List<T> list, string paramName = "list", object? caller = null, string? methodName = null) { }
+        public static void String(string value, string paramName = "value", object? caller = null, string? methodName = null) { }
+        public static void ThrowIfObjectIsNull(object objectToValidate, string? paramName = null, string? exceptionMessage = null, object? caller = null, string? methodName = null) { }
+        public static void ValueNotAboveMax(int value, int max, string valueName = "value", string maxName = "max", object? caller = null, string? methodName = null) { }
+    }
+}
+namespace Bezoro.Core.Numerics
+{
+    public static class ScalarMath
+    {
+        public static double Damp(double current, double target, double rate, double elapsedTime) { }
+        public static float Damp(float current, float target, float rate, float elapsedTime) { }
+        public static double InverseLerpClamped(double value, double from, double to) { }
+        public static float InverseLerpClamped(float value, float from, float to) { }
+        public static double LerpClamped(double from, double to, double amount) { }
+        public static float LerpClamped(float from, float to, float amount) { }
+        public static double MoveTowards(double current, double target, double maxDelta) { }
+        public static float MoveTowards(float current, float target, float maxDelta) { }
+        public static double RemapClamped(double value, double fromMin, double fromMax, double toMin, double toMax) { }
+        public static float RemapClamped(float value, float fromMin, float fromMax, float toMin, float toMax) { }
+        public static double Wrap(double value, double min, double max) { }
+        public static float Wrap(float value, float min, float max) { }
+    }
+}
+namespace Bezoro.Core.Randomness
+{
+    public static class Pcg32
+    {
+        public const string AlgorithmId = "pcg32-xsh-rr-64-32-v1";
+        public static double NextDouble(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static int NextInt32(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static int NextInt32(ref Bezoro.Core.Randomness.Pcg32State state, int minInclusive, int maxExclusive) { }
+        public static long NextInt64(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static long NextInt64(ref Bezoro.Core.Randomness.Pcg32State state, long minInclusive, long maxExclusive) { }
+        public static float NextSingle(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static uint NextUInt32(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static uint NextUInt32(ref Bezoro.Core.Randomness.Pcg32State state, uint exclusiveUpperBound) { }
+        public static ulong NextUInt64(ref Bezoro.Core.Randomness.Pcg32State state) { }
+        public static ulong NextUInt64(ref Bezoro.Core.Randomness.Pcg32State state, ulong exclusiveUpperBound) { }
+        public static void Shuffle<T>(ref Bezoro.Core.Randomness.Pcg32State state, System.Span<T> values) { }
+    }
+    public readonly struct Pcg32State : System.IEquatable<Bezoro.Core.Randomness.Pcg32State>
+    {
+        public const ulong MaxStream = 9223372036854775807ul;
+        public Pcg32State(ulong value, ulong stream) { }
+        public ulong Stream { get; }
+        public ulong Value { get; }
+        public bool Equals(Bezoro.Core.Randomness.Pcg32State other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public Bezoro.Core.Randomness.Pcg32State Next(out uint value) { }
+        public static Bezoro.Core.Randomness.Pcg32State Create(ulong seed, ulong stream = 0) { }
+        public static bool operator !=(Bezoro.Core.Randomness.Pcg32State left, Bezoro.Core.Randomness.Pcg32State right) { }
+        public static bool operator ==(Bezoro.Core.Randomness.Pcg32State left, Bezoro.Core.Randomness.Pcg32State right) { }
+    }
+    public sealed class WeightedIndexTable
+    {
+        public WeightedIndexTable(System.ReadOnlySpan<ulong> weights) { }
+        public int Count { get; }
+        public ulong TotalWeight { get; }
+        public int GetIndexForTicket(ulong ticket) { }
+        public ulong GetWeight(int index) { }
+        public int Pick(ref Bezoro.Core.Randomness.Pcg32State state) { }
+    }
+}
+namespace Bezoro.Core.Types
+{
+    [System.Diagnostics.DebuggerDisplay("Index={Index}, Found={IsFound}, ArrayLength={ArrayLength}")]
+    public readonly struct ArrayElementInfo<T> : System.IEquatable<Bezoro.Core.Types.ArrayElementInfo<T>>
+    {
+        public uint ArrayLength { get; }
+        public T Element { get; }
+        public uint? Index { get; }
+        public bool IsFound { get; }
+        public System.Type RuntimeElementType { get; }
+        public static System.Type ElementType { get; }
+        public void Deconstruct(out uint? index, out T? element, out uint arrayLength) { }
+        public bool Equals(Bezoro.Core.Types.ArrayElementInfo<T> other) { }
+        public override bool Equals(object? obj) { }
+        public T? GetElementOrDefault() { }
+        public T? GetElementOrDefault(T defaultValue) { }
+        public override int GetHashCode() { }
+        public override string ToString() { }
+        public bool TryGetElement([System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out T element, out uint index) { }
+        public static Bezoro.Core.Types.ArrayElementInfo<T> Found(uint index, T element, uint arrayLength) { }
+        public static Bezoro.Core.Types.ArrayElementInfo<T> NotFound(T? searchedElement, uint arrayLength) { }
+        public static uint? op_Explicit(Bezoro.Core.Types.ArrayElementInfo<T> info) { }
+        public static bool op_Implicit(Bezoro.Core.Types.ArrayElementInfo<T> info) { }
+        public static bool operator !=(Bezoro.Core.Types.ArrayElementInfo<T> left, Bezoro.Core.Types.ArrayElementInfo<T> right) { }
+        public static bool operator ==(Bezoro.Core.Types.ArrayElementInfo<T> left, Bezoro.Core.Types.ArrayElementInfo<T> right) { }
+    }
+    [System.Diagnostics.DebuggerDisplay("Color(R={R}, G={G}, B={B}, A={A})")]
+    [System.Serializable]
+    public readonly struct Color : System.IEquatable<Bezoro.Core.Types.Color>, System.IFormattable
+    {
+        public Color() { }
+        public Color(byte R, byte G, byte B, byte A) { }
+        public Color(float R, float G, float B, float A) { }
+        public byte A { get; init; }
+        public float Af { get; }
+        public byte B { get; init; }
+        public float Bf { get; }
+        public byte G { get; init; }
+        public float Gf { get; }
+        public float Luminance { get; }
+        public byte R { get; init; }
+        public float Rf { get; }
+        public static Bezoro.Core.Types.Color Black { get; }
+        public static Bezoro.Core.Types.Color Gray { get; }
+        public static Bezoro.Core.Types.Color Transparent { get; }
+        public static Bezoro.Core.Types.Color White { get; }
+        public void Deconstruct(out byte r, out byte g, out byte b, out byte a) { }
+        public void Deconstruct(out float r, out float g, out float b, out float a) { }
+        public uint ToAbgr32() { }
+        public uint ToArgb32() { }
+        public uint ToRgba32() { }
+        public override string ToString() { }
+        public string ToString(string? format, System.IFormatProvider? formatProvider) { }
+        public bool TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) { }
+        public Bezoro.Core.Types.Color WithA(byte a) { }
+        public Bezoro.Core.Types.Color WithA(float a) { }
+        public Bezoro.Core.Types.Color WithB(byte b) { }
+        public Bezoro.Core.Types.Color WithG(byte g) { }
+        public Bezoro.Core.Types.Color WithR(byte r) { }
+        public static Bezoro.Core.Types.Color AlphaBlend(Bezoro.Core.Types.Color dst, Bezoro.Core.Types.Color src) { }
+        public static Bezoro.Core.Types.Color AlphaBlendLinear(Bezoro.Core.Types.Color dst, Bezoro.Core.Types.Color src) { }
+        public static Bezoro.Core.Types.Color FromAbgr32(uint abgr) { }
+        public static Bezoro.Core.Types.Color FromArgb(byte a, byte r, byte g, byte b) { }
+        public static Bezoro.Core.Types.Color FromArgb(float a, float r, float g, float b) { }
+        public static Bezoro.Core.Types.Color FromArgb32(uint argb) { }
+        public static Bezoro.Core.Types.Color FromRgb(byte r, byte g, byte b) { }
+        public static Bezoro.Core.Types.Color FromRgb(float r, float g, float b) { }
+        public static Bezoro.Core.Types.Color FromRgba32(uint rgba) { }
+        public static bool TryParse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider, out Bezoro.Core.Types.Color result) { }
+        public static Bezoro.Core.Types.Color op_Explicit(System.Numerics.Vector4 v) { }
+        public static System.Numerics.Vector4 op_Implicit(Bezoro.Core.Types.Color c) { }
+        public static System.Drawing.Color op_Implicit(Bezoro.Core.Types.Color color) { }
+    }
+    [System.Serializable]
+    public sealed class Grid2D<T> : System.IDisposable
+    {
+        public Grid2D(int width, int height, bool usePooling = false) { }
+        public Grid2D(int width, int height, T defaultValue, bool usePooling = false) { }
+        public int Height { get; }
+        public T& this[int x, int y] { get; }
+        public int Length { get; }
+        public int Width { get; }
+        public Bezoro.Core.Types.GridSpan2D<T> AsGridSpan() { }
+        public Bezoro.Core.Types.ReadOnlyGridSpan2D<T> AsReadOnlyGridSpan() { }
+        public System.ReadOnlySpan<T> AsReadOnlySpan() { }
+        public System.Span<T> AsSpan() { }
+        public void Clear() { }
+        public void Dispose() { }
+        public void Fill(T value) { }
+        public System.Span<T> GetRow(int y) { }
+        public System.ReadOnlySpan<T> GetRowReadOnly(int y) { }
+        public bool IsInBounds(int x, int y) { }
+        public bool TryGet(int x, int y, out T value) { }
+        public bool TrySet(int x, int y, T value) { }
+    }
+    public ref struct GridSpan2D<T>
+    {
+        public readonly int Height;
+        public readonly int Width;
+        public GridSpan2D(System.Span<T> data, int width, int height) { }
+        public T& this[int x, int y] { get; }
+        public int Length { get; }
+        public Bezoro.Core.Types.ReadOnlyGridSpan2D<T> AsReadOnly() { }
+        public System.Span<T> AsSpan() { }
+        public void Clear() { }
+        public void Fill(T value) { }
+        public System.Span<T> GetRow(int y) { }
+        public bool IsInBounds(int x, int y) { }
+    }
+    public interface IFailureReason { }
+    public enum MaxValueUpdateMode
+    {
+        ClampCurrent = 0,
+        PreservePercentage = 1,
+    }
+    [System.Diagnostics.DebuggerDisplay("{Value}%")]
+    public readonly struct Percent : System.IComparable<Bezoro.Core.Types.Percent>, System.IEquatable<Bezoro.Core.Types.Percent>
+    {
+        public static readonly Bezoro.Core.Types.Percent Full;
+        public static readonly Bezoro.Core.Types.Percent Half;
+        public static readonly Bezoro.Core.Types.Percent Ninety;
+        public static readonly Bezoro.Core.Types.Percent Quarter;
+        public static readonly Bezoro.Core.Types.Percent ThreeQuarters;
+        public static readonly Bezoro.Core.Types.Percent Zero;
+        public Percent(byte value) { }
+        public Percent(uint current, uint max) { }
+        public byte Value { get; }
+        public int CompareTo(Bezoro.Core.Types.Percent other) { }
+        public bool Equals(Bezoro.Core.Types.Percent other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public float ToRatio() { }
+        public override string ToString() { }
+        public static Bezoro.Core.Types.Percent FromTotals([System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "current",
+                "max"})] params System.ValueTuple<uint, uint>[] totals) { }
+        public static Bezoro.Core.Types.Percent FromTotals([System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "current",
+                "max"})] System.ValueTuple<uint, uint> first, [System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "current",
+                "max"})] System.ValueTuple<uint, uint> second) { }
+        public static Bezoro.Core.Types.Percent op_Explicit(byte value) { }
+        public static byte op_Implicit(Bezoro.Core.Types.Percent percent) { }
+        public static bool operator !=(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+        public static bool operator <(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+        public static bool operator <=(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+        public static bool operator ==(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+        public static bool operator >(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+        public static bool operator >=(Bezoro.Core.Types.Percent left, Bezoro.Core.Types.Percent right) { }
+    }
+    public readonly struct PoolOptions : System.IEquatable<Bezoro.Core.Types.PoolOptions>
+    {
+        public PoolOptions() { }
+        public PoolOptions(int InitialCapacity = 0, int MaxCapacity = -1, bool EnableAsyncWait = true, bool ValidateOnRent = true, bool TrackStatistics = false) { }
+        public bool EnableAsyncWait { get; init; }
+        public int InitialCapacity { get; init; }
+        public int MaxCapacity { get; init; }
+        public bool TrackStatistics { get; init; }
+        public bool ValidateOnRent { get; init; }
+        public static Bezoro.Core.Types.PoolOptions Default { get; }
+        public static Bezoro.Core.Types.PoolOptions HighThroughput { get; }
+    }
+    public sealed class PoolPolicy<T> : Bezoro.Core.Abstractions.IPoolPolicy<T>
+        where T :  class
+    {
+        public PoolPolicy(System.Func<T> factory, System.Func<T, bool>? reset = null, System.Func<T, bool>? validate = null, System.Action<T>? onDiscard = null) { }
+        public T Create() { }
+        public void OnDiscard(T item) { }
+        public bool Reset(T item) { }
+        public bool Validate(T item) { }
+    }
+    [System.Diagnostics.DebuggerDisplay("Rented={TotalRented}, Returned={TotalReturned}, Created={TotalCreated}")]
+    public readonly struct PoolStatistics : System.IEquatable<Bezoro.Core.Types.PoolStatistics>
+    {
+        public long TotalAsyncWaits { get; init; }
+        public long TotalCreated { get; init; }
+        public long TotalDiscarded { get; init; }
+        public long TotalRented { get; init; }
+        public long TotalReturned { get; init; }
+        public long TotalTimeouts { get; init; }
+        public Bezoro.Core.Types.Percent Utilization { get; init; }
+    }
+    public readonly ref struct ReadOnlyGridSpan2D<T>
+    {
+        public readonly int Height;
+        public readonly int Width;
+        public ReadOnlyGridSpan2D(System.ReadOnlySpan<T> data, int width, int height) { }
+        public T& this[int x, int y] { get; }
+        public int Length { get; }
+        public System.ReadOnlySpan<T> AsSpan() { }
+        public System.ReadOnlySpan<T> GetRow(int y) { }
+        public bool IsInBounds(int x, int y) { }
+    }
+    public static class ResultFactory
+    {
+        public static Bezoro.Core.Types.Result<T> Failed<T>(Bezoro.Core.Types.IFailureReason reason)
+            where T :  notnull { }
+        public static Bezoro.Core.Types.Result<T> Succeeded<T>(in T data)
+            where T :  notnull { }
+    }
+    public readonly struct Result<T> : System.IEquatable<Bezoro.Core.Types.Result<T>>
+        where T :  notnull
+    {
+        public Bezoro.Core.Types.IFailureReason? Failure { get; }
+        public bool Success { get; }
+        public Bezoro.Core.Types.Result<TNew> Bind<TNew>(System.Func<T, Bezoro.Core.Types.Result<TNew>> bind)
+            where TNew :  notnull { }
+        public Bezoro.Core.Types.Result<TNew> Bind<TState, TNew>(TState state, System.Func<T, TState, Bezoro.Core.Types.Result<TNew>> bind)
+            where TNew :  notnull { }
+        public bool Equals(Bezoro.Core.Types.Result<T> other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public T? GetValueOrDefault() { }
+        public T GetValueOrDefault(T defaultValue) { }
+        public Bezoro.Core.Types.Result<TNew> Map<TNew>(System.Func<T, TNew> transform)
+            where TNew :  notnull { }
+        public Bezoro.Core.Types.Result<TNew> Map<TState, TNew>(TState state, System.Func<T, TState, TNew> transform)
+            where TNew :  notnull { }
+        public void Match(System.Action<T> onSuccess, System.Action<Bezoro.Core.Types.IFailureReason> onFailure) { }
+        public TResult Match<TResult>(System.Func<T, TResult> onSuccess, System.Func<Bezoro.Core.Types.IFailureReason, TResult> onFailure) { }
+        public void Match<TState>(TState state, System.Action<T, TState> onSuccess, System.Action<Bezoro.Core.Types.IFailureReason, TState> onFailure) { }
+        public TResult Match<TState, TResult>(TState state, System.Func<T, TState, TResult> onSuccess, System.Func<Bezoro.Core.Types.IFailureReason, TState, TResult> onFailure) { }
+        public bool TryGet([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? data) { }
+        public static Bezoro.Core.Types.Result<T> Failed(Bezoro.Core.Types.IFailureReason reason) { }
+        public static Bezoro.Core.Types.Result<T> Succeeded(in T data) { }
+        public static Bezoro.Core.Types.Result<T> op_Implicit(T data) { }
+        public static bool operator !=(Bezoro.Core.Types.Result<T> left, Bezoro.Core.Types.Result<T> right) { }
+        public static bool operator ==(Bezoro.Core.Types.Result<T> left, Bezoro.Core.Types.Result<T> right) { }
+    }
+    public readonly struct SingleItemEnumerable<T> : System.Collections.Generic.IEnumerable<T>, System.Collections.Generic.IReadOnlyCollection<T>, System.Collections.Generic.IReadOnlyList<T>, System.Collections.IEnumerable
+    {
+        public SingleItemEnumerable(T item) { }
+        public int Count { get; }
+        public T this[int index] { get; }
+        public Bezoro.Core.Types.SingleItemEnumerable<T>.Enumerator GetEnumerator() { }
+        public struct Enumerator : System.Collections.Generic.IEnumerator<T>, System.Collections.IEnumerator, System.IDisposable
+        {
+            public T Current { get; }
+            public void Dispose() { }
+            public bool MoveNext() { }
+            public void Reset() { }
+        }
+    }
+    public abstract class Singleton<T>
+        where T :  class
+    {
+        protected Singleton() { }
+        public static T Instance { get; }
+        public static bool IsOverridden { get; }
+        public static bool IsValueCreated { get; }
+        public static void ConfigureFactory(System.Func<T> factory) { }
+        [System.Obsolete("Use ConfigureFactory(Func<T>) or ConfigureFactoryAndRecreate(Func<T>) instead.")]
+        public static void ConfigureFactory(System.Func<T> factory, bool recreateIfInitialized) { }
+        public static void ConfigureFactoryAndRecreate(System.Func<T> factory) { }
+        public static void Initialize(System.Func<T> factory) { }
+        public static System.IDisposable Override(System.Func<T> factory) { }
+        public static void Reset() { }
+        [System.Obsolete("Use Reset() or ResetAndDispose() instead.")]
+        public static void Reset(bool disposeInstances) { }
+        public static void ResetAndDispose() { }
+        public static bool TryGet([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? instance) { }
+    }
+    [System.Diagnostics.DebuggerDisplay("Count = {Count}, Capacity = {Capacity}")]
+    public sealed class SwapbackArray<T> : System.Collections.Generic.IEnumerable<T>, System.Collections.Generic.IReadOnlyCollection<T>, System.Collections.Generic.IReadOnlyList<T>, System.Collections.IEnumerable
+    {
+        public SwapbackArray(System.Collections.Generic.ICollection<T> collection) { }
+        public SwapbackArray(System.Collections.Generic.IEnumerable<T> collection) { }
+        public SwapbackArray(uint initialCapacity = 4) { }
+        public uint Capacity { get; }
+        public uint Count { get; }
+        public bool IsEmpty { get; }
+        public bool IsFull { get; }
+        public T this[uint index] { get; set; }
+        public uint MaxArrayLength { get; }
+        public uint MinimumArraySize { get; }
+        public Bezoro.Core.Types.Percent ShrinkThresholdPercent { get; set; }
+        public uint Version { get; }
+        public void Add(T item) { }
+        public void AddRange(System.Collections.Generic.IEnumerable<T> collection) { }
+        public void AddRange(System.ReadOnlySpan<T> span) { }
+        public void AddUnchecked(T item) { }
+        public System.Span<T> AsMutableSpanUnsafe() { }
+        public System.Collections.Generic.IReadOnlyCollection<T> AsReadOnlyCollection() { }
+        public System.ReadOnlySpan<T> AsSpan() { }
+        public void Clear() { }
+        [System.Obsolete("Use Clear() or ClearRetainingCapacity() instead.")]
+        public void Clear(bool trim) { }
+        public void ClearRetainingCapacity() { }
+        public bool Contains(T item) { }
+        public void CopyTo(System.Span<T> destination) { }
+        public void CopyTo(T[] destination, uint destinationIndex = 0) { }
+        public void EnsureCapacity(uint min) { }
+        public Bezoro.Core.Types.SwapbackArray<T>.SwapbackArrayEnumerator GetEnumerator() { }
+        public uint IndexOf(T item) { }
+        public void InsertAt(uint index, T item) { }
+        public void Remove(T item) { }
+        public uint RemoveAll(System.Predicate<T> match) { }
+        public void ReplaceAt(uint index, T item) { }
+        public T[] ToArray() { }
+        public void TrimExcess(Bezoro.Core.Types.Percent minimumUtilizationThreshold = default) { }
+        public bool TryGet(uint index, out T? value) { }
+        public bool TryGetIndex(T item, out uint index) { }
+        [System.Obsolete("Use TryGetIndex(T, out uint) instead.")]
+        public bool TryIndexOf(T item, out uint? index) { }
+        public bool TryPeek(out T? value) { }
+        public bool TryPopBack(out T value) { }
+        public bool TryRemove(T item) { }
+        public bool TryRemoveAt(uint index) { }
+        public struct SwapbackArrayEnumerator : System.Collections.Generic.IEnumerator<T>, System.Collections.IEnumerator, System.IDisposable
+        {
+            public T Current { get; }
+            public void Dispose() { }
+            public bool MoveNext() { }
+            public void Reset() { }
+        }
+    }
+    public static class Try
+    {
+        public static void Do(System.Action action, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task DoAsync(System.Func<System.Threading.Tasks.Task> action, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task DoAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task> action, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static T? Get<T>(System.Func<T?> func, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<T?> GetAsync<T>(System.Func<System.Threading.Tasks.Task<T?>> func, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<T?> GetAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T?>> func, System.Func<System.Exception, System.Exception>? exceptionTransform = null, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static T GetOrDefault<T>(System.Func<T> func, System.Func<T> defaultValueFactory, System.Action<System.Exception>? onException = null) { }
+        public static T GetOrDefault<T>(System.Func<T> func, T defaultValue, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<T> GetOrDefaultAsync<T>(System.Func<System.Threading.Tasks.Task<T>> func, System.Func<T> defaultValueFactory, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<T> GetOrDefaultAsync<T>(System.Func<System.Threading.Tasks.Task<T>> func, T defaultValue, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<T> GetOrDefaultAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> func, System.Func<T> defaultValueFactory, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static System.Threading.Tasks.Task<T> GetOrDefaultAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> func, T defaultValue, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static bool TryDo(System.Action action, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<bool> TryDoAsync(System.Func<System.Threading.Tasks.Task> action, System.Action<System.Exception>? onException = null) { }
+        public static System.Threading.Tasks.Task<bool> TryDoAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task> action, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+        [return: System.Runtime.CompilerServices.TupleElementNames(new string?[]?[] {
+                "Success",
+                "Value"})]
+        public static System.ValueTuple<bool, T?> TryGet<T>(System.Func<T?> func, System.Action<System.Exception>? onException = null) { }
+        [return: System.Runtime.CompilerServices.TupleElementNames(new string?[]?[] {
+                "Success",
+                "Value"})]
+        public static System.Threading.Tasks.Task<System.ValueTuple<bool, T?>> TryGetAsync<T>(System.Func<System.Threading.Tasks.Task<T?>> func, System.Action<System.Exception>? onException = null) { }
+        [return: System.Runtime.CompilerServices.TupleElementNames(new string?[]?[] {
+                "Success",
+                "Value"})]
+        public static System.Threading.Tasks.Task<System.ValueTuple<bool, T?>> TryGetAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T?>> func, System.Action<System.Exception>? onException = null, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public readonly struct UIntRange : System.IEquatable<Bezoro.Core.Types.UIntRange>
+    {
+        public UIntRange(uint value) { }
+        public UIntRange(uint max, uint current, uint min = 0) { }
+        public uint Current { get; }
+        public uint Max { get; }
+        public uint Min { get; }
+        public Bezoro.Core.Types.Percent Percentage { get; }
+        public Bezoro.Core.Types.UIntRange AddToCurrent(uint value) { }
+        public Bezoro.Core.Types.UIntRange DecreaseMax(uint value, Bezoro.Core.Types.MaxValueUpdateMode mode) { }
+        public Bezoro.Core.Types.UIntRange IncreaseMax(uint value, Bezoro.Core.Types.MaxValueUpdateMode mode) { }
+        public Bezoro.Core.Types.UIntRange MaximizeCurrent() { }
+        public Bezoro.Core.Types.UIntRange SetCurrent(uint value) { }
+        public Bezoro.Core.Types.UIntRange SetCurrentToMinimum() { }
+        public Bezoro.Core.Types.UIntRange SetMax(uint value, Bezoro.Core.Types.MaxValueUpdateMode mode) { }
+        public Bezoro.Core.Types.UIntRange SubtractFromCurrent(uint value) { }
+    }
+    [System.Diagnostics.DebuggerDisplay("({X}, {Y})")]
+    public readonly struct UIntVector2 : System.IEquatable<Bezoro.Core.Types.UIntVector2>, System.IFormattable
+    {
+        public UIntVector2(uint X, uint Y) { }
+        public uint X { get; init; }
+        public uint Y { get; init; }
+        public override string ToString() { }
+        public string ToString(string? format, System.IFormatProvider? formatProvider) { }
+        public System.Numerics.Vector2 ToVector2() { }
+        public static Bezoro.Core.Types.UIntVector2 FromVector2(System.Numerics.Vector2 v) { }
+        public static bool TryFromVector2(System.Numerics.Vector2 v, out Bezoro.Core.Types.UIntVector2? result) { }
+        public static Bezoro.Core.Types.UIntVector2 op_Explicit(System.Numerics.Vector2 v) { }
+        public static System.Numerics.Vector2 op_Implicit(Bezoro.Core.Types.UIntVector2 v) { }
+    }
+}
+namespace Bezoro.Core.Types.Exceptions
+{
+    public class EmptyCollectionException : System.Exception
+    {
+        public EmptyCollectionException(string collectionName) { }
+    }
+    public class ValueTooLargeException : System.Exception
+    {
+        public ValueTooLargeException(float value, float max) { }
+    }
+    public class ValueTooSmallException : System.Exception
+    {
+        public ValueTooSmallException(float value, float min) { }
+    }
+}
+namespace Bezoro.Core.Types.Pool
+{
+    [System.Diagnostics.DebuggerDisplay("Available={AvailableCount}, Total={TotalCount}, Max={MaxCapacity}")]
+    public sealed class ObjectPool<T> : Bezoro.Core.Abstractions.IPool<T>, System.IDisposable
+        where T :  class
+    {
+        public ObjectPool(System.Func<T> factory) { }
+        public ObjectPool(Bezoro.Core.Abstractions.IPoolPolicy<T> policy, Bezoro.Core.Types.PoolOptions options = default) { }
+        public ObjectPool(System.Func<T> factory, Bezoro.Core.Types.PoolOptions options) { }
+        public int AvailableCount { get; }
+        public int MaxCapacity { get; }
+        public Bezoro.Core.Types.PoolStatistics Statistics { get; }
+        public int TotalCount { get; }
+        public void Clear() { }
+        public void Dispose() { }
+        public T Rent() { }
+        public System.Threading.Tasks.ValueTask<T> RentAsync(System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.ValueTask<T?> RentAsync(System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default) { }
+        public Bezoro.Core.Types.Pool.PooledObjectHandle<T> RentHandle() { }
+        public bool Return(T item) { }
+        public int TrimExcess() { }
+        public int TrimExcess(Bezoro.Core.Types.Percent targetUtilization) { }
+        public bool TryRent([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? item) { }
+    }
+    public class PoolExhaustedException : System.Exception
+    {
+        public PoolExhaustedException(System.Type pooledType, int maxCapacity) { }
+        public int MaxCapacity { get; }
+        public System.Type PooledType { get; }
+    }
+    [System.Diagnostics.DebuggerDisplay("Value={DebuggerValue}, IsDisposed={IsDisposed}")]
+    public readonly struct PooledObjectHandle<T> : System.IDisposable
+        where T :  class
+    {
+        public bool IsDisposed { get; }
+        public T Value { get; }
+        public void Dispose() { }
+        public static T op_Implicit(Bezoro.Core.Types.Pool.PooledObjectHandle<T> handle) { }
+    }
+}
+namespace Bezoro.Core.Utilities
+{
+    public static class Constants
+    {
+        public const string AMPERSAND = "&";
+        public const string AND = "&";
+        public const string ANIMATION = "Animation";
+        public const string ASSETS = "Assets";
+        public const string ASTERISK = "*";
+        public const string AT = "@";
+        public const string AUDIO = "Audio";
+        public const string BACKSLASH = "\\";
+        public const string BACKTICK = "`";
+        public const string BEZORO = "Bezoro";
+        public const string CARET = "^";
+        public const string COLON = ":";
+        public const string COMMA = ",";
+        public const string CONFIG = "Config";
+        public const string DATA = "Data";
+        public const string DEBUG = "Debug";
+        public const int DEFAULT_ASSET_MENU_ORDER = 0;
+        public const string DEVELOP = "Develop";
+        public const string DOLLAR_SIGN = "$";
+        public const string DOT = ".";
+        public const string EDITOR = "Editor";
+        public const string EMPTY = "";
+        public const string EQUALS = "=";
+        public const string EXCLAMATION_MARK = "!";
+        public const string FONT = "Font";
+        public const string GAME = "Game";
+        public const string HASH = "#";
+        public const string HYPHEN = "-";
+        public const int LAST_INIT_ORDER = 2147483647;
+        public const int MANAGER_INIT_ORDER = -2147483648;
+        public const string MATERIAL = "Material";
+        public const string MODEL = "Model";
+        public const string NEWLINE = "\n";
+        public const string PERCENT = "%";
+        public const string PIPE = "|";
+        public const string PROJECT_FOLDER_NAME = "_Project";
+        public const string PROJECT_SETTINGS = "ProjectSettings";
+        public const string QUESTION_MARK = "?";
+        public const string QUOTE = "\"";
+        public const int REGULAR_INIT_ORDER = 0;
+        public const string RESOURCES = "Resources";
+        public const string RUNTIME = "Runtime";
+        public const string SCENE = "Scene";
+        public const float SECONDS_PER_MILLISECOND = 0.001F;
+        public const string SEMICOLON = ";";
+        public const string SETTINGS = "Settings";
+        public const string SHADER = "Shader";
+        public const string SINGLE_QUOTE = "\'";
+        public const string SLASH = "/";
+        public const string SPACE = " ";
+        public const string TAB = "\t";
+        public const string TEXTURE = "Texture";
+        public const string TILDE = "~";
+        public const string UNDERSCORE = "_";
+        public static class GameInitialization
+        {
+            public const string CONFIG_ASSET_MENU_FILE_NAME = "Game_Initialization_Config";
+            public const int CONFIG_ASSET_MENU_ORDER = 0;
+            public const string CONFIG_ASSET_MENU_PATH = "Bezoro/Runtime/Config/Game Initialization";
+        }
+    }
+    public static class StringTags
+    {
+        public static void Clear() { }
+        public static System.Collections.Generic.IEnumerable<string> GetRegisteredTags() { }
+        public static string Process(string input) { }
+        public static void Register(string tagName, System.Func<object> valueProvider, bool allowOverwrite = false) { }
+        public static void RegisterValue(string tagName, object value, bool allowOverwrite = false) { }
+        public static void Unregister(string tagName) { }
+    }
+    public sealed class TicketLock
+    {
+        public TicketLock() { }
+        public object SyncRoot { get; }
+        public void ExecuteOrdered(System.Action action) { }
+    }
+}

@@ -1,0 +1,110 @@
+// net10.0, netstandard2.1
+namespace Bezoro.TypingSystem.Abstractions
+{
+    public interface IWordSource
+    {
+        bool TryGetNextWord(out System.ReadOnlyMemory<char> word);
+    }
+}
+namespace Bezoro.TypingSystem.Extensions
+{
+    public static class WordProviderFileExtensions
+    {
+        public static void LoadWordsFromFile(this Bezoro.TypingSystem.Types.ArrayWordProvider provider, string filePath) { }
+    }
+}
+namespace Bezoro.TypingSystem.Types
+{
+    public sealed class ArrayWordProvider : Bezoro.TypingSystem.Abstractions.IWordSource
+    {
+        public ArrayWordProvider() { }
+        public ArrayWordProvider(System.Collections.Generic.IEnumerable<string> words) { }
+        public int WordCount { get; }
+        public void AddWord(System.ReadOnlyMemory<char> word) { }
+        public void AddWords(System.Collections.Generic.IEnumerable<System.ReadOnlyMemory<char>> words) { }
+        public void ClearWords() { }
+        public void RemoveWord(System.ReadOnlyMemory<char> word) { }
+        public bool TryGetNextWord(out System.ReadOnlyMemory<char> word) { }
+    }
+    public sealed class TypingMetrics
+    {
+        public TypingMetrics() { }
+        public double Accuracy { get; }
+        public double CharactersPerMinute { get; }
+        public uint CorrectInputs { get; }
+        public System.TimeSpan Elapsed { get; }
+        public uint FaultedInputs { get; }
+        public uint MistakeInputs { get; }
+        public uint TotalEvaluated { get; }
+        public uint TotalInputs { get; }
+        public Bezoro.TypingSystem.Types.TypingMetricsSnapshot CreateSnapshot() { }
+        public void Record(Bezoro.TypingSystem.Types.TypingResult result) { }
+        public void Reset() { }
+    }
+    public readonly struct TypingMetricsSnapshot
+    {
+        public double Accuracy { get; }
+        public double CharactersPerMinute { get; }
+        public uint CorrectInputs { get; }
+        public System.TimeSpan Elapsed { get; }
+        public uint FaultedInputs { get; }
+        public uint MistakeInputs { get; }
+        public uint TotalEvaluated { get; }
+        public uint TotalInputs { get; }
+    }
+    public readonly struct TypingResult
+    {
+        public char Expected { get; }
+        public char Input { get; }
+        public bool IsComplete { get; }
+        public bool IsCorrect { get; }
+        public bool IsFaulted { get; }
+        public int NextPosition { get; }
+        public int Position { get; }
+        public Bezoro.TypingSystem.Types.TypingValidationStatus Status { get; }
+        public int TargetLength { get; }
+        public static Bezoro.TypingSystem.Types.TypingResult Completed(char expected, int position, char input, int targetLength) { }
+        public static Bezoro.TypingSystem.Types.TypingResult EmptyTarget(int position, char input) { }
+        public static Bezoro.TypingSystem.Types.TypingResult Match(char expected, int position, char input, int targetLength) { }
+        public static Bezoro.TypingSystem.Types.TypingResult Mismatch(char expected, int position, char input, int targetLength) { }
+        public static Bezoro.TypingSystem.Types.TypingResult PositionOutOfRange(int position, int targetLength, char input) { }
+    }
+    public readonly struct TypingState
+    {
+        public TypingState(int position, int mistakeCount = 0) { }
+        public int CorrectCount { get; }
+        public int MistakeCount { get; }
+        public int Position { get; }
+        public static Bezoro.TypingSystem.Types.TypingState Initial { get; }
+        public bool IsComplete(int targetLength) { }
+        public Bezoro.TypingSystem.Types.TypingState WithCorrect() { }
+        public Bezoro.TypingSystem.Types.TypingState WithMistake() { }
+    }
+    public enum TypingValidationStatus : byte
+    {
+        Undefined = 0,
+        Match = 1,
+        Completed = 2,
+        Mismatch = 3,
+        EmptyTarget = 4,
+        PositionOutOfRange = 5,
+    }
+    public sealed class TypingValidatorOptions
+    {
+        public TypingValidatorOptions() { }
+        public bool IgnoreCase { get; init; }
+        public Bezoro.TypingSystem.Types.TypingMetrics? Metrics { get; init; }
+        public System.Action<Bezoro.TypingSystem.Types.TypingResult>? OnCompleted { get; init; }
+        public System.Action<Bezoro.TypingSystem.Types.TypingResult>? OnFault { get; init; }
+        public System.Action<Bezoro.TypingSystem.Types.TypingResult>? OnMatch { get; init; }
+        public System.Action<Bezoro.TypingSystem.Types.TypingResult>? OnMismatch { get; init; }
+        public System.Action<Bezoro.TypingSystem.Types.TypingResult>? OnValidated { get; init; }
+    }
+}
+namespace Bezoro.TypingSystem.Utilities
+{
+    public static class TypingValidator
+    {
+        public static Bezoro.TypingSystem.Types.TypingResult ValidateInput(System.ReadOnlySpan<char> target, int position, char inputChar, Bezoro.TypingSystem.Types.TypingValidatorOptions? options = null) { }
+    }
+}

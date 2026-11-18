@@ -1,0 +1,95 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Events.Abstractions
+{
+    public interface IEventBus : System.IDisposable
+    {
+        int MaximumQueuedEvents { get; }
+        int QueuedCount { get; }
+        int SubscriptionCount { get; }
+        void Enqueue<TEvent>(TEvent evt)
+            where TEvent :  struct;
+        int FlushQueued();
+        int FlushQueued(int maxEvents);
+        Bezoro.Events.Types.EventContext<TEvent> Publish<TEvent>(TEvent evt)
+            where TEvent :  struct;
+        Bezoro.Events.Types.SubscriptionHandle Subscribe<TEvent>(System.Action<Bezoro.Events.Types.EventContext<TEvent>> handler, int priority = 0)
+            where TEvent :  struct;
+        bool TryEnqueue<TEvent>(TEvent evt)
+            where TEvent :  struct;
+        bool Unsubscribe(Bezoro.Events.Types.SubscriptionHandle handle);
+    }
+    public interface IUnityEventBuses : System.IDisposable
+    {
+        Bezoro.Events.Abstractions.IEventBus FixedUpdate { get; }
+        Bezoro.Events.Abstractions.IEventBus LateUpdate { get; }
+        Bezoro.Events.Abstractions.IEventBus Update { get; }
+        int FlushFixedUpdate();
+        int FlushFixedUpdate(int maxEvents);
+        int FlushLateUpdate();
+        int FlushLateUpdate(int maxEvents);
+        int FlushUpdate();
+        int FlushUpdate(int maxEvents);
+    }
+}
+namespace Bezoro.Events.Services
+{
+    public sealed class EventBus : Bezoro.Events.Abstractions.IEventBus, System.IDisposable
+    {
+        public EventBus() { }
+        public EventBus(System.Action<System.Exception>? reportHandlerError) { }
+        public EventBus(int maximumQueuedEvents, System.Action<System.Exception>? reportHandlerError = null) { }
+        public int MaximumQueuedEvents { get; }
+        public int QueuedCount { get; }
+        public int SubscriptionCount { get; }
+        public void Dispose() { }
+        public void Enqueue<TEvent>(TEvent evt)
+            where TEvent :  struct { }
+        public int FlushQueued() { }
+        public int FlushQueued(int maxEvents) { }
+        public Bezoro.Events.Types.EventContext<TEvent> Publish<TEvent>(TEvent evt)
+            where TEvent :  struct { }
+        public Bezoro.Events.Types.SubscriptionHandle Subscribe<TEvent>(System.Action<Bezoro.Events.Types.EventContext<TEvent>> handler, int priority = 0)
+            where TEvent :  struct { }
+        public bool TryEnqueue<TEvent>(TEvent evt)
+            where TEvent :  struct { }
+        public bool Unsubscribe(Bezoro.Events.Types.SubscriptionHandle handle) { }
+    }
+    public sealed class UnityEventBuses : Bezoro.Events.Abstractions.IUnityEventBuses, System.IDisposable
+    {
+        public UnityEventBuses() { }
+        public UnityEventBuses(Bezoro.Events.Abstractions.IEventBus update, Bezoro.Events.Abstractions.IEventBus fixedUpdate, Bezoro.Events.Abstractions.IEventBus lateUpdate, bool ownsBuses = true) { }
+        public Bezoro.Events.Abstractions.IEventBus FixedUpdate { get; }
+        public Bezoro.Events.Abstractions.IEventBus LateUpdate { get; }
+        public Bezoro.Events.Abstractions.IEventBus Update { get; }
+        public void Dispose() { }
+        public int FlushFixedUpdate() { }
+        public int FlushFixedUpdate(int maxEvents) { }
+        public int FlushLateUpdate() { }
+        public int FlushLateUpdate(int maxEvents) { }
+        public int FlushUpdate() { }
+        public int FlushUpdate(int maxEvents) { }
+    }
+}
+namespace Bezoro.Events.Types
+{
+    public sealed class EventContext<TEvent>
+        where TEvent :  struct
+    {
+        public EventContext(TEvent data) { }
+        public TEvent Data { get; }
+        public bool Handled { get; set; }
+    }
+    public readonly struct SubscriptionHandle : System.IEquatable<Bezoro.Events.Types.SubscriptionHandle>
+    {
+        public readonly int Id;
+        public static readonly Bezoro.Events.Types.SubscriptionHandle None;
+        public SubscriptionHandle(int id) { }
+        public bool IsValid { get; }
+        public bool Equals(Bezoro.Events.Types.SubscriptionHandle other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override string ToString() { }
+        public static bool operator !=(Bezoro.Events.Types.SubscriptionHandle left, Bezoro.Events.Types.SubscriptionHandle right) { }
+        public static bool operator ==(Bezoro.Events.Types.SubscriptionHandle left, Bezoro.Events.Types.SubscriptionHandle right) { }
+    }
+}

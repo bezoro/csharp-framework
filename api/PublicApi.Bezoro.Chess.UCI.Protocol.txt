@@ -1,0 +1,1123 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Chess.UCI.Protocol.API.Abstractions
+{
+    public interface IExpectedPointsModel
+    {
+        string Name { get; }
+        double GetExpectedPoints(Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation evaluation, char playerSide, int? playerRating);
+    }
+    public interface IMoveReviewAnnotationPolicy
+    {
+        Bezoro.Chess.UCI.Protocol.API.Types.MoveReviewAnnotation Annotate(Bezoro.Chess.UCI.Protocol.API.Types.ReviewedMove move, int? playerRating);
+    }
+    public interface IUciLineSource
+    {
+        System.IDisposable Subscribe(System.Action<string> handler);
+    }
+    public interface IUciTransport : System.IAsyncDisposable, System.IDisposable
+    {
+        bool IsHealthy { get; }
+        bool IsStarted { get; }
+        Bezoro.Chess.UCI.Protocol.API.Types.TransportStatus Status { get; }
+        event System.Action<System.Exception>? Error;
+        event System.Action<int?, string?>? Exited;
+        event System.Action<string>? StderrReceived;
+        System.Collections.Generic.IAsyncEnumerable<string> ReadLinesAsync(System.Threading.CancellationToken ct = default);
+        System.Threading.Tasks.Task StartAsync(System.Threading.CancellationToken ct = default);
+        System.Threading.Tasks.Task StopAsync(System.Threading.CancellationToken ct = default);
+        System.Threading.Tasks.Task<bool> TryWriteLineAsync(string line, System.TimeSpan timeout, System.Threading.CancellationToken ct = default);
+        System.Threading.Tasks.Task WriteLineAsync(string line, System.Threading.CancellationToken ct = default);
+    }
+}
+namespace Bezoro.Chess.UCI.Protocol.API.Common.Enums
+{
+    public enum EngineOutputType
+    {
+        Info = 0,
+        BestMove = 1,
+        Option = 2,
+        Id = 3,
+        Status = 4,
+        Unknown = 5,
+    }
+}
+namespace Bezoro.Chess.UCI.Protocol.API.Common.Extensions
+{
+    public static class EngineActivityExtensions
+    {
+        public static bool IsActive(this Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity activity) { }
+        public static bool IsIdle(this Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity activity) { }
+        public static bool IsPondering(this Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity activity) { }
+        public static bool IsSearching(this Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity activity) { }
+    }
+    public static class FenExtensions
+    {
+        public static string[] ToDisplayLines(this Bezoro.Chess.UCI.Protocol.API.Types.Fen fen, char playerColor, int legalMoveCount) { }
+    }
+    public static class FenMoveClassificationExtensions
+    {
+        public static Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification ClassifyMove(this Bezoro.Chess.UCI.Protocol.API.Types.Fen fen, string move) { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification ClassifyMoveFully(this Bezoro.Chess.UCI.Protocol.API.Types.Fen fen, string move) { }
+        public static System.Collections.Immutable.ImmutableDictionary<string, Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification> ClassifyMoves(this Bezoro.Chess.UCI.Protocol.API.Types.Fen fen, System.Collections.Generic.IEnumerable<string> legalMoves) { }
+        public static System.Collections.Immutable.ImmutableDictionary<string, Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification> ClassifyMovesFully(this Bezoro.Chess.UCI.Protocol.API.Types.Fen fen, System.Collections.Generic.IEnumerable<string> legalMoves) { }
+    }
+    public static class FenRulesExtensions
+    {
+        public static Bezoro.Chess.UCI.Protocol.API.Types.Fen ApplyMove(this Bezoro.Chess.UCI.Protocol.API.Types.Fen fen, string move) { }
+        public static System.Collections.Immutable.ImmutableArray<string> GetLegalMoves(this Bezoro.Chess.UCI.Protocol.API.Types.Fen fen) { }
+        public static bool IsInCheck(this Bezoro.Chess.UCI.Protocol.API.Types.Fen fen) { }
+    }
+    public static class MoveClassificationExtensions
+    {
+        public static string ToDebugSuffix(this Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification classification) { }
+        public static System.Collections.Immutable.ImmutableArray<string> ToDebugTags(this Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification classification) { }
+    }
+    public static class MoveEvaluationExtensions
+    {
+        public static string ToDebugDisplayString(this Bezoro.Chess.UCI.Protocol.API.Types.MoveEvaluation evaluation) { }
+    }
+    public static class PlayableFenExtensions
+    {
+        public static void ValidateForPlay(this Bezoro.Chess.UCI.Protocol.API.Types.Fen fen) { }
+    }
+    public static class PlayedMoveExtensions
+    {
+        public static bool TryResolveScore(this Bezoro.Chess.UCI.Protocol.API.Types.PlayedMove move, System.Func<string, Bezoro.Chess.UCI.Protocol.API.Types.PositionAnalysisResult?> resolveAnalysis, out Bezoro.Chess.UCI.Protocol.API.Types.PositionScore score) { }
+    }
+    public static class PlayedMoveHistoryExtensions
+    {
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage ResolveCurrentAdvantage(this System.Collections.Generic.IReadOnlyList<Bezoro.Chess.UCI.Protocol.API.Types.PlayedMove> history, string currentPositionKey, int legalMoveCount, System.Func<string, Bezoro.Chess.UCI.Protocol.API.Types.PositionAnalysisResult?> resolveAnalysis) { }
+        public static string[] ToDisplayLines(this System.Collections.Generic.IReadOnlyList<Bezoro.Chess.UCI.Protocol.API.Types.PlayedMove> history, System.Func<Bezoro.Chess.UCI.Protocol.API.Types.PlayedMove, Bezoro.Chess.UCI.Protocol.API.Types.PositionScore?> resolveScore) { }
+    }
+    public static class PositionAdvantageExtensions
+    {
+        public static string[] ToDisplayBarLines(this Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage advantage, int height = 8, int width = 3) { }
+    }
+    public static class SearchResultExtensions
+    {
+        public static string ToDisplayString(this Bezoro.Chess.UCI.Protocol.API.Types.SearchResult result, int maxVariationMoves = 6) { }
+        public static string ToPlayerDisplayString(this Bezoro.Chess.UCI.Protocol.API.Types.SearchResult result, char sideToMove, char playerColor, int maxVariationMoves = 6) { }
+    }
+    public static class UciEngineClientAnalysisExtensions
+    {
+        public static System.Threading.Tasks.Task<System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.MoveEvaluation>> AnalyzeLegalMovesAsync(this Bezoro.Chess.UCI.Protocol.API.UciEngineClient client, char sideToMove, char playerColor, System.Collections.Generic.IEnumerable<string> legalMoves, int multiPvMoveTimeMs = 3000, int fallbackMoveTimeMs = 250, System.Threading.CancellationToken ct = default) { }
+        public static System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.PositionAnalysisResult> AnalyzePositionAsync(this Bezoro.Chess.UCI.Protocol.API.UciEngineClient client, char sideToMove, char playerColor, System.Collections.Generic.IEnumerable<string> legalMoves, int multiPvMoveTimeMs = 3000, int fallbackMoveTimeMs = 250, System.Threading.CancellationToken ct = default) { }
+        public static System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage> EvaluateAdvantageAsync(this Bezoro.Chess.UCI.Protocol.API.UciEngineClient client, char sideToMove, char playerColor, int moveTimeMs = 250, System.Threading.CancellationToken ct = default) { }
+    }
+    public static class UciMoveExtensions
+    {
+        public static bool ContainsUciMove(this System.Collections.Generic.IEnumerable<string> moves, string move) { }
+        public static System.Collections.Immutable.ImmutableArray<string> NormalizeUciMoves(this System.Collections.Generic.IEnumerable<string> moves) { }
+        public static bool TryNormalizeCoordinateMove(this string? move, out string normalizedMove) { }
+        public static bool TryParseCoordinateMove(this string? move, out Bezoro.Chess.UCI.Protocol.API.Types.UciCoordinateMove coordinateMove) { }
+    }
+}
+namespace Bezoro.Chess.UCI.Protocol.API.Common.Helpers
+{
+    public static class AdvantageScale
+    {
+        public static double NormalizeCp(int cp) { }
+    }
+    public static class FenPiecePlacementParser
+    {
+        public static bool TryParse(string? fenOrPlacement, System.Collections.Generic.IDictionary<Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare, char> output) { }
+    }
+}
+namespace Bezoro.Chess.UCI.Protocol.API
+{
+    public sealed class EngineWdlExpectedPointsModel : Bezoro.Chess.UCI.Protocol.API.Abstractions.IExpectedPointsModel
+    {
+        public EngineWdlExpectedPointsModel() { }
+        public string Name { get; }
+        public static Bezoro.Chess.UCI.Protocol.API.EngineWdlExpectedPointsModel Instance { get; }
+        public double GetExpectedPoints(Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation evaluation, char playerSide, int? playerRating) { }
+    }
+    public static class MoveQualityClassifier
+    {
+        public static Bezoro.Chess.UCI.Protocol.API.Types.MoveQuality Classify(double expectedPointsLoss) { }
+    }
+    public static class PlayableMatchCommandParser
+    {
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchCommand Parse(string input) { }
+    }
+    public sealed class ProcessUciTransport : Bezoro.Chess.UCI.Protocol.API.Abstractions.IUciTransport, System.IAsyncDisposable, System.IDisposable
+    {
+        public ProcessUciTransport(string path, System.Collections.Generic.IEnumerable<string>? args = null, string? workingDirectory = null) { }
+        public ProcessUciTransport(string path, System.Collections.Generic.IEnumerable<string>? args, string? workingDirectory, Bezoro.Chess.UCI.Protocol.API.Types.ProcessUciTransportOptions? options) { }
+        public long BackpressureEvents { get; }
+        public bool IsHealthy { get; }
+        public bool IsStarted { get; }
+        public long LinesRead { get; }
+        public long LinesWritten { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.TransportStatus Status { get; }
+        public event System.Action<System.Exception>? Error;
+        public event System.Action<int?, string?>? Exited;
+        public event System.Action<string>? StderrReceived;
+        public void Dispose() { }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        [System.Runtime.CompilerServices.AsyncIteratorStateMachine(typeof(Bezoro.Chess.UCI.Protocol.API.ProcessUciTransport.<ReadLinesAsync>d__36))]
+        public System.Collections.Generic.IAsyncEnumerable<string> ReadLinesAsync([System.Runtime.CompilerServices.EnumeratorCancellation] System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task StartAsync(System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task StopAsync(System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task<bool> TryWriteLineAsync(string line, System.TimeSpan timeout, System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task WriteLineAsync(string line, System.Threading.CancellationToken ct = default) { }
+    }
+    public sealed class UciEngineClient : Bezoro.Chess.UCI.Protocol.API.Abstractions.IUciLineSource, System.IAsyncDisposable
+    {
+        public UciEngineClient(Bezoro.Chess.UCI.Protocol.API.Abstractions.IUciTransport transport, Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions? options = default) { }
+        public UciEngineClient(string enginePath, System.Collections.Generic.IEnumerable<string>? args = null, string? workingDirectory = null, Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions? options = default) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity Activity { get; }
+        public System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.UciEngineOption> AvailableOptions { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciEngineCapabilities Capabilities { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciEngineInfo EngineInfo { get; }
+        public bool IsHealthy { get; }
+        public bool IsStarted { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions Options { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.TransportStatus Status { get; }
+        public event System.Action<Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity, Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity>? ActivityChanged;
+        public event System.Action<Bezoro.Chess.UCI.Protocol.API.Types.UciBestMoveMessage>? BestMoveMessageReceived;
+        [System.Obsolete("Use BestMoveMessageReceived instead.", false)]
+        public event System.Action<string, string>? BestMoveReceived;
+        public event System.Action<System.Exception>? Error;
+        public event System.Action<Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation>? InfoPvReceived;
+        public event System.Action<Bezoro.Chess.UCI.Protocol.API.Types.UciInfoMessage>? InfoReceived;
+        [System.Obsolete("Use RawLineReceived instead.", false)]
+        public event System.Action<string>? LineReceived;
+        public event System.Action<Bezoro.Chess.UCI.Protocol.API.Types.UciProtocolMessage>? ProtocolMessageReceived;
+        public event System.Action<string>? RawLineReceived;
+        public event System.Action<string>? StderrReceived;
+        public System.Threading.Tasks.Task ClearStrengthLimitAsync(System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public System.Threading.Tasks.Task<System.Collections.Immutable.ImmutableArray<string>> GetLegalMovesViaPerftAsync(System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.SearchResult> GoAsync(Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters parameters, System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task GoFireAndForgetAsync(Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters parameters, System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task IsReadyAsync(System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task PonderHitAsync(System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task RegisterAsync(Bezoro.Chess.UCI.Protocol.API.Types.UciRegistration registration, System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task SetDebugAsync(bool enabled, System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task SetOptionAsync(string name, string? value, System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task SetPositionAsync(Bezoro.Chess.UCI.Protocol.API.Types.Fen fen, System.Collections.Generic.IEnumerable<string>? moves, System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task SetStrengthLimitAsync(int elo, System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task StartAsync(System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task StopAsync(System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task StopSearchAsync(System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.Fen?> TryGetFenViaDisplayBoardAsync(System.Threading.CancellationToken ct) { }
+        public bool TryGetOption(string name, out Bezoro.Chess.UCI.Protocol.API.Types.UciEngineOption option) { }
+        public bool TryGetStrengthLimitRange(out int minElo, out int maxElo) { }
+        public System.Threading.Tasks.Task UciInitAsync(System.Threading.CancellationToken ct) { }
+        public System.Threading.Tasks.Task UciNewGameAsync(System.Threading.CancellationToken ct) { }
+        public static string BuildGoCommand(Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters parameters) { }
+        public static bool IsUciMoveString(string s) { }
+    }
+    public sealed class UciGameReviewAnalyzer
+    {
+        public UciGameReviewAnalyzer(Bezoro.Chess.UCI.Protocol.API.UciEngineClient client, Bezoro.Chess.UCI.Protocol.API.Types.GameReviewOptions options, Bezoro.Chess.UCI.Protocol.API.Abstractions.IExpectedPointsModel? expectedPointsModel = null, Bezoro.Chess.UCI.Protocol.API.Abstractions.IMoveReviewAnnotationPolicy? annotationPolicy = null) { }
+        public UciGameReviewAnalyzer(System.Collections.Generic.IEnumerable<Bezoro.Chess.UCI.Protocol.API.UciEngineClient> clients, Bezoro.Chess.UCI.Protocol.API.Types.GameReviewOptions options, Bezoro.Chess.UCI.Protocol.API.Abstractions.IExpectedPointsModel? expectedPointsModel = null, Bezoro.Chess.UCI.Protocol.API.Abstractions.IMoveReviewAnnotationPolicy? annotationPolicy = null) { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewResult> AnalyzeAsync(Bezoro.Chess.UCI.Protocol.API.Types.Fen initialFen, System.Collections.Generic.IEnumerable<string> playedMoves, System.IProgress<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewProgress>? progress = null, System.Threading.CancellationToken ct = default) { }
+    }
+    public sealed class UciPlayableMatchSession : System.IAsyncDisposable, System.IDisposable
+    {
+        public UciPlayableMatchSession(char perspectiveColor = w, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy claimableDrawPolicy = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy drawOfferPolicy = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl? timeControl = default, System.Func<System.DateTimeOffset>? utcNowProvider = null) { }
+        public UciPlayableMatchSession(Bezoro.Chess.UCI.Protocol.API.UciEngineClient playingClient, Bezoro.Chess.UCI.Protocol.API.UciEngineClient analysisClient, char playerColor, int engineMoveTimeMs = 1000, int analysisMoveTimeMs = 3000, int analysisFallbackMoveTimeMs = 250, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy claimableDrawPolicy = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy drawOfferPolicy = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchControlledMoveFallbackPolicy controlledMoveFallbackPolicy = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl? timeControl = default, System.Func<System.DateTimeOffset>? utcNowProvider = null) { }
+        public UciPlayableMatchSession(Bezoro.Chess.UCI.Protocol.API.UciEngineClient playingClient, Bezoro.Chess.UCI.Protocol.API.UciEngineClient analysisClient, char perspectiveColor, Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind whiteController, Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind blackController, int engineMoveTimeMs = 1000, int analysisMoveTimeMs = 3000, int analysisFallbackMoveTimeMs = 250, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy claimableDrawPolicy = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy drawOfferPolicy = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchControlledMoveFallbackPolicy controlledMoveFallbackPolicy = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl? timeControl = default, System.Func<System.DateTimeOffset>? utcNowProvider = null) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen BaseFen { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind BlackController { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState CurrentState { get; }
+        public char EngineColor { get; }
+        public bool HasEngineClients { get; }
+        public System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PlayedMove> MoveHistory { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PendingPromotionRequest? PendingPromotion { get; }
+        public char PerspectiveColor { get; }
+        public System.Collections.Immutable.ImmutableArray<string> PlayedMoves { get; }
+        public char PlayerColor { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind WhiteController { get; }
+        public event System.Action<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchEvent>? EventOccurred;
+        public void AcceptDraw() { }
+        public void AcceptDraw(char acceptingSide) { }
+        [System.Obsolete("Use ApplyMove instead.", false)]
+        public void ApplyHumanMove(string move) { }
+        public void ApplyMove(string move) { }
+        public bool CanClaimDraw(string intendedMove) { }
+        public bool CanUndoMoves(int count = 1) { }
+        public void CancelAnalysis() { }
+        public bool CancelPendingPromotion() { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave CaptureSave() { }
+        public void ChoosePromotion(char promotionPiece) { }
+        public void ClaimDraw() { }
+        public void ClaimDraw(string intendedMove) { }
+        public void DeclineDraw() { }
+        public void DeclineDraw(char decliningSide) { }
+        public void Dispose() { }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MatchSideControllerKind GetController(char side) { }
+        public System.Collections.Immutable.ImmutableDictionary<string, Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification> GetCurrentLegalMoveClassifications() { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.PositionAnalysisResult> GetLegalMoveAnalysisAsync(System.Threading.CancellationToken ct = default) { }
+        public string[] GetMoveHistoryDisplayLines() { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState> LoadMatchAsync(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup setup, System.Threading.CancellationToken ct = default) { }
+        [System.Obsolete("Use LoadMatchAsync(new PlayableMatchSetup(baseFen, moves), ct) instead.")]
+        public System.Threading.Tasks.Task LoadPositionAsync(Bezoro.Chess.UCI.Protocol.API.Types.Fen baseFen, System.Collections.Generic.IEnumerable<string>? moves = null, System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState> LoadSaveAsync(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave save, bool countTimeSinceSave = false, System.Threading.CancellationToken ct = default) { }
+        public void OfferDraw() { }
+        public void OfferDraw(char offeringSide) { }
+        public void PauseClock() { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.EngineMoveResult> PlayControlledMoveAsync(System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.EngineMoveResult?> PlayControlledMoveIfNeededAsync(System.Threading.CancellationToken ct = default) { }
+        [System.Obsolete("Use PlayControlledMoveAsync instead.", false)]
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.EngineMoveResult> PlayEngineMoveAsync(System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState> PlayUntilTerminalAsync(int maxPlies = 2147483647, System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task ProcessAsync(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchRequest request, System.Threading.CancellationToken ct = default) { }
+        public System.Threading.Tasks.Task<System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchEvent>> ProcessBatchAsync(System.Collections.Generic.IEnumerable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchRequest> requests, System.Threading.CancellationToken ct = default) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState Refresh() { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState> RefreshAsync(System.Threading.CancellationToken ct = default) { }
+        public void Resign() { }
+        public void Resign(char resigningSide) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage ResolveCurrentAdvantage() { }
+        public void ResumeClock() { }
+        public System.Threading.Tasks.Task StartNewGameAsync(System.Threading.CancellationToken ct = default) { }
+        public bool TryGetLegalMoveClassification(string move, out Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification classification) { }
+        public bool TryGetPlayedMoveClassification(Bezoro.Chess.UCI.Protocol.API.Types.PlayedMove move, out Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification classification) { }
+        public bool TryGetPlayedMoveScore(Bezoro.Chess.UCI.Protocol.API.Types.PlayedMove move, out Bezoro.Chess.UCI.Protocol.API.Types.PositionScore score) { }
+        public bool TryGetPositionAnalysis(string positionKey, out Bezoro.Chess.UCI.Protocol.API.Types.PositionAnalysisResult analysis) { }
+        public void UndoMoves(int count = 1) { }
+        public System.Threading.Tasks.Task<System.Collections.Immutable.ImmutableDictionary<string, Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification>> WaitForCurrentMoveClassificationsAsync(System.Threading.CancellationToken ct = default) { }
+    }
+    public sealed class UciPositionAnalysisCoordinator : System.IAsyncDisposable, System.IDisposable
+    {
+        public UciPositionAnalysisCoordinator(Bezoro.Chess.UCI.Protocol.API.UciEngineClient client, int multiPvMoveTimeMs = 3000, int fallbackMoveTimeMs = 250, int maxCachedPositions = 128, int maxPendingPositions = 128) { }
+        public void Cancel() { }
+        public void Dispose() { }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public void Enqueue(string positionKey, System.Collections.Generic.IReadOnlyList<string> moves, char sideToMove, char playerColor, System.Collections.Immutable.ImmutableArray<string> legalMoves) { }
+        public void Enqueue(string positionKey, Bezoro.Chess.UCI.Protocol.API.Types.Fen baseFen, System.Collections.Generic.IReadOnlyList<string> moves, char sideToMove, char playerColor, System.Collections.Immutable.ImmutableArray<string> legalMoves) { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.PositionAnalysisResult> GetAnalysisAsync(string positionKey) { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.PositionAnalysisResult> GetAnalysisAsync(string positionKey, System.Threading.CancellationToken ct) { }
+        public bool TryGetAnalysis(string positionKey, out Bezoro.Chess.UCI.Protocol.API.Types.PositionAnalysisResult analysis) { }
+    }
+}
+namespace Bezoro.Chess.UCI.Protocol.API.Types
+{
+    [System.Serializable]
+    public readonly struct ChessSquare : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare>
+    {
+        public const int BoardSize = 8;
+        public ChessSquare(int fileIndex, int rankIndex) { }
+        public char File { get; }
+        public int FileIndex { get; }
+        public int Rank { get; }
+        public int RankIndex { get; }
+        public bool Equals(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public bool IsPromotionRankFor(char color) { }
+        public override string ToString() { }
+        public static bool TryCreate(int fileIndex, int rankIndex, out Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare square) { }
+        public static bool TryParse(string? value, out Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare square) { }
+        public static bool operator !=(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare left, Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare right) { }
+        public static bool operator ==(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare left, Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare right) { }
+    }
+    public enum EngineActivity
+    {
+        Idle = 0,
+        Searching = 1,
+        Pondering = 2,
+    }
+    public readonly struct EngineMoveResult : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.EngineMoveResult>
+    {
+        public EngineMoveResult(string Move, Bezoro.Chess.UCI.Protocol.API.Types.SearchResult SearchResult) { }
+        public string Move { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.SearchResult SearchResult { get; init; }
+    }
+    public readonly struct Fen : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.Fen>
+    {
+        public char ActiveColor { get; }
+        public string CastlingRights { get; }
+        public string? Checkers { get; }
+        public string EnPassantTarget { get; }
+        public int FullmoveNumber { get; }
+        public int HalfmoveClock { get; }
+        public string PiecePlacement { get; }
+        public string Raw { get; }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.Fen Default { get; }
+        public override string ToString() { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.Fen Empty() { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.Fen? Parse(string rawFen) { }
+        public static bool TryParseUciOutputLine(string line, ref string? lastRawFen, out Bezoro.Chess.UCI.Protocol.API.Types.Fen? fen) { }
+        public static bool Validate(string rawFen) { }
+        public static string op_Implicit(Bezoro.Chess.UCI.Protocol.API.Types.Fen fen) { }
+    }
+    public sealed class FenPositionSetup
+    {
+        public FenPositionSetup() { }
+        public char ActiveColor { get; set; }
+        public string CastlingRights { get; set; }
+        public string EnPassantTarget { get; set; }
+        public int FullmoveNumber { get; set; }
+        public int HalfmoveClock { get; set; }
+        public System.Collections.Generic.IReadOnlyDictionary<Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare, char> Pieces { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen BuildFen() { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup CreateMatchSetup(string? historyBaseFen = null, System.Collections.Generic.IEnumerable<string>? playedMoves = null) { }
+        public void SetPiece(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare square, char piece) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.FenPositionValidationResult ValidateForPlay() { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.FenPositionSetup FromFen(Bezoro.Chess.UCI.Protocol.API.Types.Fen fen) { }
+    }
+    public readonly struct FenPositionValidationResult : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.FenPositionValidationResult>
+    {
+        public System.Collections.Immutable.ImmutableArray<string> FieldErrors { get; }
+        public bool IsValid { get; }
+        public string PlayabilityError { get; }
+    }
+    public readonly struct GameReviewEvaluation : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation>
+    {
+        public GameReviewEvaluation(Bezoro.Chess.UCI.Protocol.API.Types.Fen Position, Bezoro.Chess.UCI.Protocol.API.Types.PositionScore Score, string BestMove, Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation? PrincipalVariation, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult Result) { }
+        public string BestMove { get; init; }
+        public bool IsTerminal { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen Position { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation? PrincipalVariation { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult Result { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PositionScore Score { get; init; }
+    }
+    public sealed class GameReviewOptions
+    {
+        public GameReviewOptions(Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters search, int? whiteRating = default, int? blackRating = default) { }
+        public int? BlackRating { get; }
+        public int HashMegabytesPerEngine { get; init; }
+        public int MaxGameMoves { get; init; }
+        public int MaxParallelPositions { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters Search { get; }
+        public int ThreadsPerEngine { get; init; }
+        public int? WhiteRating { get; }
+    }
+    public readonly struct GameReviewProgress : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewProgress>
+    {
+        public GameReviewProgress(int CompletedPositions, int TotalPositions) { }
+        public int CompletedPositions { get; init; }
+        public int PositionIndex { get; init; }
+        public int TotalPositions { get; init; }
+    }
+    public sealed record GameReviewResult : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewResult>
+    {
+        public GameReviewResult(Bezoro.Chess.UCI.Protocol.API.Types.Fen InitialFen, Bezoro.Chess.UCI.Protocol.API.Types.GameReviewOptions Options, string ExpectedPointsModel, System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation> Positions, System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.ReviewedMove> Moves, double? WhiteAccuracy, double? BlackAccuracy) { }
+        public double? BlackAccuracy { get; init; }
+        public string ExpectedPointsModel { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen InitialFen { get; init; }
+        public System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.ReviewedMove> Moves { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.GameReviewOptions Options { get; init; }
+        public System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation> Positions { get; init; }
+        public double? WhiteAccuracy { get; init; }
+    }
+    public enum MatchSideControllerKind
+    {
+        Manual = 0,
+        Engine = 1,
+    }
+    public readonly struct MoveAnalysisResult : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.MoveAnalysisResult>
+    {
+        public MoveAnalysisResult(System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.MoveEvaluation> Evaluations) { }
+        public System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.MoveEvaluation> Evaluations { get; init; }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.MoveAnalysisResult Empty { get; }
+    }
+    public readonly struct MoveClassification : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification>
+    {
+        public MoveClassification(Bezoro.Chess.UCI.Protocol.API.Types.MoveClassificationFlags Flags, char MovingPiece, char? CapturedPiece, char? PromotionPiece, bool IsResolved) { }
+        public char? CapturedPiece { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MoveClassificationFlags Flags { get; init; }
+        public bool IsCapture { get; }
+        public bool IsCastling { get; }
+        public bool IsCheck { get; }
+        public bool IsDoublePawnPush { get; }
+        public bool IsEnPassant { get; }
+        public bool IsKingsideCastling { get; }
+        public bool IsMate { get; }
+        public bool IsNormal { get; }
+        public bool IsPromotion { get; }
+        public bool IsQueensideCastling { get; }
+        public bool IsResolved { get; init; }
+        public bool IsStalemate { get; }
+        public char MovingPiece { get; init; }
+        public char? PromotionPiece { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification WithTacticalOutcome(bool isCheck, bool isMate, bool isStalemate) { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification CreateStructural(Bezoro.Chess.UCI.Protocol.API.Types.MoveClassificationFlags flags, char movingPiece, char? capturedPiece = default, char? promotionPiece = default) { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification Unknown() { }
+    }
+    [System.Flags]
+    public enum MoveClassificationFlags
+    {
+        None = 0,
+        Normal = 1,
+        Capture = 2,
+        EnPassant = 4,
+        Promotion = 8,
+        KingsideCastling = 16,
+        QueensideCastling = 32,
+        DoublePawnPush = 64,
+        Check = 128,
+        Mate = 256,
+        Stalemate = 512,
+    }
+    public readonly struct MoveEvaluation : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.MoveEvaluation>
+    {
+        public MoveEvaluation(string Move, Bezoro.Chess.UCI.Protocol.API.Types.PositionScore Score, Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification Classification = default) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification Classification { get; init; }
+        public string Display { get; }
+        public string Move { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PositionScore Score { get; init; }
+        public double SortValue { get; }
+    }
+    public enum MoveQuality
+    {
+        Best = 0,
+        Excellent = 1,
+        Good = 2,
+        Inaccuracy = 3,
+        Mistake = 4,
+        Blunder = 5,
+    }
+    public enum MoveReviewAnnotation
+    {
+        None = 0,
+        Book = 1,
+        Brilliant = 2,
+        Great = 3,
+        Miss = 4,
+    }
+    public readonly struct PendingPromotionRequest : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PendingPromotionRequest>
+    {
+        public PendingPromotionRequest(string MovePrefix, char MovingSide, char MovingPiece, string From, string To, string PositionKey, Bezoro.Chess.UCI.Protocol.API.Types.Fen Fen, System.Collections.Immutable.ImmutableArray<char> AllowedPromotionPieces) { }
+        public System.Collections.Immutable.ImmutableArray<char> AllowedPromotionPieces { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen Fen { get; init; }
+        public string From { get; init; }
+        public string MovePrefix { get; init; }
+        public char MovingPiece { get; init; }
+        public char MovingSide { get; init; }
+        public string PositionKey { get; init; }
+        public string To { get; init; }
+    }
+    public enum PlayableMatchClaimableDrawPolicy
+    {
+        Automatic = 0,
+        ClaimRequired = 1,
+    }
+    public readonly struct PlayableMatchClockRestore : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockRestore>
+    {
+        public PlayableMatchClockRestore(System.TimeSpan WhiteRemaining, System.TimeSpan BlackRemaining, char ActiveColor, System.TimeSpan DelayRemaining, bool IsPaused, int WhiteMovesCompleted, int BlackMovesCompleted, int ActiveStageIndex, System.DateTimeOffset SnapshotUtc) { }
+        public char ActiveColor { get; init; }
+        public int ActiveStageIndex { get; init; }
+        public int BlackMovesCompleted { get; init; }
+        public System.TimeSpan BlackRemaining { get; init; }
+        public System.TimeSpan DelayRemaining { get; init; }
+        public bool IsPaused { get; init; }
+        public System.DateTimeOffset SnapshotUtc { get; init; }
+        public int WhiteMovesCompleted { get; init; }
+        public System.TimeSpan WhiteRemaining { get; init; }
+        public void Validate() { }
+    }
+    public readonly struct PlayableMatchClockSetup : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockSetup>
+    {
+        public PlayableMatchClockSetup(System.TimeSpan whiteRemaining, System.TimeSpan blackRemaining, System.TimeSpan delayRemaining = default, bool isPaused = true, System.DateTimeOffset? snapshotUtc = default) { }
+        public System.TimeSpan BlackRemaining { get; }
+        public System.TimeSpan DelayRemaining { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockRestore? ExactRestore { get; }
+        public bool IsPaused { get; }
+        public System.DateTimeOffset? SnapshotUtc { get; }
+        public System.TimeSpan WhiteRemaining { get; }
+        public void Validate() { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockSetup FromClampedSeconds(double whiteRemainingSeconds, double blackRemainingSeconds, double delayRemainingSeconds = 0, bool isPaused = true, System.DateTimeOffset? snapshotUtc = default) { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockSetup FromExactRestore(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockRestore restore) { }
+    }
+    public readonly struct PlayableMatchClockState : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockState>
+    {
+        public PlayableMatchClockState(System.TimeSpan WhiteRemaining, System.TimeSpan BlackRemaining, char ActiveColor, System.TimeSpan DelayRemaining, bool IsPaused, int ActiveStageIndex, System.DateTimeOffset SnapshotUtc) { }
+        public char ActiveColor { get; init; }
+        public int ActiveStageIndex { get; init; }
+        public System.TimeSpan BlackRemaining { get; init; }
+        public System.TimeSpan DelayRemaining { get; init; }
+        public bool IsPaused { get; init; }
+        public System.DateTimeOffset SnapshotUtc { get; init; }
+        public System.TimeSpan WhiteRemaining { get; init; }
+    }
+    public readonly struct PlayableMatchCommand : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchCommand>
+    {
+        public PlayableMatchCommand(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchCommandKind Kind, string? Move = null, Bezoro.Chess.UCI.Protocol.API.Types.Fen? Fen = default, System.Collections.Immutable.ImmutableArray<string> Moves = default, string? Error = null) { }
+        public string? Error { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen? Fen { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchCommandKind Kind { get; init; }
+        public string? Move { get; init; }
+        public System.Collections.Immutable.ImmutableArray<string> Moves { get; init; }
+    }
+    public enum PlayableMatchCommandKind
+    {
+        Invalid = 0,
+        Move = 1,
+        Moves = 2,
+        History = 3,
+        Undo = 4,
+        LoadFen = 5,
+        Quit = 6,
+    }
+    public enum PlayableMatchControlledMoveFallbackPolicy
+    {
+        UseLocalFallback = 0,
+        Throw = 1,
+    }
+    public enum PlayableMatchDrawOfferPolicy
+    {
+        ExpireOnMove = 0,
+        PersistUntilResponse = 1,
+    }
+    public readonly struct PlayableMatchEvent : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchEvent>
+    {
+        public PlayableMatchEvent(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchEventKind Kind, System.DateTimeOffset TimestampUtc, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState? State = default, string? Move = null, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchMoveData? MoveData = default, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult? Result = default, Bezoro.Chess.UCI.Protocol.API.Types.PendingPromotionRequest? PendingPromotion = default, int? UndoCount = default, string? Error = null) { }
+        public string? Error { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchEventKind Kind { get; init; }
+        public string? Move { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchMoveData? MoveData { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PendingPromotionRequest? PendingPromotion { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult? Result { get; init; }
+        public int SchemaVersion { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState? State { get; init; }
+        public System.DateTimeOffset TimestampUtc { get; init; }
+        public int? UndoCount { get; init; }
+    }
+    public enum PlayableMatchEventKind
+    {
+        GameStarted = 0,
+        PositionLoaded = 1,
+        PositionRefreshed = 2,
+        MoveApplied = 3,
+        PromotionRequired = 4,
+        PromotionChosen = 5,
+        MovesUndone = 6,
+        DrawOffered = 7,
+        DrawDeclined = 8,
+        ClockPaused = 9,
+        ClockResumed = 10,
+        ResultChanged = 11,
+        IllegalMoveRejected = 12,
+        PromotionCanceled = 13,
+    }
+    public readonly struct PlayableMatchMoveData : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchMoveData>
+    {
+        public PlayableMatchMoveData(int PlyIndex, int MoveNumber, char Side, string Notation, string From, string To, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchPiece MovingPiece, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchPiece? CapturedPiece, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchPiece? PromotionPiece, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSecondaryMove? SecondaryMove, Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification Classification, Bezoro.Chess.UCI.Protocol.API.Types.Fen PreviousFen, Bezoro.Chess.UCI.Protocol.API.Types.Fen ResultingFen) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchPiece? CapturedPiece { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification Classification { get; init; }
+        public string From { get; init; }
+        public int MoveNumber { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchPiece MovingPiece { get; init; }
+        public string Notation { get; init; }
+        public int PlyIndex { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen PreviousFen { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchPiece? PromotionPiece { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen ResultingFen { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSecondaryMove? SecondaryMove { get; init; }
+        public char Side { get; init; }
+        public string To { get; init; }
+    }
+    public readonly struct PlayableMatchPiece : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchPiece>
+    {
+        public PlayableMatchPiece(char Color, char Kind, char Symbol) { }
+        public char Color { get; init; }
+        public char Kind { get; init; }
+        public char Symbol { get; init; }
+    }
+    public readonly struct PlayableMatchRequest : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchRequest>
+    {
+        public PlayableMatchRequest(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchRequestKind Kind, string? Move = null, char? PromotionPiece = default, Bezoro.Chess.UCI.Protocol.API.Types.Fen? BaseFen = default, System.Collections.Immutable.ImmutableArray<string> Moves = default, int UndoCount = 1) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen? BaseFen { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchRequestKind Kind { get; init; }
+        public string? Move { get; init; }
+        public System.Collections.Immutable.ImmutableArray<string> Moves { get; init; }
+        public char? PromotionPiece { get; init; }
+        public int SchemaVersion { get; init; }
+        public int UndoCount { get; init; }
+    }
+    public enum PlayableMatchRequestKind
+    {
+        StartNewGame = 0,
+        LoadPosition = 1,
+        Refresh = 2,
+        ApplyMove = 3,
+        ChoosePromotion = 4,
+        PlayControlledMove = 5,
+        UndoMoves = 6,
+        OfferDraw = 7,
+        AcceptDraw = 8,
+        DeclineDraw = 9,
+        ClaimDraw = 10,
+        Resign = 11,
+        PauseClock = 12,
+        ResumeClock = 13,
+        CancelAnalysis = 14,
+        CancelPendingPromotion = 15,
+    }
+    public readonly struct PlayableMatchResult : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult>
+    {
+        public PlayableMatchResult(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResultReason Reason, char? Winner) { }
+        public bool IsDraw { get; }
+        public bool IsTerminal { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResultReason Reason { get; init; }
+        public char? Winner { get; init; }
+    }
+    public enum PlayableMatchResultReason
+    {
+        None = 0,
+        Checkmate = 1,
+        Stalemate = 2,
+        ThreefoldRepetition = 3,
+        FiftyMoveRule = 4,
+        InsufficientMaterial = 5,
+        Resignation = 6,
+        DrawAgreement = 7,
+        Timeout = 8,
+        FivefoldRepetition = 9,
+        SeventyFiveMoveRule = 10,
+    }
+    public readonly struct PlayableMatchSave : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave>
+    {
+        public PlayableMatchSave(Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup Setup, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl? TimeControl, System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockRestore> ClockHistory, int ClockHistoryOriginMoveCount = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult Result = default, char? DrawOfferedBy = default, string? PendingPromotionMove = null, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy ClaimableDrawPolicy = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy DrawOfferPolicy = 0, string? DeclaredDrawMove = null) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClaimableDrawPolicy ClaimableDrawPolicy { get; init; }
+        public System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockRestore> ClockHistory { get; init; }
+        public int ClockHistoryOriginMoveCount { get; init; }
+        public string? DeclaredDrawMove { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchDrawOfferPolicy DrawOfferPolicy { get; init; }
+        public char? DrawOfferedBy { get; init; }
+        public string? PendingPromotionMove { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult Result { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup Setup { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl? TimeControl { get; init; }
+    }
+    public readonly struct PlayableMatchSecondaryMove : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSecondaryMove>
+    {
+        public PlayableMatchSecondaryMove(string From, string To, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchPiece Piece) { }
+        public string From { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchPiece Piece { get; init; }
+        public string To { get; init; }
+    }
+    public readonly struct PlayableMatchSetup : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup>
+    {
+        public PlayableMatchSetup(Bezoro.Chess.UCI.Protocol.API.Types.Fen baseFen, System.Collections.Generic.IEnumerable<string>? playedMoves = null, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockSetup? clock = default) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen BaseFen { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockSetup? Clock { get; }
+        public System.Collections.Immutable.ImmutableArray<string> PlayedMoves { get; }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup Standard { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen ResolveCurrentFen() { }
+        public void Validate() { }
+    }
+    public readonly struct PlayableMatchState : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState>
+    {
+        public PlayableMatchState(Bezoro.Chess.UCI.Protocol.API.Types.Fen Fen, string PositionKey, System.Collections.Immutable.ImmutableArray<string> LegalMoves, System.Collections.Immutable.ImmutableDictionary<string, Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification> LegalMoveClassifications, Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage Advantage, System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PlayedMove> MoveHistory, Bezoro.Chess.UCI.Protocol.API.Types.PendingPromotionRequest? PendingPromotion, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult Result, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult? ClaimableResult, char? DrawOfferedBy, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockState? Clock) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage Advantage { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult? ClaimableResult { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchClockState? Clock { get; init; }
+        public char? DrawOfferedBy { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen Fen { get; init; }
+        public System.Collections.Immutable.ImmutableDictionary<string, Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification> LegalMoveClassifications { get; init; }
+        public System.Collections.Immutable.ImmutableArray<string> LegalMoves { get; init; }
+        public System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PlayedMove> MoveHistory { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PendingPromotionRequest? PendingPromotion { get; init; }
+        public string PositionKey { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult Result { get; init; }
+    }
+    public readonly struct PlayableMatchTimeControl : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl>
+    {
+        public PlayableMatchTimeControl(System.TimeSpan initialTime, System.TimeSpan incrementPerMove, System.TimeSpan delayPerMove = default, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeoutPolicy timeoutPolicy = 0, System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControlStage> additionalStages = default) { }
+        public System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControlStage> AdditionalStages { get; }
+        public System.TimeSpan DelayPerMove { get; }
+        public System.TimeSpan IncrementPerMove { get; }
+        public System.TimeSpan InitialTime { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeoutPolicy TimeoutPolicy { get; }
+        public void Validate() { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl FromClampedSeconds(double initialSeconds, double incrementSeconds = 0, double delaySeconds = 0, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeoutPolicy timeoutPolicy = 0) { }
+    }
+    public readonly struct PlayableMatchTimeControlStage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControlStage>
+    {
+        public PlayableMatchTimeControlStage(int TriggerMovesPerSide, System.TimeSpan AddedTime, System.TimeSpan IncrementPerMove, System.TimeSpan DelayPerMove) { }
+        public System.TimeSpan AddedTime { get; init; }
+        public System.TimeSpan DelayPerMove { get; init; }
+        public System.TimeSpan IncrementPerMove { get; init; }
+        public int TriggerMovesPerSide { get; init; }
+        public void Validate() { }
+    }
+    public enum PlayableMatchTimeoutPolicy
+    {
+        AutomaticLoss = 0,
+        Ignore = 1,
+    }
+    public readonly struct PlayedMove : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PlayedMove>
+    {
+        public PlayedMove(int Ply, char Side, string Move, string ParentPositionKey, string PositionKey, Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification Classification = default) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification Classification { get; init; }
+        public string Move { get; init; }
+        public string ParentPositionKey { get; init; }
+        public int Ply { get; init; }
+        public string PositionKey { get; init; }
+        public char Side { get; init; }
+    }
+    public readonly struct PositionAdvantage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage>
+    {
+        public PositionAdvantage(double Normalized, string Summary, Bezoro.Chess.UCI.Protocol.API.Types.PositionScore Score) { }
+        public double Normalized { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PositionScore Score { get; init; }
+        public string Summary { get; init; }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage FromEngineScore(int? rawCpScore, int? rawMateScore, char sideToMove, char playerColor) { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage FromScore(Bezoro.Chess.UCI.Protocol.API.Types.PositionScore score) { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage GameOver() { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage GameStart() { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage Pending() { }
+    }
+    public readonly struct PositionAnalysisResult : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PositionAnalysisResult>
+    {
+        public PositionAnalysisResult(Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage Advantage, System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.MoveEvaluation> Evaluations) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PositionAdvantage Advantage { get; init; }
+        public System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.MoveEvaluation> Evaluations { get; init; }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PositionAnalysisResult Empty { get; }
+    }
+    public readonly struct PositionScore : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PositionScore>
+    {
+        public PositionScore(int? Cp, int? Mate) { }
+        public int? Cp { get; init; }
+        public int? Mate { get; init; }
+        public string ToDisplayString() { }
+        public double ToSortValue() { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.PositionScore FromEngineScore(int? rawCpScore, int? rawMateScore, char sideToMove, char playerColor) { }
+    }
+    public readonly struct PrincipalVariation : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation>
+    {
+        public PrincipalVariation(uint Depth, uint SelDepth, uint MultiPv, int? ScoreCp, int? ScoreMate, ulong Nodes, ulong Nps, ulong TbHits, ulong Time, System.Collections.Immutable.ImmutableArray<string> Moves, string RawPv) { }
+        public uint Depth { get; init; }
+        public System.Collections.Immutable.ImmutableArray<string> Moves { get; init; }
+        public uint MultiPv { get; init; }
+        public ulong Nodes { get; init; }
+        public ulong Nps { get; init; }
+        public string RawPv { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciScoreBound ScoreBound { get; init; }
+        public int? ScoreCp { get; init; }
+        public int? ScoreMate { get; init; }
+        public uint SelDepth { get; init; }
+        public ulong TbHits { get; init; }
+        public ulong Time { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciWdl? Wdl { get; init; }
+        public static bool TryParse(string line, out Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation pv) { }
+    }
+    public readonly struct ProcessUciTransportOptions
+    {
+        public ProcessUciTransportOptions() { }
+        public int ChannelCapacity { get; init; }
+        public int FlushBatchSize { get; init; }
+        public bool KillEntireProcessTree { get; init; }
+        public int MaxLineLength { get; init; }
+        public string NewLine { get; init; }
+        public bool OutgoingSingleWriter { get; init; }
+        public System.TimeSpan QuitGracePeriod { get; init; }
+        public int QuitGracePeriodMs { get; init; }
+        public bool RedirectStandardError { get; init; }
+        public bool SendQuitOnDispose { get; init; }
+        public bool SendQuitOnStop { get; init; }
+        public bool SingleReader { get; init; }
+        public int SmallTimeoutSpinIterations { get; init; }
+        public System.Text.Encoding? StderrEncoding { get; init; }
+        public System.Text.Encoding? StdinEncoding { get; init; }
+        public System.Text.Encoding? StdoutEncoding { get; init; }
+        public System.TimeSpan TeardownTimeout { get; init; }
+        public bool ValidateCommands { get; init; }
+        public int WarnLineLength { get; init; }
+        public System.TimeSpan WriteHangWarningThreshold { get; init; }
+    }
+    public readonly struct ReviewedMove : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.ReviewedMove>
+    {
+        public ReviewedMove(int MoveIndex, char Side, string Move, Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation Before, Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation After, Bezoro.Chess.UCI.Protocol.API.Types.PositionScore ScoreBefore, Bezoro.Chess.UCI.Protocol.API.Types.PositionScore ScoreAfter, long? CentipawnLoss, double ExpectedPointsBefore, double ExpectedPointsAfter, double ExpectedPointsLoss, Bezoro.Chess.UCI.Protocol.API.Types.MoveQuality Quality, Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification Classification) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation After { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MoveReviewAnnotation Annotation { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.GameReviewEvaluation Before { get; init; }
+        public long? CentipawnLoss { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MoveClassification Classification { get; init; }
+        public double ExpectedPointsAfter { get; init; }
+        public double ExpectedPointsBefore { get; init; }
+        public double ExpectedPointsLoss { get; init; }
+        public string Move { get; init; }
+        public int MoveIndex { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.MoveQuality Quality { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PositionScore ScoreAfter { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PositionScore ScoreBefore { get; init; }
+        public char Side { get; init; }
+    }
+    public readonly struct SearchParameters : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters>
+    {
+        public int? BlackIncrementMs { get; init; }
+        public int? BlackTimeMs { get; init; }
+        public uint? Depth { get; init; }
+        public bool HasExplicitLimit { get; }
+        public bool HasSearchMoves { get; }
+        public bool Infinite { get; init; }
+        public int? Mate { get; init; }
+        public int? MoveTimeMs { get; init; }
+        public int? MovesToGo { get; init; }
+        public long? Nodes { get; init; }
+        public bool Ponder { get; init; }
+        public System.Collections.Immutable.ImmutableArray<string> SearchMoves { get; init; }
+        public int? WhiteIncrementMs { get; init; }
+        public int? WhiteTimeMs { get; init; }
+        public void Validate() { }
+    }
+    public readonly struct SearchResult : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.SearchResult>
+    {
+        public SearchResult(uint ReachedDepth, uint ReachedSelDepth, uint MultiPvValue, ulong TotalNodesSearched, ulong TotalTbHits, ulong TotalSearchTimeMs, System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation> PrincipalVariations, string BestMove, string PonderMove) { }
+        public int? BestCpScore { get; }
+        public string BestMove { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation? BestPv { get; }
+        public bool HasMate { get; }
+        public int? MateScore { get; }
+        public uint MultiPvValue { get; init; }
+        public string PonderMove { get; init; }
+        public System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation> PrincipalVariations { get; init; }
+        public uint ReachedDepth { get; init; }
+        public uint ReachedSelDepth { get; init; }
+        public ulong TotalNodesSearched { get; init; }
+        public ulong TotalSearchTimeMs { get; init; }
+        public ulong TotalTbHits { get; init; }
+        public bool ContainsMove(string move) { }
+        public void Deconstruct(out uint reachedDepth, out uint reachedSelDepth, out uint multiPvValue, out ulong totalNodesSearched, out ulong totalTbHits, out ulong totalSearchTimeMs, out System.Collections.Immutable.ImmutableArray<Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation> principalVariations, out string bestMove, out string ponderMove) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation? GetVariationContaining(string move) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation? GetVariationStartingWith(string move) { }
+        public static bool TryParse(System.Collections.Generic.IReadOnlyCollection<string> lines, out Bezoro.Chess.UCI.Protocol.API.Types.SearchResult result) { }
+    }
+    public enum TransportStatus
+    {
+        Created = 0,
+        Starting = 1,
+        Started = 2,
+        Stopping = 3,
+        Stopped = 4,
+        Disposing = 5,
+        Disposed = 6,
+        Failed = 7,
+        Canceled = 8,
+    }
+    public readonly struct UciBestMoveMessage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciBestMoveMessage>
+    {
+        public UciBestMoveMessage(string BestMove, string PonderMove, string RawLine) { }
+        public string BestMove { get; init; }
+        public string PonderMove { get; init; }
+        public string RawLine { get; init; }
+    }
+    public enum UciCapabilityState
+    {
+        Unknown = 0,
+        Supported = 1,
+        Unsupported = 2,
+    }
+    public readonly struct UciClientOptions
+    {
+        public UciClientOptions() { }
+        public System.TimeSpan DefaultSearchTimeout { get; init; }
+        public int DepthTimeoutSecondsPerPly { get; init; }
+        public System.TimeSpan DisplayBoardCheckersGracePeriod { get; init; }
+        public System.TimeSpan DisplayBoardFenTimeout { get; init; }
+        public System.TimeSpan InfiniteSearchTimeout { get; init; }
+        public int MaxCapturedPrincipalVariations { get; init; }
+        public System.TimeSpan MaximumDepthSearchTimeout { get; init; }
+        public System.TimeSpan MinimumDepthSearchTimeout { get; init; }
+        public System.TimeSpan MinimumMoveTimeTimeout { get; init; }
+        public System.TimeSpan MoveTimeBuffer { get; init; }
+        public System.TimeSpan NodeSearchTimeout { get; init; }
+        public System.TimeSpan ReadyTimeout { get; init; }
+        public System.TimeSpan SearchStopGracePeriod { get; init; }
+        public System.TimeSpan UciHandshakeTimeout { get; init; }
+    }
+    public readonly struct UciCoordinateMove : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciCoordinateMove>
+    {
+        public Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare From { get; }
+        public bool IsPromotion { get; }
+        public string Notation { get; }
+        public char? PromotionPiece { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare To { get; }
+        public override string ToString() { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.UciCoordinateMove Create(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare from, Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare to, char? promotionPiece = default) { }
+        public static bool TryNormalize(string? move, out string normalizedMove) { }
+        public static bool TryParse(string? move, out Bezoro.Chess.UCI.Protocol.API.Types.UciCoordinateMove coordinateMove) { }
+    }
+    public readonly struct UciCopyProtectionMessage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciCopyProtectionMessage>
+    {
+        public UciCopyProtectionMessage(Bezoro.Chess.UCI.Protocol.API.Types.UciProtectionState State, string RawLine) { }
+        public string RawLine { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciProtectionState State { get; init; }
+    }
+    public readonly struct UciEngineCapabilities : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciEngineCapabilities>
+    {
+        public UciEngineCapabilities(Bezoro.Chess.UCI.Protocol.API.Types.UciCapabilityState DebugCommand, Bezoro.Chess.UCI.Protocol.API.Types.UciCapabilityState RegisterCommand, Bezoro.Chess.UCI.Protocol.API.Types.UciCapabilityState PonderHit, Bezoro.Chess.UCI.Protocol.API.Types.UciCapabilityState DisplayBoardFen, Bezoro.Chess.UCI.Protocol.API.Types.UciCapabilityState PerftMoveListing) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciCapabilityState DebugCommand { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciCapabilityState DisplayBoardFen { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciCapabilityState PerftMoveListing { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciCapabilityState PonderHit { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciCapabilityState RegisterCommand { get; init; }
+        public bool SupportsCoordinatorExtensions { get; }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.UciEngineCapabilities Unknown { get; }
+    }
+    public readonly struct UciEngineInfo : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciEngineInfo>
+    {
+        public UciEngineInfo(string Name, string Author) { }
+        public string Author { get; init; }
+        public string Name { get; init; }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.UciEngineInfo Empty { get; }
+    }
+    public readonly struct UciEngineOption : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciEngineOption>
+    {
+        public UciEngineOption(string Name, Bezoro.Chess.UCI.Protocol.API.Types.UciOptionType Type, string? DefaultValue, int? Min, int? Max, System.Collections.Immutable.ImmutableArray<string> Variables) { }
+        public string? DefaultValue { get; init; }
+        public int? Max { get; init; }
+        public int? Min { get; init; }
+        public string Name { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciOptionType Type { get; init; }
+        public System.Collections.Immutable.ImmutableArray<string> Variables { get; init; }
+    }
+    public enum UciIdKind
+    {
+        Name = 0,
+        Author = 1,
+    }
+    public readonly struct UciIdMessage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciIdMessage>
+    {
+        public UciIdMessage(Bezoro.Chess.UCI.Protocol.API.Types.UciIdKind Kind, string Value, string RawLine) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciIdKind Kind { get; init; }
+        public string RawLine { get; init; }
+        public string Value { get; init; }
+    }
+    public readonly struct UciInfoMessage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciInfoMessage>
+    {
+        public UciInfoMessage(Bezoro.Chess.UCI.Protocol.API.Types.UciInfoPayload Payload, string RawLine) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciInfoPayload Payload { get; init; }
+        public string RawLine { get; init; }
+    }
+    public readonly struct UciInfoPayload : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciInfoPayload>
+    {
+        public UciInfoPayload(
+                    uint? Depth,
+                    uint? SelDepth,
+                    uint? MultiPv,
+                    Bezoro.Chess.UCI.Protocol.API.Types.UciInfoScore? Score,
+                    ulong? Nodes,
+                    ulong? Nps,
+                    ulong? TbHits,
+                    ulong? Time,
+                    uint? HashFull,
+                    uint? CpuLoad,
+                    string? CurrentMove,
+                    uint? CurrentMoveNumber,
+                    System.Collections.Immutable.ImmutableArray<string> Refutation,
+                    uint? CurrentLineCpu,
+                    System.Collections.Immutable.ImmutableArray<string> CurrentLine,
+                    string? String,
+                    Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation? PrincipalVariation) { }
+        public uint? CpuLoad { get; init; }
+        public System.Collections.Immutable.ImmutableArray<string> CurrentLine { get; init; }
+        public uint? CurrentLineCpu { get; init; }
+        public string? CurrentMove { get; init; }
+        public uint? CurrentMoveNumber { get; init; }
+        public uint? Depth { get; init; }
+        public uint? HashFull { get; init; }
+        public uint? MultiPv { get; init; }
+        public ulong? Nodes { get; init; }
+        public ulong? Nps { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PrincipalVariation? PrincipalVariation { get; init; }
+        public System.Collections.Immutable.ImmutableArray<string> Refutation { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciInfoScore? Score { get; init; }
+        public uint? SelDepth { get; init; }
+        public string? String { get; init; }
+        public ulong? TbHits { get; init; }
+        public ulong? Time { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciWdl? Wdl { get; init; }
+    }
+    public readonly struct UciInfoScore : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciInfoScore>
+    {
+        public UciInfoScore(int? Centipawns, int? Mate, Bezoro.Chess.UCI.Protocol.API.Types.UciScoreBound Bound) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciScoreBound Bound { get; init; }
+        public int? Centipawns { get; init; }
+        public int? Mate { get; init; }
+    }
+    public readonly struct UciOptionMessage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciOptionMessage>
+    {
+        public UciOptionMessage(Bezoro.Chess.UCI.Protocol.API.Types.UciEngineOption Option, string RawLine) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciEngineOption Option { get; init; }
+        public string RawLine { get; init; }
+    }
+    public enum UciOptionType
+    {
+        Check = 0,
+        Spin = 1,
+        String = 2,
+        Button = 3,
+        Combo = 4,
+    }
+    public enum UciProtectionState
+    {
+        Checking = 0,
+        Ok = 1,
+        Error = 2,
+    }
+    public readonly struct UciProtocolMessage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciProtocolMessage>
+    {
+        public UciProtocolMessage(Bezoro.Chess.UCI.Protocol.API.Types.UciProtocolMessageType Type, string RawLine, Bezoro.Chess.UCI.Protocol.API.Types.UciIdMessage? Id = default, Bezoro.Chess.UCI.Protocol.API.Types.UciOptionMessage? Option = default, Bezoro.Chess.UCI.Protocol.API.Types.UciInfoMessage? Info = default, Bezoro.Chess.UCI.Protocol.API.Types.UciBestMoveMessage? BestMove = default, Bezoro.Chess.UCI.Protocol.API.Types.UciCopyProtectionMessage? CopyProtection = default, Bezoro.Chess.UCI.Protocol.API.Types.UciRegistrationMessage? Registration = default, Bezoro.Chess.UCI.Protocol.API.Types.UciReadyOkMessage? ReadyOk = default, Bezoro.Chess.UCI.Protocol.API.Types.UciUciOkMessage? UciOk = default) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciBestMoveMessage? BestMove { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciCopyProtectionMessage? CopyProtection { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciIdMessage? Id { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciInfoMessage? Info { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciOptionMessage? Option { get; init; }
+        public string RawLine { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciReadyOkMessage? ReadyOk { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciRegistrationMessage? Registration { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciProtocolMessageType Type { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciUciOkMessage? UciOk { get; init; }
+    }
+    public enum UciProtocolMessageType
+    {
+        Id = 0,
+        Option = 1,
+        UciOk = 2,
+        ReadyOk = 3,
+        Info = 4,
+        BestMove = 5,
+        CopyProtection = 6,
+        Registration = 7,
+    }
+    public readonly struct UciReadyOkMessage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciReadyOkMessage>
+    {
+        public UciReadyOkMessage(string RawLine) { }
+        public string RawLine { get; init; }
+    }
+    public readonly struct UciRegistration : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciRegistration>
+    {
+        public UciRegistration(bool Later, string? Name, string? Code) { }
+        public string? Code { get; init; }
+        public bool Later { get; init; }
+        public string? Name { get; init; }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.UciRegistration LaterOnly() { }
+        public static Bezoro.Chess.UCI.Protocol.API.Types.UciRegistration WithCredentials(string name, string? code = null) { }
+    }
+    public readonly struct UciRegistrationMessage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciRegistrationMessage>
+    {
+        public UciRegistrationMessage(Bezoro.Chess.UCI.Protocol.API.Types.UciProtectionState State, string RawLine) { }
+        public string RawLine { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciProtectionState State { get; init; }
+    }
+    public enum UciScoreBound
+    {
+        Exact = 0,
+        Lower = 1,
+        Upper = 2,
+    }
+    public readonly struct UciUciOkMessage : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciUciOkMessage>
+    {
+        public UciUciOkMessage(string RawLine) { }
+        public string RawLine { get; init; }
+    }
+    public readonly struct UciWdl : System.IEquatable<Bezoro.Chess.UCI.Protocol.API.Types.UciWdl>
+    {
+        public UciWdl(int wins, int draws, int losses) { }
+        public int Draws { get; }
+        public double ExpectedPoints { get; }
+        public bool IsValid { get; }
+        public int Losses { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.UciWdl OpponentPerspective { get; }
+        public int Wins { get; }
+        public override string ToString() { }
+    }
+}
