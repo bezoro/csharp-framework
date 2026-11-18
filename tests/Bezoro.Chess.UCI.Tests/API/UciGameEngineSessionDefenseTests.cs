@@ -31,6 +31,64 @@ public sealed class UciGameEngineSessionDefenseTests
 	}
 
 	[Fact]
+	public async Task ControlledTurnCommitsOnceAndDeliversToRemainingObserversWhenAnObserverThrows()
+	{
+		var (session, _, _, _) = Create(white: MatchSideControllerKind.Engine);
+		await using var lifetime = session;
+		await session.StartAsync();
+		session.MoveMade += _ => throw new InvalidOperationException("UI failed");
+		int notified = 0;
+		session.MoveMade += _ => notified++;
+
+		var reply = await session.PlayControlledMoveAsync();
+
+		Assert.Equal("e2e4", reply.Move);
+		Assert.Equal(reply.Move, Assert.Single(session.PlayedMoves));
+		Assert.Equal(1, notified);
+	}
+
+	[Fact]
+	public async Task SlowObserverBackpressureRejectsBeforeMutationAndRecoversAfterDelivery()
+	{
+		await using var session = new UciGameEngineSession();
+		await session.NewGameAsync();
+		Exception? rejected = null;
+		session.StateChanged += _ => { };
+		session.MoveMade += _ =>
+		{
+			if (session.PlayedMoves.Count != 1) return;
+			for (int i = 0; i < 256; i++) session.CaptureSaveAsync().GetAwaiter().GetResult();
+			try { session.MakeMoveAsync("e7e5").GetAwaiter().GetResult(); }
+			catch (InvalidOperationException error) { rejected = error; }
+		};
+
+		await session.MakeMoveAsync("e2e4");
+		Assert.NotNull(rejected);
+		Assert.Single(session.PlayedMoves);
+		await session.MakeMoveAsync("e7e5");
+		Assert.Equal(2, session.PlayedMoves.Count);
+	}
+
+	[Fact]
+	public async Task MoveObserverCanSubmitAReplyAndRemainingObserversSeeCommitOrder()
+	{
+		await using var session = new UciGameEngineSession();
+		await session.NewGameAsync();
+		var seen = new List<int>();
+		session.MoveMade += _ =>
+		{
+			if (session.PlayedMoves.Count == 1)
+				session.MakeMoveAsync("e7e5").WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+		};
+		session.PositionChanged += state => seen.Add(state.PlayedMoves.Count);
+
+		await session.MakeMoveAsync("e2e4");
+
+		Assert.Equal(new[] {1, 2}, seen);
+		Assert.Equal(new[] {"e2e4", "e7e5"}, session.PlayedMoves);
+	}
+
+	[Fact]
 	public async Task TypedStrength_OnlyChangesThePlayingEngineEvenWhenAllWorkersAreStarted()
 	{
 		var (session, playing, ponder, analysis) = Create();
@@ -166,7 +224,7 @@ public sealed class UciGameEngineSessionDefenseTests
 	}
 
 	private static (UciGameEngineSession Session, Worker Playing, Worker Ponder, Worker Analysis) Create(
-		Func<DateTimeOffset>? now = null, bool supportsStrength = true)
+		Func<DateTimeOffset>? now = null, bool supportsStrength = true, MatchSideControllerKind white = MatchSideControllerKind.Manual)
 	{
 		var playing = new Worker(supportsStrength);
 		var ponder = new Worker(supportsStrength);
@@ -175,7 +233,7 @@ public sealed class UciGameEngineSessionDefenseTests
 			new UciPonderRuntime(new UciEngineClient(ponder.Transport)), new UciEngineClient(analysis.Transport),
 			options: UciCoordinatorOptions.Default with { EnableBackgroundAnalysis = false,
 				ControlledMoveFallbackPolicy = PlayableMatchControlledMoveFallbackPolicy.UseLocalFallback,
-				TimeControl = new(TimeSpan.FromMinutes(5), TimeSpan.Zero) }, utcNowProvider: now), playing, ponder, analysis);
+				TimeControl = new(TimeSpan.FromMinutes(5), TimeSpan.Zero) }, whiteController: white, utcNowProvider: now), playing, ponder, analysis);
 	}
 
 	private sealed class Worker

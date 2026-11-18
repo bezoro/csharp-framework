@@ -1186,20 +1186,23 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		if (GetController(CurrentFen.ActiveColor) != MatchSideControllerKind.Engine)
 			throw new InvalidOperationException("The current side is not configured for engine control.");
 
+		var before = State;
+		SearchResult result;
+		string move;
 		try
 		{
-			var result = await SearchAsync(new() { MoveTimeMs = _options.EngineMoveTimeMs }, ct).ConfigureAwait(false);
-			await ApplyEngineReplyCoreAsync(result, ct).ConfigureAwait(false);
-			return new(result.BestMove.ToLowerInvariant(), result);
+			result = await SearchAsync(new() { MoveTimeMs = _options.EngineMoveTimeMs }, ct).ConfigureAwait(false);
+			move = GetLegalEngineReply(before, result);
 		}
 		catch (InvalidOperationException) when (
 			_controlledMoveFallbackPolicy == PlayableMatchControlledMoveFallbackPolicy.UseLocalFallback &&
-			!State.Result.IsTerminal &&
-			TryResolveFallbackControlledMove(State, out var fallbackMove))
+			TryResolveFallbackControlledMove(before, out var fallbackMove))
 		{
-			await MakeMoveCoreAsync(fallbackMove, GameMoveActor.Engine, ct).ConfigureAwait(false);
-			return new(fallbackMove, default);
+			result = default;
+			move = fallbackMove;
 		}
+		await MakeMoveCoreAsync(move, GameMoveActor.Engine, ct).ConfigureAwait(false);
+		return new(move, result);
 	}
 
 	/// <summary>Searches and applies one engine defense regardless of the current side's configured controller.</summary>
@@ -1234,13 +1237,19 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	{
 		ct.ThrowIfCancellationRequested();
 		var before = State;
-		string move = reply.BestMove?.Trim().ToLowerInvariant() ?? string.Empty;
-		if (!before.LegalMoves.Contains(move))
-			throw new InvalidOperationException("The engine did not return a complete legal move for the current position.");
+		string move = GetLegalEngineReply(before, reply);
 		var after = await MakeMoveCoreAsync(move, GameMoveActor.Engine, ct).ConfigureAwait(false);
 		if (after.PlayedMoves.Count != before.PlayedMoves.Count + 1 || after.PlayedMoves[^1] != move)
 			throw new InvalidOperationException("The engine reply was not applied as exactly one move.");
 		return after;
+	}
+
+	private static string GetLegalEngineReply(UciState before, SearchResult reply)
+	{
+		string move = reply.BestMove?.Trim().ToLowerInvariant() ?? string.Empty;
+		if (!before.LegalMoves.Contains(move))
+			throw new InvalidOperationException("The engine did not return a complete legal move for the current position.");
+		return move;
 	}
 
 	/// <summary>
@@ -1754,23 +1763,25 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 	private async Task<T> RunCommandAsync<T>(Func<Task<T>> command, CancellationToken ct)
 	{
 		await _commandGate.WaitAsync(ct).ConfigureAwait(false);
+		var events = _events.BeginCommand(_commandGate);
 		try
 		{
 			if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(UciGameEngineSession));
 			return await command().ConfigureAwait(false);
 		}
-		finally { _commandGate.Release(); }
+		finally { _events.EndCommand(events, _commandGate); }
 	}
 
 	private async Task RunCommandAsync(Func<Task> command, CancellationToken ct)
 	{
 		await _commandGate.WaitAsync(ct).ConfigureAwait(false);
+		var events = _events.BeginCommand(_commandGate);
 		try
 		{
 			if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(UciGameEngineSession));
 			await command().ConfigureAwait(false);
 		}
-		finally { _commandGate.Release(); }
+		finally { _events.EndCommand(events, _commandGate); }
 	}
 
 	/// <summary>
@@ -1875,7 +1886,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		_analysisTasks.RemoveAll(static task =>
 		{
 			if (!task.IsCompleted) return false;
-			// Worker errors are published through Error. Observe faults left by throwing subscribers as well.
+			// Observe worker faults before releasing the tracked task.
 			_ = task.Exception;
 			return true;
 		});
@@ -2427,13 +2438,13 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		if (completed is not null)
 			_events.Raise(() =>
 			{
-				if (TryGetClassificationCompletionState(generation, out var state)) completed(state);
+				if (TryGetClassificationCompletionState(generation, out var state)) GameEngineEventDispatcher.Notify(completed, state);
 			});
 		if (published is not null)
 			_events.Raise(() =>
 			{
 				if (TryGetClassificationCompletionState(generation, out var state))
-					published(UciGameEngineSessionEvent.ForState(UciGameEngineSessionEventKind.ClassificationCompleted, state));
+					GameEngineEventDispatcher.Notify(published, UciGameEngineSessionEvent.ForState(UciGameEngineSessionEventKind.ClassificationCompleted, state));
 			});
 	}
 

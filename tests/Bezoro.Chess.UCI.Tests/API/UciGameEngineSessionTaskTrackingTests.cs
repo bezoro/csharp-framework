@@ -116,8 +116,7 @@ public sealed class UciGameEngineSessionTaskTrackingTests
 			await blockedReady.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 			Task failedWorker = Assert.Single(TrackedTasks(session));
 			blockedReady.Release.TrySetResult();
-			Assert.Same(subscriberFailure,
-				await Assert.ThrowsAsync<ApplicationException>(() => failedWorker.WaitAsync(TimeSpan.FromSeconds(5))));
+			await failedWorker.WaitAsync(TimeSpan.FromSeconds(5));
 			Assert.Same(writeFailure, reportedError);
 			session.Error -= ThrowingSubscriber;
 
@@ -131,8 +130,7 @@ public sealed class UciGameEngineSessionTaskTrackingTests
 		{
 			session.Error -= ThrowingSubscriber;
 			blockedReady.Release.TrySetResult();
-			try { await session.DisposeAsync(); }
-			catch (ApplicationException error) when (ReferenceEquals(error, subscriberFailure)) { }
+			await session.DisposeAsync();
 		}
 	}
 
