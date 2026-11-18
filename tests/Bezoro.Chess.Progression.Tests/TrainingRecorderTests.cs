@@ -11,6 +11,27 @@ namespace Bezoro.Chess.Progression.Tests;
 
 public sealed class TrainingRecorderTests
 {
+    [Fact]
+    public async Task ClockFailurePreservesMatchAndRequiresAcknowledgmentEvenAfterStorageRetry()
+    {
+        using var fixture = new RecorderFixture();
+        var progress = await fixture.Open();
+        using var session = Session();
+        using var recorder = new ChessTrainingProgressRecorder(session, progress, "opponent", 1200, 'w',
+            ChessTrainingProgressMode.Training, () => throw new IOException("Clock unavailable."));
+        await session.NewGameAsync();
+        await FoolsMate(session);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => recorder.DrainAsync());
+        var observed = Assert.IsType<InvalidOperationException>(recorder.LastError);
+        Assert.IsType<IOException>(observed.InnerException);
+        Assert.Single(progress.Snapshot.History);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => recorder.RetryPendingAsync());
+        Assert.True(recorder.AcknowledgeClockFailure(observed));
+        Assert.False(recorder.AcknowledgeClockFailure(observed));
+        await recorder.DisposeAsync();
+        Assert.Single((await fixture.Open()).Snapshot.History);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
