@@ -12,13 +12,15 @@ public sealed class StatechartOracleTests
     private static readonly int[] Initial = { 0, 2, 4, 6, 8, 10, 12 };
     private static readonly int[] Order = ComputeDeclarationOrder();
 
-    [Fact]
-    public void GeneratedGuardedTransitionsMatchAnAncestryBasedConfigurationModel()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GeneratedGuardedTransitionsMatchAnAncestryBasedConfigurationModel(bool independentLeafSources)
     {
         for (int seed = 0; seed < 100; seed++)
         {
             var random = new Random(seed);
-            List<Rule> rules = GenerateRules(random);
+            List<Rule> rules = GenerateRules(random, independentLeafSources);
             ChartTransition[] transitions = rules.Select((rule, index) => new ChartTransition(
                 new StateId(rule.Source), new SignalId(rule.Signal), new StateId(rule.Target),
                 CompileGuard(index, rule.Guard), rule.Priority, rule.Kind)).ToArray();
@@ -92,7 +94,7 @@ public sealed class StatechartOracleTests
         return selected.Count;
     }
 
-    private static List<Rule> GenerateRules(Random random)
+    private static List<Rule> GenerateRules(Random random, bool independentLeafSources)
     {
         var rules = new List<Rule>();
         while (rules.Count < RuleCount)
@@ -102,6 +104,8 @@ public sealed class StatechartOracleTests
             var kind = (ChartTransitionKind)random.Next(3);
             if (kind == ChartTransitionKind.Internal) target = source;
             if (!TryDomain(source, target, kind, out int domain)) continue;
+            if (independentLeafSources && (Parent.Contains(source) || (domain >= 0 && domain != RegionOf[source])))
+                continue;
             rules.Add(new Rule(source, target, random.Next(3), random.Next(-3, 4), kind, domain, rules.Count % 4));
         }
         return rules;
