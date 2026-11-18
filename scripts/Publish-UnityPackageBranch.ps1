@@ -1,6 +1,6 @@
+[CmdletBinding()]
 param(
 	[string]$PackagePath,
-	[string]$Branch = "upm",
 	[string]$SourceRepositoryPath = (Join-Path $PSScriptRoot "..")
 )
 
@@ -34,6 +34,7 @@ if ($LASTEXITCODE -ne 0) {
 
 $publishRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("bezoro-upm-" + [System.Guid]::NewGuid().ToString("N"))
 $remoteUrl = "https://github.com/$($env:GITHUB_REPOSITORY).git"
+$branch = "upm"
 
 # Keep credentials out of remote URLs, command arguments, and temporary Git config files.
 $previousConfigCount = $env:GIT_CONFIG_COUNT
@@ -57,44 +58,42 @@ for ($offset = 0; $offset -lt 2; $offset++) {
 $env:GIT_CONFIG_COUNT = ($configCount + 2).ToString([Globalization.CultureInfo]::InvariantCulture)
 
 try {
-	& git ls-remote --exit-code --heads $remoteUrl "refs/heads/$Branch" *> $null
+	& git ls-remote --exit-code --heads $remoteUrl "refs/heads/$branch" *> $null
 	if ($LASTEXITCODE -notin 0, 2) {
-		throw "Failed to inspect branch '$Branch'."
+		throw "Failed to inspect branch '$branch'."
 	}
 	$branchExists = $LASTEXITCODE -eq 0
 	$publishedRevision = $null
 
 	if ($branchExists) {
-		& git clone --depth 1 --branch $Branch $remoteUrl $publishRoot
+		& git clone --depth 1 --branch $branch $remoteUrl $publishRoot
 		if ($LASTEXITCODE -ne 0) {
-			throw "Failed to clone branch '$Branch'."
+			throw "Failed to clone branch '$branch'."
 		}
 
-		if ($Branch -ceq 'upm') {
-			$publication = & git -C $publishRoot log -1 --format=%s
-			if ($LASTEXITCODE -ne 0 -or $publication -notmatch '^chore\(upm\): publish Unity package from ([0-9a-fA-F]{40})$') {
-				throw "Cannot identify the source commit of the current UPM package."
+		$publication = & git -C $publishRoot log -1 --format=%s
+		if ($LASTEXITCODE -ne 0 -or $publication -notmatch '^chore\(upm\): publish Unity package from ([0-9a-fA-F]{40})$') {
+			throw "Cannot identify the source commit of the current UPM package."
+		}
+		$publishedRevision = $Matches[1]
+		& git -C $SourceRepositoryPath merge-base --is-ancestor $publishedRevision $sourceRevision
+		if ($LASTEXITCODE -eq 1) {
+			& git -C $SourceRepositoryPath merge-base --is-ancestor $sourceRevision $publishedRevision
+			if ($LASTEXITCODE -eq 0) {
+				Write-Host "UPM already publishes a newer source commit. Skipping $sourceRevision."
+				return
 			}
-			$publishedRevision = $Matches[1]
-			& git -C $SourceRepositoryPath merge-base --is-ancestor $publishedRevision $sourceRevision
-			if ($LASTEXITCODE -eq 1) {
-				& git -C $SourceRepositoryPath merge-base --is-ancestor $sourceRevision $publishedRevision
-				if ($LASTEXITCODE -eq 0) {
-					Write-Host "UPM already publishes a newer source commit. Skipping $sourceRevision."
-					return
-				}
-				throw "The requested revision does not descend from the published UPM source."
-			}
-			if ($LASTEXITCODE -ne 0) {
-				throw "Failed to compare UPM source revisions. Use a complete source checkout."
-			}
+			throw "The requested revision does not descend from the published UPM source."
+		}
+		if ($LASTEXITCODE -ne 0) {
+			throw "Failed to compare UPM source revisions. Use a complete source checkout."
 		}
 	}
 	else {
 		New-Item -ItemType Directory -Path $publishRoot -Force | Out-Null
 		Push-Location $publishRoot
 		try {
-			& git init --initial-branch=$Branch
+			& git init --initial-branch=$branch
 			if ($LASTEXITCODE -ne 0) {
 				throw "Failed to initialize publish repository."
 			}
@@ -128,21 +127,21 @@ try {
 		if ($LASTEXITCODE -notin 0, 1) {
 			throw "Failed to inspect staged Unity package contents."
 		}
-		if ($LASTEXITCODE -eq 0 -and ($Branch -cne 'upm' -or $publishedRevision -eq $sourceRevision)) {
+		if ($LASTEXITCODE -eq 0 -and $publishedRevision -eq $sourceRevision) {
 			Write-Host "Unity package branch is already up to date."
 			return
 		}
 
-		# An identical package at a new official revision still advances the source watermark.
+		# An identical package at a new revision still advances the published source revision.
 		& git commit --allow-empty -m "chore(upm): publish Unity package from $sourceRevision"
 		if ($LASTEXITCODE -ne 0) {
 			throw "Failed to commit Unity package contents."
 		}
 
-		& git push origin "HEAD:refs/heads/$Branch"
+		& git push origin "HEAD:refs/heads/$branch"
 
 		if ($LASTEXITCODE -ne 0) {
-			throw "Failed to push Unity package branch '$Branch'."
+			throw "Failed to push Unity package branch '$branch'."
 		}
 	}
 	finally {

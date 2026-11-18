@@ -126,7 +126,7 @@ public sealed class UnityPackagePublishScriptTests
         }
 
         public (int ExitCode, string Output) Publish(string sourceRevision) => Run("pwsh", sourceRevision,
-            "-NoProfile", "-NonInteractive", "-File", _script, "-PackagePath", _package, "-Branch", "upm",
+            "-NoProfile", "-NonInteractive", "-File", _script, "-PackagePath", _package,
             "-SourceRepositoryPath", _source);
 
         public string ReadGit(params string[] arguments)

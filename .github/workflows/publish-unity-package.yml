@@ -31,22 +31,25 @@ jobs:
         run: throw 'UPM publication requires running this workflow on main.'
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
       - name: Resolve package version
+        id: package-version
         run: |
           $version = ./scripts/Get-PackageVersion.ps1
-          "BEZORO_PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
+          "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Build release binaries
+        env:
+          BEZORO_PACKAGE_VERSION: ${{ steps.package-version.outputs.version }}
         run: dotnet build bezoro.framework.sln -c Release -p:ContinuousIntegrationBuild=true
 
       - name: Check public API baseline
@@ -70,11 +73,13 @@ jobs:
         if: >-
           runner.os == 'Linux' &&
           github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish_upm)
+        env:
+          BEZORO_PACKAGE_VERSION: ${{ steps.package-version.outputs.version }}
         run: ./scripts/Build-UnityPackage.ps1
 
       - name: Upload validated Unity package
         if: steps.stage.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unity-package
           path: artifacts/unity-package/
@@ -94,13 +99,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Download validated Unity package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: unity-package
           path: artifacts/unity-package/
