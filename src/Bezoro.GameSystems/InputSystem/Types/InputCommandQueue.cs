@@ -17,6 +17,18 @@ public sealed class InputCommandQueue : IInputCommandSink
 	private readonly Dictionary<int, BufferedInputState> _latestByControl = [];
 
 	private double _simulationTimeSeconds;
+	private readonly int _maximumPendingCommands;
+	private int _reserved;
+
+	/// <summary>Creates an unbounded input queue.</summary>
+	public InputCommandQueue() => _maximumPendingCommands = -1;
+
+	/// <summary>Creates an input queue with a nonnegative pending-command limit.</summary>
+	public InputCommandQueue(int maximumPendingCommands)
+	{
+		if (maximumPendingCommands < 0) throw new ArgumentOutOfRangeException(nameof(maximumPendingCommands));
+		_maximumPendingCommands = maximumPendingCommands;
+	}
 
 	/// <summary>
 	///     Gets the simulation time accumulated by ingestion updates.
@@ -38,7 +50,27 @@ public sealed class InputCommandQueue : IInputCommandSink
 	}
 
 	/// <inheritdoc />
-	public void Enqueue(in InputCommand command) => _pendingCommands.Enqueue(command);
+	public void Enqueue(in InputCommand command)
+	{
+		if (!TryEnqueue(in command)) throw new InvalidOperationException("The input queue is full.");
+	}
+
+	/// <summary>Attempts to admit a command without exceeding the configured backlog limit.</summary>
+	public bool TryEnqueue(in InputCommand command)
+	{
+		if (_maximumPendingCommands >= 0)
+		{
+			int count;
+			do
+			{
+				count = System.Threading.Volatile.Read(ref _reserved);
+				if (count >= _maximumPendingCommands) return false;
+			}
+			while (System.Threading.Interlocked.CompareExchange(ref _reserved, count + 1, count) != count);
+		}
+		_pendingCommands.Enqueue(command);
+		return true;
+	}
 
 	/// <summary>
 	///     Enqueues a new command for the provided control id.
@@ -61,6 +93,7 @@ public sealed class InputCommandQueue : IInputCommandSink
 	{
 		for (int i = 0; i < maxCommands && _pendingCommands.TryDequeue(out var command); i++)
 		{
+			if (_maximumPendingCommands >= 0) System.Threading.Interlocked.Decrement(ref _reserved);
 			if (_latestByControl.TryGetValue(command.ControlId, out var existing) &&
 				command.Sequence <= existing.Sequence)
 				continue;

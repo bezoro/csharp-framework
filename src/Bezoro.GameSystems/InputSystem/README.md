@@ -93,3 +93,5 @@ dotnet test tests/Bezoro.GameSystems.Tests/Bezoro.GameSystems.Tests.csproj -c Re
 ```
 
 These tests cover hold-window boundaries, stale sequences, numeric recovery, and expiry after long simulated uptime. See [the module README](../README.md) for targets and engine integration.
+
+For bounded producer admission, install an `InputCommandQueue(maximumPendingCommands)` resource before registering the pipeline. `TryEnqueue` returns false when full. `Enqueue` throws. The parameterless queue grows on demand.

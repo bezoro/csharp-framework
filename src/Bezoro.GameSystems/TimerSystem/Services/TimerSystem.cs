@@ -73,12 +73,12 @@ public sealed class TimerSystem : ISystem
 		float deltaTime = context.DeltaTime <= 0f || float.IsNaN(context.DeltaTime) || float.IsInfinity(context.DeltaTime)
 			? 0f : context.DeltaTime;
 
-		PublishPendingTransitions(world);
+		bool canFinish = PublishPendingTransitions(world);
 
 		world.Query<TimerQuery>().ForEach<Timer>(
 			(Entity timerEntity, ref Timer timer) =>
 		{
-			AdvanceTimer(world, commands, timerEntity, ref timer, deltaTime);
+			AdvanceTimer(world, commands, timerEntity, ref timer, deltaTime, canFinish);
 		}
 		);
 	}
@@ -88,9 +88,10 @@ public sealed class TimerSystem : ISystem
 		CommandStream commands,
 		Entity        timerEntity,
 		ref Timer     timer,
-		float         deltaTime)
+		float         deltaTime,
+		bool          canFinish)
 	{
-		if (timer.State != TimerState.Running || deltaTime <= 0f)
+		if (timer.State != TimerState.Running || (deltaTime <= 0f && timer.ElapsedSeconds < timer.DurationSeconds))
 			return;
 		if (timer.DurationSeconds <= 0f || float.IsNaN(timer.DurationSeconds) || float.IsInfinity(timer.DurationSeconds) ||
 			float.IsNaN(timer.ElapsedSeconds) || float.IsInfinity(timer.ElapsedSeconds))
@@ -101,51 +102,39 @@ public sealed class TimerSystem : ISystem
 			return;
 
 		timer.ElapsedSeconds = timer.DurationSeconds;
-		timer.State = TimerState.Completed;
+		if (!canFinish) return;
 
-		Publish(world, timerEntity, timer, TimerLifecycle.Finished);
+		var finished = new TimerLifecycleEvent(timerEntity, TryResolveOwner(world, timerEntity), timer.TimerId,
+			TimerLifecycle.Finished, TimerState.Completed, timer.ElapsedSeconds, timer.DurationSeconds);
+		if (!world.GetOrCreateResource<TimerEventsResource>().TryEnqueue(in finished)) return;
+		timer.State = TimerState.Completed;
+		Notify(in finished);
 
 		if (timer.Mode == TimerMode.OneShot)
 			commands.Destroy(timerEntity);
 	}
 
-	private void PublishPendingTransitions(World world)
+	private bool PublishPendingTransitions(World world)
 	{
-		if (!world.TryReadResource<TimerTransitionQueue>(out var pending)) return;
-		// Callback-enqueued transitions wait for the next update, bounding reentrant work.
+		if (!world.TryReadResource<TimerTransitionQueue>(out var pending)) return true;
+		var events = world.GetOrCreateResource<TimerEventsResource>();
 		int count = pending.Count;
-		for (int i = 0; i < count && pending.TryDequeue(out var transition); i++)
+		for (int i = 0; i < count && pending.TryPeek(out var transition); i++)
 		{
-			if (!world.IsAlive(transition.TimerEntity) || !world.Has<Timer>(transition.TimerEntity)) continue;
-			Publish(world, in transition);
+			if (!world.IsAlive(transition.TimerEntity) || !world.Has<Timer>(transition.TimerEntity))
+			{
+				pending.Dequeue();
+				continue;
+			}
+			if (!events.TryEnqueue(in transition)) return false;
+			pending.Dequeue();
+			Notify(in transition);
 		}
+		return true;
 	}
 
-	private void Publish(
-		World         world,
-		Entity        timerEntity,
-		in Timer      timer,
-		TimerLifecycle lifecycle)
+	private void Notify(in TimerLifecycleEvent eventData)
 	{
-		var ownerEntity = TryResolveOwner(world, timerEntity);
-		var eventData = new TimerLifecycleEvent(
-			timerEntity,
-			ownerEntity,
-			timer.TimerId,
-			lifecycle,
-			timer.State,
-			timer.ElapsedSeconds,
-			timer.DurationSeconds
-		);
-
-		Publish(world, in eventData);
-	}
-
-	private void Publish(World world, in TimerLifecycleEvent eventData)
-	{
-		ref var events = ref world.GetOrCreateResource<TimerEventsResource>();
-		events.Enqueue(in eventData);
-
 		try
 		{
 			GetHandler(eventData.Lifecycle)?.Invoke(eventData);

@@ -156,3 +156,6 @@ When the world runs on a worker, configure `CallbackDispatcher` to marshal callb
 dotnet build src/Bezoro.GameSystems/Bezoro.GameSystems.csproj -c Release
 dotnet test tests/Bezoro.GameSystems.Tests/Bezoro.GameSystems.Tests.csproj -c Release -f net10.0 --filter "FullyQualifiedName~ActivationSystem"
 ```
+
+A tick with no free dispatch slots only counts pending entries. With a single available activation, one scan selects the highest priority and uses the lowest handle ID to break ties.
+For larger finite budgets, selection periodically discards candidates outside the highest-ranked batch. Candidate storage scales with the smaller of the budget and pending count.

@@ -12,6 +12,29 @@ namespace Bezoro.GameSystems.Tests.TimerSystem;
 public class TimerSystemTests
 {
 	[Fact]
+	public void BoundedQueueRetriesControlTransitionAndOneShotCompletionInOrder()
+	{
+		var world = new World();
+		var events = new TimerEventsResource(1, 1);
+		world.SetResource(events);
+		world.AddSystem(new TimerSystemType());
+		var entity = world.Spawn(new Timer(1, 1f, 0f, TimerState.Stopped, TimerMode.OneShot));
+		events.Enqueue(default);
+		world.StartTimer(entity);
+		world.Tick(1f);
+		Assert.True(world.IsAlive(entity));
+		events.TryDequeue(out _);
+		world.Tick(0.1f);
+		Assert.True(events.TryDequeue(out var started));
+		Assert.Equal(TimerLifecycle.Started, started.Lifecycle);
+		Assert.True(world.IsAlive(entity));
+		world.Tick(0.1f);
+		Assert.True(events.TryDequeue(out var finished));
+		Assert.Equal(TimerLifecycle.Finished, finished.Lifecycle);
+		Assert.False(world.IsAlive(entity));
+	}
+
+	[Fact]
 	public void Tick_WhenOneShotTimerCompletes_ShouldRaiseFinishedAndDespawn()
 	{
 		// Arrange
