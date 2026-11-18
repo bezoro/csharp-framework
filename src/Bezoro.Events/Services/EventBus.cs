@@ -47,16 +47,7 @@ public sealed class EventBus : IEventBus
 	{
 		get
 		{
-			var count = 0;
-			foreach (var pair in _subscriptions)
-			{
-				lock (pair.Value)
-				{
-					count += pair.Value.Count;
-				}
-			}
-
-			return count;
+			lock (_lifecycleGate) return _handleToType.Count;
 		}
 	}
 

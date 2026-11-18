@@ -21,6 +21,8 @@ public readonly struct DamageEvent
 }
 ```
 
+`SubscriptionCount` captures the total across event types in a single read synchronized with subscribe, unsubscribe, and disposal.
+
 Events must be structs. Higher-priority handlers run first; equal priorities preserve subscription order. Set `context.Handled = true` to stop propagation through the remaining handlers of that publication:
 
 ```csharp
