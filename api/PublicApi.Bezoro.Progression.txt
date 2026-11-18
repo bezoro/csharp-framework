@@ -131,3 +131,29 @@ namespace Bezoro.Progression
         public System.ReadOnlySpan<Bezoro.Progression.StoryPrerequisite> Prerequisites { get; }
     }
 }
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.Progression.ProgressionId::Equals(Bezoro.Progression.ProgressionId)
+// System.Boolean Bezoro.Progression.ProgressionId::Equals(System.Object)
+// System.Boolean Bezoro.Progression.ProgressionId::op_Equality(Bezoro.Progression.ProgressionId,Bezoro.Progression.ProgressionId)
+// System.Boolean Bezoro.Progression.ProgressionId::op_Inequality(Bezoro.Progression.ProgressionId,Bezoro.Progression.ProgressionId)
+// System.Boolean Bezoro.Progression.QuestObjective::Equals(Bezoro.Progression.QuestObjective)
+// System.Boolean Bezoro.Progression.QuestObjective::Equals(System.Object)
+// System.Boolean Bezoro.Progression.QuestObjective::op_Equality(Bezoro.Progression.QuestObjective,Bezoro.Progression.QuestObjective)
+// System.Boolean Bezoro.Progression.QuestObjective::op_Inequality(Bezoro.Progression.QuestObjective,Bezoro.Progression.QuestObjective)
+// System.Boolean Bezoro.Progression.RewardGrant::Equals(Bezoro.Progression.RewardGrant)
+// System.Boolean Bezoro.Progression.RewardGrant::Equals(System.Object)
+// System.Boolean Bezoro.Progression.RewardGrant::op_Equality(Bezoro.Progression.RewardGrant,Bezoro.Progression.RewardGrant)
+// System.Boolean Bezoro.Progression.RewardGrant::op_Inequality(Bezoro.Progression.RewardGrant,Bezoro.Progression.RewardGrant)
+// System.Boolean Bezoro.Progression.StoryPrerequisite::Equals(Bezoro.Progression.StoryPrerequisite)
+// System.Boolean Bezoro.Progression.StoryPrerequisite::Equals(System.Object)
+// System.Boolean Bezoro.Progression.StoryPrerequisite::op_Equality(Bezoro.Progression.StoryPrerequisite,Bezoro.Progression.StoryPrerequisite)
+// System.Boolean Bezoro.Progression.StoryPrerequisite::op_Inequality(Bezoro.Progression.StoryPrerequisite,Bezoro.Progression.StoryPrerequisite)
+// System.Int32 Bezoro.Progression.ProgressionId::GetHashCode()
+// System.Int32 Bezoro.Progression.QuestObjective::GetHashCode()
+// System.Int32 Bezoro.Progression.RewardGrant::GetHashCode()
+// System.Int32 Bezoro.Progression.StoryPrerequisite::GetHashCode()
+// System.String Bezoro.Progression.ProgressionId::ToString()
+// System.String Bezoro.Progression.QuestObjective::ToString()
+// System.String Bezoro.Progression.RewardGrant::ToString()
+// System.String Bezoro.Progression.StoryPrerequisite::ToString()

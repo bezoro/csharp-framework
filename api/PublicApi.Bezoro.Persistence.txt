@@ -65,3 +65,17 @@ namespace Bezoro.Persistence
         DestinationTooSmall = 12,
     }
 }
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.Persistence.SaveEnvelopeHeader::Equals(Bezoro.Persistence.SaveEnvelopeHeader)
+// System.Boolean Bezoro.Persistence.SaveEnvelopeHeader::Equals(System.Object)
+// System.Boolean Bezoro.Persistence.SaveEnvelopeHeader::op_Equality(Bezoro.Persistence.SaveEnvelopeHeader,Bezoro.Persistence.SaveEnvelopeHeader)
+// System.Boolean Bezoro.Persistence.SaveEnvelopeHeader::op_Inequality(Bezoro.Persistence.SaveEnvelopeHeader,Bezoro.Persistence.SaveEnvelopeHeader)
+// System.Boolean Bezoro.Persistence.SaveReadResult::Equals(Bezoro.Persistence.SaveReadResult)
+// System.Boolean Bezoro.Persistence.SaveReadResult::Equals(System.Object)
+// System.Boolean Bezoro.Persistence.SaveReadResult::op_Equality(Bezoro.Persistence.SaveReadResult,Bezoro.Persistence.SaveReadResult)
+// System.Boolean Bezoro.Persistence.SaveReadResult::op_Inequality(Bezoro.Persistence.SaveReadResult,Bezoro.Persistence.SaveReadResult)
+// System.Int32 Bezoro.Persistence.SaveEnvelopeHeader::GetHashCode()
+// System.Int32 Bezoro.Persistence.SaveReadResult::GetHashCode()
+// System.String Bezoro.Persistence.SaveEnvelopeHeader::ToString()
+// System.String Bezoro.Persistence.SaveReadResult::ToString()

@@ -502,3 +502,26 @@ namespace Bezoro.GameSystems.TimerSystem.Types
         Completed = 3,
     }
 }
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::Equals(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent)
+// System.Boolean Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::Equals(System.Object)
+// System.Boolean Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::op_Equality(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent,Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent)
+// System.Boolean Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::op_Inequality(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent,Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent)
+// System.Boolean Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::Equals(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent)
+// System.Boolean Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::Equals(System.Object)
+// System.Boolean Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::op_Equality(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent,Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent)
+// System.Boolean Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::op_Inequality(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent,Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent)
+// System.Boolean Bezoro.GameSystems.TimerSystem.Types.TimerOwner::Equals(Bezoro.GameSystems.TimerSystem.Types.TimerOwner)
+// System.Boolean Bezoro.GameSystems.TimerSystem.Types.TimerOwner::Equals(System.Object)
+// System.Boolean Bezoro.GameSystems.TimerSystem.Types.TimerOwner::op_Equality(Bezoro.GameSystems.TimerSystem.Types.TimerOwner,Bezoro.GameSystems.TimerSystem.Types.TimerOwner)
+// System.Boolean Bezoro.GameSystems.TimerSystem.Types.TimerOwner::op_Inequality(Bezoro.GameSystems.TimerSystem.Types.TimerOwner,Bezoro.GameSystems.TimerSystem.Types.TimerOwner)
+// System.Int32 Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::GetHashCode()
+// System.Int32 Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::GetHashCode()
+// System.Int32 Bezoro.GameSystems.TimerSystem.Types.TimerOwner::GetHashCode()
+// System.String Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::ToString()
+// System.String Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::ToString()
+// System.String Bezoro.GameSystems.TimerSystem.Types.TimerOwner::ToString()
+// System.Void Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::Deconstruct(Bezoro.ECS.Types.Entity&,Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind&,System.UInt32&,Bezoro.Core.Types.MaxValueUpdateMode&,System.UInt32&,System.UInt32&,System.UInt32&,System.UInt32&,System.UInt32&,System.UInt32&)
+// System.Void Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::Deconstruct(Bezoro.ECS.Types.Entity&,Bezoro.GameSystems.StreamingSystem.Types.StreamingTransition&,System.Double&)
+// System.Void Bezoro.GameSystems.TimerSystem.Types.TimerOwner::Deconstruct(Bezoro.ECS.Types.Entity&)

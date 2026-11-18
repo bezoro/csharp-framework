@@ -54,3 +54,17 @@ namespace Bezoro.Inventory
         public bool TryTransferTo(Bezoro.Inventory.SlotInventory destination, Bezoro.Inventory.ItemId item, long quantity) { }
     }
 }
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.Inventory.ItemDefinition::Equals(Bezoro.Inventory.ItemDefinition)
+// System.Boolean Bezoro.Inventory.ItemDefinition::Equals(System.Object)
+// System.Boolean Bezoro.Inventory.ItemDefinition::op_Equality(Bezoro.Inventory.ItemDefinition,Bezoro.Inventory.ItemDefinition)
+// System.Boolean Bezoro.Inventory.ItemDefinition::op_Inequality(Bezoro.Inventory.ItemDefinition,Bezoro.Inventory.ItemDefinition)
+// System.Boolean Bezoro.Inventory.ItemStack::Equals(Bezoro.Inventory.ItemStack)
+// System.Boolean Bezoro.Inventory.ItemStack::Equals(System.Object)
+// System.Boolean Bezoro.Inventory.ItemStack::op_Equality(Bezoro.Inventory.ItemStack,Bezoro.Inventory.ItemStack)
+// System.Boolean Bezoro.Inventory.ItemStack::op_Inequality(Bezoro.Inventory.ItemStack,Bezoro.Inventory.ItemStack)
+// System.Int32 Bezoro.Inventory.ItemDefinition::GetHashCode()
+// System.Int32 Bezoro.Inventory.ItemStack::GetHashCode()
+// System.String Bezoro.Inventory.ItemDefinition::ToString()
+// System.String Bezoro.Inventory.ItemStack::ToString()

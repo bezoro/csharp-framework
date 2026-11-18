@@ -263,3 +263,19 @@ namespace Bezoro.Chess.Study
         public Bezoro.Chess.Study.StudyNode GetVariation(int index) { }
     }
 }
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.Chess.Study.GuidedLessonMoveRequest::Equals(Bezoro.Chess.Study.GuidedLessonMoveRequest)
+// System.Boolean Bezoro.Chess.Study.GuidedLessonMoveRequest::Equals(System.Object)
+// System.Boolean Bezoro.Chess.Study.GuidedLessonMoveRequest::op_Equality(Bezoro.Chess.Study.GuidedLessonMoveRequest,Bezoro.Chess.Study.GuidedLessonMoveRequest)
+// System.Boolean Bezoro.Chess.Study.GuidedLessonMoveRequest::op_Inequality(Bezoro.Chess.Study.GuidedLessonMoveRequest,Bezoro.Chess.Study.GuidedLessonMoveRequest)
+// System.Boolean Bezoro.Chess.Study.GuidedLessonStepResult::Equals(Bezoro.Chess.Study.GuidedLessonStepResult)
+// System.Boolean Bezoro.Chess.Study.GuidedLessonStepResult::Equals(System.Object)
+// System.Boolean Bezoro.Chess.Study.GuidedLessonStepResult::op_Equality(Bezoro.Chess.Study.GuidedLessonStepResult,Bezoro.Chess.Study.GuidedLessonStepResult)
+// System.Boolean Bezoro.Chess.Study.GuidedLessonStepResult::op_Inequality(Bezoro.Chess.Study.GuidedLessonStepResult,Bezoro.Chess.Study.GuidedLessonStepResult)
+// System.Int32 Bezoro.Chess.Study.GuidedLessonMoveRequest::GetHashCode()
+// System.Int32 Bezoro.Chess.Study.GuidedLessonStepResult::GetHashCode()
+// System.String Bezoro.Chess.Study.GuidedLessonMoveRequest::ToString()
+// System.String Bezoro.Chess.Study.GuidedLessonStepResult::ToString()
+// System.Void Bezoro.Chess.Study.GuidedLessonMoveRequest::Deconstruct(System.Boolean&,System.String&)
+// System.Void Bezoro.Chess.Study.GuidedLessonStepResult::Deconstruct(System.Boolean&,System.Boolean&,System.String&,System.String&,System.Boolean&)

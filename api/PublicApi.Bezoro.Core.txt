@@ -1277,6 +1277,38 @@ namespace Bezoro.Core.Utilities
     }
 }
 
+// Compiler-generated callable members
+// System.Boolean Bezoro.Core.Types.Color::Equals(Bezoro.Core.Types.Color)
+// System.Boolean Bezoro.Core.Types.Color::Equals(System.Object)
+// System.Boolean Bezoro.Core.Types.Color::op_Equality(Bezoro.Core.Types.Color,Bezoro.Core.Types.Color)
+// System.Boolean Bezoro.Core.Types.Color::op_Inequality(Bezoro.Core.Types.Color,Bezoro.Core.Types.Color)
+// System.Boolean Bezoro.Core.Types.PoolOptions::Equals(Bezoro.Core.Types.PoolOptions)
+// System.Boolean Bezoro.Core.Types.PoolOptions::Equals(System.Object)
+// System.Boolean Bezoro.Core.Types.PoolOptions::op_Equality(Bezoro.Core.Types.PoolOptions,Bezoro.Core.Types.PoolOptions)
+// System.Boolean Bezoro.Core.Types.PoolOptions::op_Inequality(Bezoro.Core.Types.PoolOptions,Bezoro.Core.Types.PoolOptions)
+// System.Boolean Bezoro.Core.Types.PoolStatistics::Equals(Bezoro.Core.Types.PoolStatistics)
+// System.Boolean Bezoro.Core.Types.PoolStatistics::Equals(System.Object)
+// System.Boolean Bezoro.Core.Types.PoolStatistics::op_Equality(Bezoro.Core.Types.PoolStatistics,Bezoro.Core.Types.PoolStatistics)
+// System.Boolean Bezoro.Core.Types.PoolStatistics::op_Inequality(Bezoro.Core.Types.PoolStatistics,Bezoro.Core.Types.PoolStatistics)
+// System.Boolean Bezoro.Core.Types.UIntRange::Equals(Bezoro.Core.Types.UIntRange)
+// System.Boolean Bezoro.Core.Types.UIntRange::Equals(System.Object)
+// System.Boolean Bezoro.Core.Types.UIntRange::op_Equality(Bezoro.Core.Types.UIntRange,Bezoro.Core.Types.UIntRange)
+// System.Boolean Bezoro.Core.Types.UIntRange::op_Inequality(Bezoro.Core.Types.UIntRange,Bezoro.Core.Types.UIntRange)
+// System.Boolean Bezoro.Core.Types.UIntVector2::Equals(Bezoro.Core.Types.UIntVector2)
+// System.Boolean Bezoro.Core.Types.UIntVector2::Equals(System.Object)
+// System.Boolean Bezoro.Core.Types.UIntVector2::op_Equality(Bezoro.Core.Types.UIntVector2,Bezoro.Core.Types.UIntVector2)
+// System.Boolean Bezoro.Core.Types.UIntVector2::op_Inequality(Bezoro.Core.Types.UIntVector2,Bezoro.Core.Types.UIntVector2)
+// System.Int32 Bezoro.Core.Types.Color::GetHashCode()
+// System.Int32 Bezoro.Core.Types.PoolOptions::GetHashCode()
+// System.Int32 Bezoro.Core.Types.PoolStatistics::GetHashCode()
+// System.Int32 Bezoro.Core.Types.UIntRange::GetHashCode()
+// System.Int32 Bezoro.Core.Types.UIntVector2::GetHashCode()
+// System.String Bezoro.Core.Types.PoolOptions::ToString()
+// System.String Bezoro.Core.Types.PoolStatistics::ToString()
+// System.String Bezoro.Core.Types.UIntRange::ToString()
+// System.Void Bezoro.Core.Types.PoolOptions::Deconstruct(System.Int32&,System.Int32&,System.Boolean&,System.Boolean&,System.Boolean&)
+// System.Void Bezoro.Core.Types.UIntVector2::Deconstruct(System.UInt32&,System.UInt32&)
+
 // netstandard2.1
 namespace Bezoro.Core.Abstractions
 {
@@ -2547,3 +2579,35 @@ namespace Bezoro.Core.Utilities
         public void ExecuteOrdered(System.Action action) { }
     }
 }
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.Core.Types.Color::Equals(Bezoro.Core.Types.Color)
+// System.Boolean Bezoro.Core.Types.Color::Equals(System.Object)
+// System.Boolean Bezoro.Core.Types.Color::op_Equality(Bezoro.Core.Types.Color,Bezoro.Core.Types.Color)
+// System.Boolean Bezoro.Core.Types.Color::op_Inequality(Bezoro.Core.Types.Color,Bezoro.Core.Types.Color)
+// System.Boolean Bezoro.Core.Types.PoolOptions::Equals(Bezoro.Core.Types.PoolOptions)
+// System.Boolean Bezoro.Core.Types.PoolOptions::Equals(System.Object)
+// System.Boolean Bezoro.Core.Types.PoolOptions::op_Equality(Bezoro.Core.Types.PoolOptions,Bezoro.Core.Types.PoolOptions)
+// System.Boolean Bezoro.Core.Types.PoolOptions::op_Inequality(Bezoro.Core.Types.PoolOptions,Bezoro.Core.Types.PoolOptions)
+// System.Boolean Bezoro.Core.Types.PoolStatistics::Equals(Bezoro.Core.Types.PoolStatistics)
+// System.Boolean Bezoro.Core.Types.PoolStatistics::Equals(System.Object)
+// System.Boolean Bezoro.Core.Types.PoolStatistics::op_Equality(Bezoro.Core.Types.PoolStatistics,Bezoro.Core.Types.PoolStatistics)
+// System.Boolean Bezoro.Core.Types.PoolStatistics::op_Inequality(Bezoro.Core.Types.PoolStatistics,Bezoro.Core.Types.PoolStatistics)
+// System.Boolean Bezoro.Core.Types.UIntRange::Equals(Bezoro.Core.Types.UIntRange)
+// System.Boolean Bezoro.Core.Types.UIntRange::Equals(System.Object)
+// System.Boolean Bezoro.Core.Types.UIntRange::op_Equality(Bezoro.Core.Types.UIntRange,Bezoro.Core.Types.UIntRange)
+// System.Boolean Bezoro.Core.Types.UIntRange::op_Inequality(Bezoro.Core.Types.UIntRange,Bezoro.Core.Types.UIntRange)
+// System.Boolean Bezoro.Core.Types.UIntVector2::Equals(Bezoro.Core.Types.UIntVector2)
+// System.Boolean Bezoro.Core.Types.UIntVector2::Equals(System.Object)
+// System.Boolean Bezoro.Core.Types.UIntVector2::op_Equality(Bezoro.Core.Types.UIntVector2,Bezoro.Core.Types.UIntVector2)
+// System.Boolean Bezoro.Core.Types.UIntVector2::op_Inequality(Bezoro.Core.Types.UIntVector2,Bezoro.Core.Types.UIntVector2)
+// System.Int32 Bezoro.Core.Types.Color::GetHashCode()
+// System.Int32 Bezoro.Core.Types.PoolOptions::GetHashCode()
+// System.Int32 Bezoro.Core.Types.PoolStatistics::GetHashCode()
+// System.Int32 Bezoro.Core.Types.UIntRange::GetHashCode()
+// System.Int32 Bezoro.Core.Types.UIntVector2::GetHashCode()
+// System.String Bezoro.Core.Types.PoolOptions::ToString()
+// System.String Bezoro.Core.Types.PoolStatistics::ToString()
+// System.String Bezoro.Core.Types.UIntRange::ToString()
+// System.Void Bezoro.Core.Types.PoolOptions::Deconstruct(System.Int32&,System.Int32&,System.Boolean&,System.Boolean&,System.Boolean&)
+// System.Void Bezoro.Core.Types.UIntVector2::Deconstruct(System.UInt32&,System.UInt32&)

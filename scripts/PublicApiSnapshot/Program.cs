@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.Loader;
 using System.Xml.Linq;
+using Mono.Cecil;
 using PublicApiGenerator;
 
 CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
@@ -63,10 +64,27 @@ static string ReadApi(string module, string name, string target, ApiGeneratorOpt
     var context = new AssemblyLoadContext(name + "/" + target, isCollectible: true);
     try
     {
-        return context.LoadFromAssemblyPath(path).GeneratePublicApi(options).ReplaceLineEndings("\n").TrimEnd();
+        string api = context.LoadFromAssemblyPath(path).GeneratePublicApi(options).ReplaceLineEndings("\n").TrimEnd();
+        // The declaration generator deliberately hides compiler-generated methods such as Deconstruct.
+        using var metadata = AssemblyDefinition.ReadAssembly(path);
+        var generated = metadata.MainModule.GetTypes()
+            .Where(IsPubliclyVisible)
+            .SelectMany(type => type.Methods)
+            .Where(method => (method.IsPublic || method.IsFamily || method.IsFamilyOrAssembly)
+                && method.SemanticsAttributes == MethodSemanticsAttributes.None
+                && method.CustomAttributes.Any(attribute =>
+                    attribute.AttributeType.FullName == "System.Runtime.CompilerServices.CompilerGeneratedAttribute"))
+            .Select(method => "// " + method.FullName)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        return generated.Length == 0 ? api : api + "\n\n// Compiler-generated callable members\n" + string.Join('\n', generated);
     }
     finally
     {
         context.Unload();
     }
 }
+
+static bool IsPubliclyVisible(TypeDefinition type) => type.DeclaringType is { } parent
+    ? (type.IsNestedPublic || type.IsNestedFamily || type.IsNestedFamilyOrAssembly) && IsPubliclyVisible(parent)
+    : type.IsPublic;
