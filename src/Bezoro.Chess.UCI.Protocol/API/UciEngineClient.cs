@@ -483,8 +483,10 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 			ctsToCancel.Dispose();
 		}
 
-		await _transport.StopAsync(ct).ConfigureAwait(false);
+		// Once the reader is retired, transport shutdown must run to completion.
+		await _transport.StopAsync(CancellationToken.None).ConfigureAwait(false);
 		SetActivity(EngineActivity.Idle);
+		ct.ThrowIfCancellationRequested();
 	}
 
 	/// <summary>

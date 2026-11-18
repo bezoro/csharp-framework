@@ -44,6 +44,9 @@ internal static class ProcessUciTransportValidator
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static void ValidateOptions(ProcessUciTransportOptions options)
 	{
+		if (options.MaxIncomingLineLength <= 0)
+			throw new ArgumentOutOfRangeException(nameof(options.MaxIncomingLineLength));
+
 		if (options.ChannelCapacity <= 0)
 			throw new ArgumentOutOfRangeException(
 				nameof(options.ChannelCapacity),

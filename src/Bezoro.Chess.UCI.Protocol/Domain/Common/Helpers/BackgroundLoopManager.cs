@@ -271,7 +271,7 @@ internal sealed class BackgroundLoopManager(
 	/// <summary>
 	///     Starts the write loop.
 	/// </summary>
-	public void StartWriteLoop(ChannelReader<string> outgoingReader, StreamWriter stdin)
+	public void StartWriteLoop(ChannelReader<string> outgoingReader, StreamWriter stdin, ChannelWriter<string>? writer = null)
 	{
 		if (options.DisableWriteLoop) return;
 
@@ -290,6 +290,7 @@ internal sealed class BackgroundLoopManager(
 				}
 				catch (Exception ex)
 				{
+					writer?.TryComplete(ex);
 					reportError(ex, "Write loop faulted.");
 				}
 			},
@@ -297,58 +298,6 @@ internal sealed class BackgroundLoopManager(
 		);
 
 		Observe(_writeLoopTask);
-	}
-
-	/// <summary>
-	///     Attempts to write a line to the stream, returning false if the stream is disposed.
-	/// </summary>
-	private static bool TryWriteLine(StreamWriter writer, string line)
-	{
-		try
-		{
-			writer.WriteLine(line);
-			return true;
-		}
-		catch (ObjectDisposedException)
-		{
-			return false;
-		}
-	}
-
-	/// <summary>
-	///     Attempts to read a line from the stream, returning null if the stream is closed or disposed.
-	/// </summary>
-	private static async ValueTask<string?> TryReadLineAsync(StreamReader reader)
-	{
-		try
-		{
-			return await reader.ReadLineAsync().ConfigureAwait(false);
-		}
-		catch (ObjectDisposedException)
-		{
-			return null;
-		}
-	}
-
-	private static string? TryReadLine(StreamReader reader)
-	{
-		try { return reader.ReadLine(); }
-		catch (ObjectDisposedException) { return null; }
-	}
-
-	/// <summary>
-	///     Attempts to flush the stream, swallowing any exceptions.
-	/// </summary>
-	private static void TryFlush(StreamWriter writer)
-	{
-		try
-		{
-			writer.Flush();
-		}
-		catch
-		{
-			// Flush can throw if stream is closed/disposed; safe to ignore
-		}
 	}
 
 	/// <summary>
@@ -365,14 +314,15 @@ internal sealed class BackgroundLoopManager(
 
 		while (outgoingReader.TryRead(out string? cmd))
 		{
-			if (writeToken.IsCancellationRequested || !TryWriteLine(stdin, cmd))
+			if (writeToken.IsCancellationRequested)
 				return writesSinceFlush;
 
+			stdin.WriteLine(cmd);
 			metrics.IncrementLinesWritten();
 
 			if (++writesSinceFlush < flushBatchSize) continue;
 
-			TryFlush(stdin);
+			stdin.Flush();
 			writesSinceFlush = 0;
 		}
 
@@ -419,11 +369,12 @@ internal sealed class BackgroundLoopManager(
 	/// </summary>
 	private async Task RunReadLoopAsync(StreamReader stdout, ChannelWriter<string> writer, CancellationToken readToken)
 	{
+		var lines = new BoundedLineReader(stdout, options.MaxIncomingLineLength);
 		while (true)
 		{
 			if (readToken.IsCancellationRequested) break;
 
-			string? line = await TryReadLineAsync(stdout).ConfigureAwait(false);
+			string? line = await lines.ReadAsync().ConfigureAwait(false);
 			if (line is null) break;
 
 			if (line.Length == 0) continue;
@@ -438,9 +389,10 @@ internal sealed class BackgroundLoopManager(
 
 	private void RunSynchronousReadLoop(StreamReader stdout, ChannelWriter<string> writer, CancellationToken readToken)
 	{
+		var lines = new BoundedLineReader(stdout, options.MaxIncomingLineLength);
 		while (!readToken.IsCancellationRequested)
 		{
-			string? line = TryReadLine(stdout);
+			string? line = lines.Read();
 			if (line is null) break;
 			if (line.Length == 0) continue;
 			metrics.IncrementLinesRead();
@@ -457,9 +409,10 @@ internal sealed class BackgroundLoopManager(
 	/// </summary>
 	private async Task RunStderrLoopAsync(StreamReader stderr)
 	{
+		var lines = new BoundedLineReader(stderr, options.MaxIncomingLineLength);
 		while (true)
 		{
-			string? line = await TryReadLineAsync(stderr).ConfigureAwait(false);
+			string? line = await lines.ReadAsync().ConfigureAwait(false);
 			if (line is null) break;
 
 			if (line.Length == 0) continue;
@@ -470,9 +423,10 @@ internal sealed class BackgroundLoopManager(
 
 	private void RunSynchronousStderrLoop(StreamReader stderr)
 	{
+		var lines = new BoundedLineReader(stderr, options.MaxIncomingLineLength);
 		while (true)
 		{
-			string? line = TryReadLine(stderr);
+			string? line = lines.Read();
 			if (line is null) break;
 			if (line.Length == 0 || stderrReceived is null) continue;
 
@@ -505,7 +459,7 @@ internal sealed class BackgroundLoopManager(
 			int writesSinceFlush = ProcessAvailableCommands(outgoingReader, stdin, flushBatchSize, writeToken);
 
 			if (writesSinceFlush > 0)
-				TryFlush(stdin);
+				stdin.Flush();
 
 			if (writeToken.IsCancellationRequested) break;
 

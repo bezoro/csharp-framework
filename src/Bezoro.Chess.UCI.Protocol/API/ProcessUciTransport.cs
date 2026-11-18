@@ -586,6 +586,7 @@ public sealed class ProcessUciTransport : IUciTransport
 		{
 			await _loopManager.AwaitReadLoopAsync().ConfigureAwait(false);
 			await _loopManager.AwaitStderrLoopAsync().ConfigureAwait(false);
+			_loopManager.DisposeCancellationSources();
 			_lines = null;
 		}
 		catch (Exception ex)
@@ -664,7 +665,19 @@ public sealed class ProcessUciTransport : IUciTransport
 	/// </summary>
 	private async Task CleanupWriteLoopAndStdinAsync(bool sendQuit)
 	{
-		// Send quit BEFORE canceling write loop if requested
+		try
+		{
+			_loopManager.CancelWriteLoop();
+			ChannelFactory.TryComplete(_outgoing?.Writer);
+			await _loopManager.AwaitWriteLoopAsync().ConfigureAwait(false);
+			_outgoing = null;
+		}
+		catch (Exception ex)
+		{
+			ReportError(ex, "Failed to cleanup write loop during cleanup.");
+		}
+
+		// The channel writer has retired, so this is now the sole user of stdin.
 		if (sendQuit && _streams.Stdin != null)
 			try
 			{
@@ -676,19 +689,6 @@ public sealed class ProcessUciTransport : IUciTransport
 			{
 				ReportError(ex, "Failed to write quit to stdin during cleanup.");
 			}
-
-		try
-		{
-			_loopManager.CancelWriteLoop();
-			ChannelFactory.TryComplete(_outgoing?.Writer);
-			await _loopManager.AwaitWriteLoopAsync().ConfigureAwait(false);
-			_loopManager.DisposeCancellationSources();
-			_outgoing = null;
-		}
-		catch (Exception ex)
-		{
-			ReportError(ex, "Failed to cleanup write loop during cleanup.");
-		}
 
 		try
 		{
@@ -842,7 +842,7 @@ public sealed class ProcessUciTransport : IUciTransport
 			// A child that no longer reads stdin can block a pipe write indefinitely. Begin the
 			// bounded process-exit path while joining writes so forced termination releases the pipe.
 			// Keep stdout/stderr open until both operations finish, allowing final output to drain.
-			await Task.WhenAll(CleanupWriteLoopAndStdinAsync(sendQuit), CleanupProcessAsync(p, false))
+			await Task.WhenAll(CleanupProcessAsync(p, false), CleanupWriteLoopAndStdinAsync(sendQuit))
 				.ConfigureAwait(false);
 		}
 		catch (Exception ex)
@@ -1006,8 +1006,6 @@ public sealed class ProcessUciTransport : IUciTransport
 		var streams = StreamInitializer.InitializeStreams(
 			process,
 			_options.StdinEncoding,
-			_options.StdoutEncoding,
-			_options.StderrEncoding,
 			_options.RedirectStandardError,
 			_options.NewLine,
 			false
@@ -1086,7 +1084,7 @@ public sealed class ProcessUciTransport : IUciTransport
 			_loopManager.StartReadLoop(_streams.Stdout, _lines.Writer);
 
 		if (_outgoing != null && _streams.Stdin != null)
-			_loopManager.StartWriteLoop(_outgoing.Reader, _streams.Stdin);
+			_loopManager.StartWriteLoop(_outgoing.Reader, _streams.Stdin, _outgoing.Writer);
 
 		if (_streams.Stderr != null)
 			_loopManager.StartStderrLoopIfNeeded(_streams.Stderr);

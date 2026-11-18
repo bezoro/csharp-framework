@@ -7,6 +7,25 @@ namespace Bezoro.Chess.UCI.Protocol.Tests.Domain;
 public class UciEngineClientLifecycleRegressionTests
 {
 	[Fact]
+	public async Task StopCancellationAfterAdmission_ShouldCompleteTransportShutdown()
+	{
+		var (transport, client) = CreateResponsiveClient();
+		await using var disposable = client;
+		await client.StartAsync();
+		using var caller = new CancellationTokenSource();
+		bool stopped = false;
+		transport.StopAsync(Arg.Any<CancellationToken>()).Returns(call =>
+		{
+			caller.Cancel();
+			call.Arg<CancellationToken>().ThrowIfCancellationRequested();
+			stopped = true;
+			return Task.CompletedTask;
+		});
+		await FluentActions.Awaiting(() => client.StopAsync(caller.Token)).Should().ThrowAsync<OperationCanceledException>();
+		stopped.Should().BeTrue();
+	}
+
+	[Fact]
 	public async Task CancelingStartupTokenAfterSuccess_ShouldKeepReaderAlive()
 	{
 		var (_, client) = CreateResponsiveClient();
