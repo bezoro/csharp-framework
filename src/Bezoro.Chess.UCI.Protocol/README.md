@@ -165,7 +165,7 @@ await client.IsReadyAsync(cancellationToken);
 
 `InfoPvReceived` remains a supported compatibility event for principal-variation consumers. The older event aliases remain available but are obsolete: `BestMoveReceived` projects `UciBestMoveMessage.BestMove` and `PonderMove` into two string arguments and reports "Use BestMoveMessageReceived instead.", while `LineReceived` reports "Use RawLineReceived instead." New code should use the canonical events.
 
-Typed `info` messages, `PrincipalVariation.TryParse`, and `SearchResult.TryParse` use one shared UCI info grammar. Outer whitespace and repeated ASCII spaces are accepted; tabs are not token separators. The `info` prefix, `cp`/`mate` score kinds, and score bounds are case-insensitive, while field keywords such as `depth` and `pv` retain their lowercase UCI spelling. Move text keeps the engine's original casing, and `string` and `pv` consume the remainder of their line.
+Typed `info` messages, `PrincipalVariation.TryParse`, and `SearchResult.TryParse` use one shared UCI info grammar. Whitespace, including tabs and repeated spaces, separates tokens in `info` and `bestmove` lines. The `info` prefix, `cp`/`mate` score kinds, and score bounds are case-insensitive, while field keywords such as `depth` and `pv` retain their lowercase UCI spelling. Move text keeps the engine's original casing, and `string` and `pv` consume the remainder of their line.
 
 Collection-bearing protocol snapshots use immutable storage:
 - `SearchParameters.SearchMoves`
@@ -638,7 +638,7 @@ Perft captures moves in the protocol reader through the matching `readyok`. Exce
 
 After cancellation or timeout, the client sends `stop` and drains its response within `SearchStopGracePeriod`. If the engine never acknowledges with `bestmove`, subsequent searches require `StopAsync` followed by `StartAsync`. UCI has no request identifiers, so reusing that connection could attribute an old best move to a new position.
 
-Search node counts, tablebase hits, and elapsed time are cumulative engine counters. `SearchResult` keeps their highest reported values, including `info` messages without a PV. `BestPv` and `BestCpScore` use the deepest primary variation and prefer the most recent report at equal depth. Engine terminal responses `bestmove 0000` and `bestmove (none)` complete normally.
+Search node counts, tablebase hits, and elapsed time are cumulative engine counters. `SearchResult` keeps their highest reported values, including `info` messages without a PV. `BestPv` and `BestCpScore` use the deepest primary variation and prefer the most recent report at equal depth. Engine terminal responses `bestmove 0000` and `bestmove (none)` complete normally. Ponder score improvements prefer a shorter winning mate, then a higher centipawn score, then a longer forced loss.
 
 Lifecycle operations serialize startup, shutdown, and disposal. Repeated disposal calls wait for the same serialized teardown. Command admission is checked before and after acquiring the protocol gate, so queued commands cannot write to an already disposed custom transport. Position commands validate lifetime and cancellation before enumerating caller moves. Serialized engine wrappers prepare the final immutable command text before admission, so caller iterators can perform other operations without running under a wrapper gate; sending rechecks lifetime and cancellation. Canceling the token originally passed to a successful `StartAsync` does not stop the reader; call `StopAsync` to end the client lifetime.
 

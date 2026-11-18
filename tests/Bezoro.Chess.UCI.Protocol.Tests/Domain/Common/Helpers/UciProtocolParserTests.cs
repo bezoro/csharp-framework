@@ -8,6 +8,39 @@ namespace Bezoro.Chess.UCI.Protocol.Tests.Domain.Common.Helpers;
 public class UciProtocolParserTests
 {
 	[Fact]
+	public void MixedWhitespaceBestMoveCompletesTranscriptAndRejectsMalformedFinalReply()
+	{
+		Assert.True(SearchResult.TryParse([" \tbestmove\te2e4 \tPONDER\te7e5  "], out var result));
+		Assert.Equal("e2e4", result.BestMove);
+		Assert.Equal("e7e5", result.PonderMove);
+		Assert.False(SearchResult.TryParse(["bestmove e2e4", "bestmove\tinvalid"], out _));
+		Assert.False(UciProtocolParser.TryParse("bestmoves\te2e4", out _));
+	}
+
+	[Fact]
+	public void MixedWhitespacePreservesInfoFieldsAndNormalizesRetainedText()
+	{
+		const string line = "\tinfo\tdepth nope depth\t17 score\tcp -21 upperbound wdl 50\t900 50 " +
+			"refutation\td2d4  d7d5 currline\t2 e2e4\te7e5 pv  e2e4\t e7e5  g1f3 ";
+		Assert.True(UciProtocolParser.TryParse(line, out var message));
+		var info = message.Info!.Value.Payload;
+		Assert.Equal((uint)17, info.Depth);
+		Assert.Equal(new UciWdl(50, 900, 50), info.Wdl);
+		Assert.Equal(new[] { "d2d4", "d7d5" }, info.Refutation);
+		Assert.Equal(new[] { "e2e4", "e7e5" }, info.CurrentLine);
+		Assert.Equal((uint)2, info.CurrentLineCpu);
+		Assert.True(PrincipalVariation.TryParse(line, out var pv));
+		Assert.Equal(-21, pv.ScoreCp);
+		Assert.Equal(UciScoreBound.Upper, pv.ScoreBound);
+		Assert.Equal(info.Wdl, pv.Wdl);
+		Assert.Equal("e2e4 e7e5 g1f3", pv.RawPv);
+		Assert.Equal(pv.RawPv, info.PrincipalVariation!.Value.RawPv);
+		Assert.Equal(new[] { "e2e4", "e7e5", "g1f3" }, pv.Moves);
+		Assert.True(UciProtocolParser.TryParse("info\tstring  hello\t  world", out message));
+		Assert.Equal("hello world", message.Info!.Value.Payload.String);
+	}
+
+	[Fact]
 	public void TryParse_WhenBestMoveLineIsProvided_ShouldReturnTypedMessage()
 	{
 		const string LINE = "bestmove e2e4 ponder e7e5";
@@ -124,11 +157,12 @@ public class UciProtocolParserTests
 	}
 
 	[Fact]
-	public void TryParse_WhenInfoTokensUseTabs_ShouldReturnFalse()
+	public void TryParse_WhenInfoTokensUseTabs_ShouldParseVariation()
 	{
-		bool parsed = UciProtocolParser.TryParse("info\tdepth\t12\tpv\te2e4", out _);
+		bool parsed = UciProtocolParser.TryParse("info\tdepth\t12\tpv\te2e4", out var value);
 
-		parsed.Should().BeFalse();
+		parsed.Should().BeTrue();
+		value.Info!.Value.Payload.PrincipalVariation!.Value.Moves.Should().Equal("e2e4");
 	}
 
 	[Fact]

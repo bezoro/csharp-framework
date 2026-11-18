@@ -160,37 +160,9 @@ internal sealed class UciPonderRuntime : IAsyncDisposable, IDisposable
 
 	internal static bool IsScoreImproved(int? newMate, int? newCp, int? lastMate, int? lastCp)
 	{
-		if (newMate.HasValue)
-		{
-			if (lastMate.HasValue)
-			{
-				if (newMate.Value > 0 && lastMate.Value > 0)
-					return newMate.Value < lastMate.Value;
-
-				if (newMate.Value < 0 && lastMate.Value < 0)
-					return newMate.Value > lastMate.Value;
-
-				return newMate.Value > lastMate.Value;
-			}
-
-			return true;
-		}
-
-		if (!newCp.HasValue)
-			return false;
-
-		if (lastMate.HasValue)
-		{
-			if (lastMate.Value > 0)
-				return false;
-
-			if (newCp.Value > 0)
-				return true;
-
-			return !lastCp.HasValue || newCp.Value > lastCp.Value;
-		}
-
-		return !lastCp.HasValue || newCp.Value > lastCp.Value;
+		if (!newMate.HasValue && !newCp.HasValue) return false;
+		if (!lastMate.HasValue && !lastCp.HasValue) return true;
+		return new PositionScore(newCp, newMate).ToSortValue() > new PositionScore(lastCp, lastMate).ToSortValue();
 	}
 
 	internal void OnClientInfoPvReceived(PrincipalVariation pv)

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System.Text;
 using System.Collections.Immutable;
 using System.Globalization;
 
@@ -6,14 +6,11 @@ namespace Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers;
 
 internal static class UciInfoParser
 {
-	public static bool TryParseTrimmed(string line, out UciInfoPayload payload)
+	public static bool TryParseTrimmed(string line, out UciInfoPayload payload, bool captureDetails = true)
 	{
 		payload = default;
-		if (!line.StartsWith("info ", StringComparison.OrdinalIgnoreCase))
-			return false;
-
-		string[] tokens = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-		if (tokens.Length < 2) return false;
+		var tokens = new UciTokens(line.AsSpan());
+		if (!tokens.Consume("info") || tokens.Remaining.IsEmpty) return false;
 
 		uint? depth = null;
 		uint? selDepth = null;
@@ -30,141 +27,95 @@ internal static class UciInfoParser
 		string? infoString = null;
 		UciInfoScore? score = null;
 		UciWdl? wdl = null;
-		List<string>? refutation = null;
-		List<string>? currentLine = null;
+		var refutation = ImmutableArray<string>.Empty;
+		var currentLine = ImmutableArray<string>.Empty;
 		PrincipalVariation? principalVariation = null;
 
-		for (var i = 1; i < tokens.Length; i++)
+		while (!tokens.Remaining.IsEmpty)
 		{
-			switch (tokens[i])
+			switch (tokens.Read())
 			{
-				case "depth" when TryReadUInt(tokens, i + 1, out uint depthValue):
+				case "depth" when TryReadUInt(ref tokens, out uint depthValue):
 					depth = depthValue;
-					i++;
 					break;
-				case "seldepth" when TryReadUInt(tokens, i + 1, out uint selDepthValue):
+				case "seldepth" when TryReadUInt(ref tokens, out uint selDepthValue):
 					selDepth = selDepthValue;
-					i++;
 					break;
-				case "multipv" when TryReadUInt(tokens, i + 1, out uint multiPvValue):
+				case "multipv" when TryReadUInt(ref tokens, out uint multiPvValue):
 					multiPv = multiPvValue;
-					i++;
 					break;
-				case "nodes" when TryReadULong(tokens, i + 1, out ulong nodesValue):
+				case "nodes" when TryReadULong(ref tokens, out ulong nodesValue):
 					nodes = nodesValue;
-					i++;
 					break;
-				case "nps" when TryReadULong(tokens, i + 1, out ulong npsValue):
+				case "nps" when TryReadULong(ref tokens, out ulong npsValue):
 					nps = npsValue;
-					i++;
 					break;
-				case "tbhits" when TryReadULong(tokens, i + 1, out ulong tbHitsValue):
+				case "tbhits" when TryReadULong(ref tokens, out ulong tbHitsValue):
 					tbHits = tbHitsValue;
-					i++;
 					break;
-				case "time" when TryReadULong(tokens, i + 1, out ulong timeValue):
+				case "time" when TryReadULong(ref tokens, out ulong timeValue):
 					time = timeValue;
-					i++;
 					break;
-				case "hashfull" when TryReadUInt(tokens, i + 1, out uint hashFullValue):
+				case "hashfull" when TryReadUInt(ref tokens, out uint hashFullValue):
 					hashFull = hashFullValue;
-					i++;
 					break;
-				case "cpuload" when TryReadUInt(tokens, i + 1, out uint cpuLoadValue):
+				case "cpuload" when TryReadUInt(ref tokens, out uint cpuLoadValue):
 					cpuLoad = cpuLoadValue;
-					i++;
 					break;
-				case "currmove" when i + 1 < tokens.Length:
-					currentMove = tokens[i + 1];
-					i++;
+				case "currmove" when !tokens.Remaining.IsEmpty:
+					var move = tokens.Read();
+					if (captureDetails) currentMove = move.ToString();
 					break;
-				case "currmovenumber" when TryReadUInt(tokens, i + 1, out uint currentMoveNumberValue):
+				case "currmovenumber" when TryReadUInt(ref tokens, out uint currentMoveNumberValue):
 					currentMoveNumber = currentMoveNumberValue;
-					i++;
 					break;
-				case "score" when i + 2 < tokens.Length:
+				case "score":
+					var scoreTokens = tokens;
+					var kind = scoreTokens.Read();
+					var value = scoreTokens.Read();
+					if (value.IsEmpty) break;
+					int? cp = null, mate = null;
+					if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int numeric))
 					{
-						string type = tokens[i + 1];
-						string rawValue = tokens[i + 2];
-						i += 2;
-
-						int? centipawns = null;
-						int? mate = null;
-						if (type.Equals("cp", StringComparison.OrdinalIgnoreCase) &&
-							int.TryParse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out int cpValue))
-							centipawns = cpValue;
-						else if (type.Equals("mate", StringComparison.OrdinalIgnoreCase) &&
-								 int.TryParse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out int mateValue))
-							mate = mateValue;
-
-						var bound = UciScoreBound.Exact;
-						if (i + 1 < tokens.Length)
-						{
-							if (tokens[i + 1].Equals("lowerbound", StringComparison.OrdinalIgnoreCase))
-							{
-								bound = UciScoreBound.Lower;
-								i++;
-							}
-							else if (tokens[i + 1].Equals("upperbound", StringComparison.OrdinalIgnoreCase))
-							{
-								bound = UciScoreBound.Upper;
-								i++;
-							}
-						}
-
-						score = new(centipawns, mate, bound);
-						break;
+						if (kind.Equals("cp", StringComparison.OrdinalIgnoreCase)) cp = numeric;
+						else if (kind.Equals("mate", StringComparison.OrdinalIgnoreCase)) mate = numeric;
 					}
-				case "wdl" when TryReadUInt(tokens, i + 1, out uint wins) && wins <= 1000 &&
-					TryReadUInt(tokens, i + 2, out uint draws) && draws <= 1000 &&
-					TryReadUInt(tokens, i + 3, out uint losses) && losses <= 1000 &&
-					wins + draws + losses == 1000:
-					wdl = new((int)wins, (int)draws, (int)losses);
-					i += 3;
+					var bound = UciScoreBound.Exact;
+					if (scoreTokens.Consume("lowerbound")) bound = UciScoreBound.Lower;
+					else if (scoreTokens.Consume("upperbound")) bound = UciScoreBound.Upper;
+					score = new(cp, mate, bound);
+					tokens = scoreTokens;
+					break;
+				case "wdl":
+					var wdlTokens = tokens;
+					if (TryReadUInt(ref wdlTokens, out uint wins) && wins <= 1000 &&
+						TryReadUInt(ref wdlTokens, out uint draws) && draws <= 1000 &&
+						TryReadUInt(ref wdlTokens, out uint losses) && losses <= 1000 &&
+						wins + draws + losses == 1000)
+					{
+						wdl = new((int)wins, (int)draws, (int)losses);
+						tokens = wdlTokens;
+					}
 					break;
 				case "refutation":
-					refutation = ReadTokenSequence(tokens, ref i);
+					refutation = ReadSequence(ref tokens, stopAtKeyword: true, retain: captureDetails);
 					break;
 				case "currline":
-					{
-						int startIndex = i + 1;
-						if (TryReadUInt(tokens, startIndex, out uint cpuValue))
-						{
-							currentLineCpu = cpuValue;
-							startIndex++;
-						}
-
-						currentLine = ReadTokenSequence(tokens, ref i, startIndex);
-						break;
-					}
+					if (TryReadUInt(ref tokens, out uint cpu)) currentLineCpu = cpu;
+					currentLine = ReadSequence(ref tokens, stopAtKeyword: true, retain: captureDetails);
+					break;
 				case "string":
-					infoString = string.Join(" ", tokens, i + 1, tokens.Length - (i + 1));
-					i = tokens.Length;
+					if (captureDetails) infoString = ReadText(tokens);
+					tokens = default;
 					break;
 				case "pv":
-					{
-						var pvMoves = new List<string>();
-						for (int j = i + 1; j < tokens.Length; j++)
-							pvMoves.Add(tokens[j]);
-
-						if (pvMoves.Count > 0)
-							principalVariation = new(
-								depth ?? 0,
-								selDepth ?? 0,
-								multiPv ?? 0,
-								score?.Centipawns,
-								score?.Mate,
-								nodes ?? 0,
-								nps ?? 0,
-								tbHits ?? 0,
-								time ?? 0,
-								pvMoves.ToImmutableArray(),
-								string.Join(" ", pvMoves)
-							) { Wdl = wdl, ScoreBound = score?.Bound ?? UciScoreBound.Exact };
-
-						i = tokens.Length;
-						break;
-					}
+					var pvTokens = tokens;
+					var moves = ReadSequence(ref tokens, stopAtKeyword: false, retain: true);
+					if (!moves.IsEmpty)
+						principalVariation = new(depth ?? 0, selDepth ?? 0, multiPv ?? 0, score?.Centipawns,
+							score?.Mate, nodes ?? 0, nps ?? 0, tbHits ?? 0, time ?? 0, moves, ReadText(pvTokens))
+							{ Wdl = wdl, ScoreBound = score?.Bound ?? UciScoreBound.Exact };
+					break;
 			}
 		}
 
@@ -181,9 +132,9 @@ internal static class UciInfoParser
 			cpuLoad,
 			currentMove,
 			currentMoveNumber,
-			refutation is { Count: > 0 } ? refutation.ToImmutableArray() : ImmutableArray<string>.Empty,
+			refutation,
 			currentLineCpu,
-			currentLine is { Count: > 0 } ? currentLine.ToImmutableArray() : ImmutableArray<string>.Empty,
+			currentLine,
 			infoString,
 			principalVariation
 		) { Wdl = wdl };
@@ -191,36 +142,59 @@ internal static class UciInfoParser
 		return true;
 	}
 
-	private static bool TryReadULong(string[] tokens, int index, out ulong value)
+	private static bool TryReadULong(ref UciTokens tokens, out ulong value)
 	{
-		value = 0;
-		return index < tokens.Length && ulong.TryParse(tokens[index], NumberStyles.None, CultureInfo.InvariantCulture, out value);
+		var next = tokens;
+		if (!ulong.TryParse(next.Read(), NumberStyles.None, CultureInfo.InvariantCulture, out value)) return false;
+		tokens = next;
+		return true;
 	}
 
-	private static bool TryReadUInt(string[] tokens, int index, out uint value)
+	private static bool TryReadUInt(ref UciTokens tokens, out uint value)
 	{
-		value = 0;
-		return index < tokens.Length && uint.TryParse(tokens[index], NumberStyles.None, CultureInfo.InvariantCulture, out value);
+		var next = tokens;
+		if (!uint.TryParse(next.Read(), NumberStyles.None, CultureInfo.InvariantCulture, out value)) return false;
+		tokens = next;
+		return true;
 	}
 
-	private static List<string> ReadTokenSequence(string[] tokens, ref int currentIndex) =>
-		ReadTokenSequence(tokens, ref currentIndex, currentIndex + 1);
-
-	private static List<string> ReadTokenSequence(string[] tokens, ref int currentIndex, int startIndex)
+	private static ImmutableArray<string> ReadSequence(ref UciTokens tokens, bool stopAtKeyword, bool retain)
 	{
-		var values = new List<string>();
-		int index = startIndex;
-		while (index < tokens.Length && !IsInfoKeyword(tokens[index]))
+		var start = tokens;
+		int count = 0;
+		while (!tokens.Remaining.IsEmpty)
 		{
-			values.Add(tokens[index]);
-			index++;
+			var next = tokens;
+			var token = next.Read();
+			if (stopAtKeyword && IsInfoKeyword(token)) break;
+			tokens = next;
+			count++;
 		}
-
-		currentIndex = index - 1;
-		return values;
+		if (!retain || count == 0) return ImmutableArray<string>.Empty;
+		var moves = ImmutableArray.CreateBuilder<string>(count);
+		for (int i = 0; i < count; i++) moves.Add(start.Read().ToString());
+		return moves.MoveToImmutable();
 	}
 
-	private static bool IsInfoKeyword(string token) =>
+	private static string ReadText(UciTokens tokens)
+	{
+		// Preserve the public normalized text without building another array of move strings.
+		var text = tokens.Remaining.TrimEnd();
+		for (int i = 0; i < text.Length; i++)
+		{
+			if (!char.IsWhiteSpace(text[i]) || (text[i] == ' ' && text[i - 1] != ' ')) continue;
+			var builder = new StringBuilder(text.Length);
+			while (!tokens.Remaining.IsEmpty)
+			{
+				if (builder.Length > 0) builder.Append(' ');
+				builder.Append(tokens.Read());
+			}
+			return builder.ToString();
+		}
+		return text.ToString();
+	}
+
+	private static bool IsInfoKeyword(ReadOnlySpan<char> token) =>
 		token is
 			"depth" or
 			"seldepth" or

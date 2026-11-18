@@ -7,6 +7,24 @@ namespace Bezoro.Chess.UCI.Protocol.Tests.Domain;
 
 public sealed class UciPonderRuntimeTests
 {
+	[Theory]
+	[InlineData(-5, null, -2, null, true)]
+	[InlineData(-2, null, -5, null, false)]
+	[InlineData(-2, null, null, -10000, false)]
+	[InlineData(null, -10000, -2, null, true)]
+	[InlineData(5, null, null, 10000, true)]
+	[InlineData(null, 10000, 5, null, false)]
+	[InlineData(2, null, 5, null, true)]
+	[InlineData(5, null, 2, null, false)]
+	[InlineData(-1, null, 0, null, true)]
+	[InlineData(0, null, -1, null, false)]
+	[InlineData(-2, null, -2, null, false)]
+	public void ImprovedScoresPrioritizeWinningMateThenCentipawnsThenLaterLoss(
+		int? mate, int? cp, int? previousMate, int? previousCp, bool improves)
+	{
+		Assert.Equal(improves, UciPonderRuntime.IsScoreImproved(mate, cp, previousMate, previousCp));
+	}
+
 	[Fact]
 	public async Task StopSearchAsync_WhenStartSearchIsWritingPosition_ShouldWaitForStartOperation()
 	{
