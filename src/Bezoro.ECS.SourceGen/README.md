@@ -41,6 +41,18 @@ Job interfaces accept one writable component and up to three readonly components
 
 A base implementation from another assembly has no source body to inspect. Without an explicit access declaration, its derived system is exclusive. Generic or inaccessible system declarations use runtime attributes rather than generated catalogs. Generated and runtime-only systems remain exclusive without explicit `[Reads]`/`[Writes]`/resource attributes or `[NoWorldAccess]`, including systems with known inferred accesses. Declare `[Reads]`, `[Writes]`, resource access, or `[NoWorldAccess]` when appropriate; use `[Exclusive]` for work requiring the owning thread.
 
+The runtime discovers the generated catalog in each system assembly by reflection. For .NET 5 and newer targets, the generator emits a linker dependency on the catalog getter. For a .NET Standard system assembly that will be processed by a managed linker, preserve the generated catalog in the consuming application's linker descriptor. Replace `MyGame.Systems` with the assembly name.
+
+```xml
+<linker>
+  <assembly fullname="MyGame.Systems">
+    <type fullname="Bezoro.ECS.Generated.GeneratedSystemMetadata" preserve="all" />
+  </assembly>
+</linker>
+```
+
+The precompiled Unity package excludes the generator. This descriptor applies when a separately compiled systems assembly includes generated metadata. Verify run-condition constructors and reflected system attributes on the actual stripped player target as well.
+
 Components register lazily at runtime. The old empty `ComponentCatalogGenerator` compatibility stub has been removed.
 
 ## Split fields into storage groups
