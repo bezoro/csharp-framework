@@ -711,6 +711,56 @@ public class WorldAdvancedApiTests
 		}
 	}
 
+	[Fact]
+	public void PolymorphicResources_RoundTripUnderTheirRegisteredType()
+	{
+		using var source = CreateWorldWithExistingState();
+		source.SetResource<IComparable>("alpha");
+		var writer = new InMemorySnapshotWriter();
+		source.CaptureSnapshot(ref writer);
+		var reader = new InMemorySnapshotReader(writer.Captured);
+		using var restored = CreateWorldWithExistingState();
+		restored.RestoreSnapshot(ref reader, new()
+		{
+			AllowedComponentTypes = [typeof(Position)],
+			AllowedResourceTypes = [typeof(SimulationSettings), typeof(IComparable), typeof(string)]
+		});
+		Assert.Equal("alpha", restored.ReadResource<IComparable>());
+		Assert.False(restored.HasResource<string>());
+	}
+
+	[Theory]
+	[InlineData(true, false)]
+	[InlineData(false, false)]
+	[InlineData(true, true)]
+	[InlineData(false, true)]
+	public void PolymorphicResourceRestore_RequiresBothTypesToPassBothPolicies(bool rejectConcrete, bool usePredicate)
+	{
+		using var world = CreateWorldWithExistingState();
+		var reader = new InMemorySnapshotReader(CreateSnapshot(resources: [new(typeof(object), "alpha")]));
+		Type accepted = rejectConcrete ? typeof(object) : typeof(string);
+		Action restore = () => world.RestoreSnapshot(ref reader, new()
+		{
+			AllowedResourceTypes = usePredicate ? [typeof(object), typeof(string)] : [accepted],
+			TypeValidator = usePredicate ? t => t == accepted : null
+		});
+		restore.Should().Throw<InvalidOperationException>();
+		AssertWorldPreserved(world);
+	}
+
+	[Fact]
+	public void SnapshotAliasingOneDisposable_IsRejectedBeforeClear()
+	{
+		using var world = CreateWorldWithExistingState();
+		using var resource = new System.IO.MemoryStream();
+		var reader = new InMemorySnapshotReader(CreateSnapshot(resources:
+			[new(typeof(IDisposable), resource), new(typeof(System.IO.Stream), resource)]));
+		Action restore = () => world.RestoreSnapshot(ref reader, new() { AllowAllResourceTypes = true });
+		restore.Should().Throw<InvalidOperationException>().WithMessage("*multiple snapshot registrations*");
+		Assert.True(resource.CanRead);
+		AssertWorldPreserved(world);
+	}
+
 	private static void AssertWorldPreserved(World world)
 	{
 		world.EntityCount.Should().Be(1);

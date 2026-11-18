@@ -68,6 +68,46 @@ public sealed class WorldResourceLifetimeTests
 		resource.DisposeCount.Should().Be(1);
 	}
 
+	[Theory]
+	[InlineData("set")]
+	[InlineData("factory")]
+	[InlineData("snapshot")]
+	public void DisposableAlias_IsRejectedWhileOriginalRegistrationRetainsOwnership(string path)
+	{
+		var store = new WorldResourceStore();
+		var original = new DisposableResource();
+		store.Set(original);
+		Action register = path switch
+		{
+			"factory" => () => store.GetOrCreate<IDisposable>(() => original),
+			"snapshot" => () => store.SetBoxed(typeof(IDisposable), original),
+			_ => () => store.Set<IDisposable>(original)
+		};
+		register.Should().Throw<InvalidOperationException>().WithMessage("*already registered*");
+		store.Has<IDisposable>().Should().BeFalse();
+		original.DisposeCount.Should().Be(0);
+		store.Remove<DisposableResource>().Should().BeTrue();
+		store.Dispose();
+		original.DisposeCount.Should().Be(1);
+	}
+
+	[Fact]
+	public void DisposableAliasReplacement_PreservesBothOriginalRegistrations()
+	{
+		var store = new WorldResourceStore();
+		var first = new DisposableResource();
+		var second = new DisposableResource();
+		store.Set(first);
+		store.Set<IDisposable>(second);
+		Action replace = () => store.Set<IDisposable>(first);
+		replace.Should().Throw<InvalidOperationException>();
+		store.Get<IDisposable>().Should().BeSameAs(second);
+		second.DisposeCount.Should().Be(0);
+		store.Dispose();
+		first.DisposeCount.Should().Be(1);
+		second.DisposeCount.Should().Be(1);
+	}
+
 	[Fact]
 	public void Dispose_DetachesAndDisposesEachOwnedResourceOnce()
 	{
