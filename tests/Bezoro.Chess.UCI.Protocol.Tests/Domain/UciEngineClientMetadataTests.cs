@@ -1,3 +1,4 @@
+using Bezoro.Chess.UCI.Protocol.Tests.TestHelpers;
 using FluentAssertions;
 using JetBrains.Annotations;
 using NSubstitute;
@@ -7,6 +8,80 @@ namespace Bezoro.Chess.UCI.Protocol.Tests.Domain;
 [TestSubject(typeof(UciEngineClient))]
 public class UciEngineClientMetadataTests
 {
+	[Fact]
+	public async Task Metadata_IsBoundedOrderedAndClosedAtUciOkWhileProtocolEventsContinue()
+	{
+		var (transport, channel) = UciEngineClientTestHelpers.CreateMockTransport();
+		await using var client = new UciEngineClient(transport, new() { MaxAdvertisedOptions = 2 });
+		int optionEvents = 0;
+		client.ProtocolMessageReceived += message =>
+		{
+			if (message.Option.HasValue) Interlocked.Increment(ref optionEvents);
+		};
+		transport.WriteLineAsync("uci", Arg.Any<CancellationToken>()).Returns(_ =>
+		{
+			foreach (string line in new[]
+			{
+				"id name First", "option name One type string default first", "option name Two type button",
+				"option name Overflow type button", "option name ONE type string default updated", "uciok",
+				"option name Two type string default late", "id name Late"
+			}) channel.Writer.TryWrite(line);
+			return Task.CompletedTask;
+		});
+		transport.WriteLineAsync("isready", Arg.Any<CancellationToken>()).Returns(_ =>
+		{
+			channel.Writer.TryWrite("readyok");
+			return Task.CompletedTask;
+		});
+		await client.StartAsync();
+		Assert.Equal("First", client.EngineInfo.Name);
+		Assert.Collection(client.AvailableOptions,
+			option => { Assert.Equal("ONE", option.Name); Assert.Equal("updated", option.DefaultValue); },
+			option => { Assert.Equal("Two", option.Name); Assert.Equal(UciOptionType.Button, option.Type); });
+		Assert.Equal(5, optionEvents);
+	}
+
+	[Fact]
+	public async Task Rehandshake_PublishesOnlyCompletedMetadataAndQueuedCancellationKeepsPriorSnapshot()
+	{
+		var (transport, channel) = UciEngineClientTestHelpers.CreateMockTransport();
+		await using var client = new UciEngineClient(transport);
+		var secondIssued = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		int count = 0;
+		transport.WriteLineAsync("uci", Arg.Any<CancellationToken>()).Returns(_ =>
+		{
+			if (++count == 1)
+			{
+				channel.Writer.TryWrite("option name Old type button");
+				channel.Writer.TryWrite("uciok");
+			}
+			else
+			{
+				channel.Writer.TryWrite("option name New type button");
+				secondIssued.TrySetResult();
+			}
+			return Task.CompletedTask;
+		});
+		transport.WriteLineAsync("isready", Arg.Any<CancellationToken>()).Returns(_ =>
+		{
+			channel.Writer.TryWrite("readyok");
+			return Task.CompletedTask;
+		});
+		await client.StartAsync();
+		var original = client.AvailableOptions;
+		var pending = client.UciInitAsync(default);
+		await secondIssued.Task.WaitAsync(TestConstants.DefaultTimeout);
+		using var queuedCancellation = new CancellationTokenSource();
+		var queued = client.UciInitAsync(queuedCancellation.Token);
+		queuedCancellation.Cancel();
+		await Assert.ThrowsAnyAsync<OperationCanceledException>(() => queued);
+		Assert.Equal(original, client.AvailableOptions);
+		channel.Writer.TryWrite("uciok");
+		await pending;
+		Assert.Equal("New", Assert.Single(client.AvailableOptions).Name);
+		Assert.Equal("Old", Assert.Single(original).Name);
+	}
+
 	[Fact]
 	public async Task StartAsync_WhenHandshakeEmitsIdAndOptionLines_ShouldCaptureEngineMetadata()
 	{

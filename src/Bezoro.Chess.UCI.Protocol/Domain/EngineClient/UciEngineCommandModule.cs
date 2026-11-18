@@ -14,7 +14,9 @@ internal sealed class UciEngineCommandModule(
 	UciLineWaiterRegistry  lineWaiters,
 	Action<EngineActivity> setActivity,
 	UciClientOptions       options,
-    Action? ensureUsable = null
+    Action? ensureUsable = null,
+	Action<bool>? beginHandshake = null,
+	Action<bool>? endHandshake = null
 )
 {
 	private readonly Action<EngineActivity> _setActivity =
@@ -97,7 +99,17 @@ internal sealed class UciEngineCommandModule(
 
 	public async Task UciInitAsync(CancellationToken ct, bool newTransportSession = false)
 	{
-		await ExecuteSerializedCommandAsync(UciInitCoreAsync, ct, newTransportSession).ConfigureAwait(false);
+		await ExecuteSerializedCommandAsync(async token =>
+		{
+			beginHandshake?.Invoke(newTransportSession);
+			var succeeded = false;
+			try
+			{
+				await UciInitCoreAsync(token).ConfigureAwait(false);
+				succeeded = true;
+			}
+			finally { endHandshake?.Invoke(succeeded); }
+		}, ct, newTransportSession).ConfigureAwait(false);
 	}
 
 	public async Task UciNewGameAsync(CancellationToken ct)

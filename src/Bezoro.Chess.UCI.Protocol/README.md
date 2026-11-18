@@ -620,6 +620,12 @@ if (result.BestPv is { Wdl: { } wdl } pv && pv.ScoreBound == UciScoreBound.Exact
 
 The parser preserves WDL in `UciInfoPayload.Wdl` and `PrincipalVariation.Wdl`. Malformed distributions remain absent. `PrincipalVariation.ScoreBound` distinguishes exact scores from lower and upper search bounds. A bound must not be presented as an exact evaluation of move quality. These are engine self-play estimates, not an Elo-specific human prediction or a reproduction of Chess.com's private review algorithm. See the [Stockfish FAQ](https://official-stockfish.github.io/docs/stockfish-wiki/Stockfish-FAQ.html).
 
+## Handshake metadata
+
+Each successful `uci` handshake publishes a coherent snapshot of engine identity and options after the readiness acknowledgment. Reinitialization keeps the prior snapshot available while the replacement is collected. Collection closes at `uciok`. Later option and identity lines still raise protocol events.
+
+`UciClientOptions.MaxAdvertisedOptions` bounds retained distinct option names to 4096 by default. The first names keep their advertised order, and repeated names update the entry case-insensitively. Surplus names remain available through protocol events.
+
 ## Readiness and perft responses
 
 A handshake or readiness timeout covers sending the command and receiving its acknowledgment. Custom transports must observe the supplied cancellation token while waiting for write capacity. If a write or acknowledgment fails, stop and restart the client before issuing another serialized protocol command. A queued readiness check fails before sending a new command, so a late `readyok` cannot satisfy it. Cancellation while waiting for the command gate leaves the active exchange intact.
