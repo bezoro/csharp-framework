@@ -21,6 +21,8 @@ public readonly struct DamageEvent
 }
 ```
 
+`SubscriptionCount` captures the total across event types in a single read synchronized with subscribe, unsubscribe, and disposal.
+
 Events must be structs. Higher-priority handlers run first; equal priorities preserve subscription order. Set `context.Handled = true` to stop propagation through the remaining handlers of that publication:
 
 ```csharp
@@ -137,12 +139,12 @@ The same pattern applies to Godot: enqueue from producers and flush in `_Process
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/global.json):
 
 ```bash
 dotnet build src/Bezoro.Events/Bezoro.Events.csproj -c Release
 dotnet test tests/Bezoro.Events.Tests/Bezoro.Events.Tests.csproj -c Release -f net10.0
 ```
 
-See [the Events tests](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/tests/Bezoro.Events.Tests/README.md) for lifecycle and concurrency coverage.
+See [the Events tests](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/tests/Bezoro.Events.Tests/README.md) for lifecycle and concurrency coverage.
 

@@ -1227,6 +1227,9 @@
                 Indicates whether commands are currently recorded.
             </summary>
         </member>
+        <member name="P:Bezoro.ECS.Types.CommandStream.RemainingCapacity">
+            <summary>Gets the number of free command slots. Concurrent producers may consume them after this read.</summary>
+        </member>
         <member name="M:Bezoro.ECS.Types.CommandStream.GetDiagnostics">
             <summary>
                 Returns command-buffer diagnostics for this stream.

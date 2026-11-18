@@ -2,11 +2,11 @@
 
 Engine-independent collections, grids, object pools, value types, results, and guard extensions shared by the framework. The library targets .NET 10 and .NET Standard 2.1. Unity 6 consumes the precompiled .NET Standard DLLs; its project compiler does not need to compile the framework's source syntax.
 
-Pools, ring-buffer operations and singleton bookkeeping support concurrent callers. Span/ref-based storage kernels remain explicitly borrowed execution storage, suitable for independently owned workers without per-element locks. See [concurrency and migration](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/docs/concurrency.md) for the complete ownership boundaries. A thread-safe container does not make its referenced values or callbacks thread-safe.
+Pools, ring-buffer operations and singleton bookkeeping support concurrent callers. Span/ref-based storage kernels remain explicitly borrowed execution storage, suitable for independently owned workers without per-element locks. See [concurrency and migration](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/docs/concurrency.md) for the complete ownership boundaries. A thread-safe container does not make its referenced values or callbacks thread-safe.
 
 ## Data utilities
 
-[Binary span cursors](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/src/Bezoro.Core/Binary/README.md) read and write explicit little-endian fields with bounds checks and no storage growth. [Bit sets](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/src/Bezoro.Core/Collections/README.BitSet.md) store fixed-capacity flags in words; span extensions provide lower/upper bounds and ordered/swap-back removal with reference clearing. [Numeric helpers](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/src/Bezoro.Core/Numerics/README.md) cover signed chunk division, cyclic indices, interpolation, and elapsed-time damping with explicit finite-input policies.
+[Binary span cursors](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/Binary/README.md) read and write explicit little-endian fields with bounds checks and no storage growth. [Bit sets](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/Collections/README.BitSet.md) store fixed-capacity flags in words; span extensions provide lower/upper bounds and ordered/swap-back removal with reference clearing. [Numeric helpers](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/Numerics/README.md) cover signed chunk division, cyclic indices, interpolation, and elapsed-time damping with explicit finite-input policies.
 
 Use the new operations where their contracts fit the game. Binary readers do not validate application schemas, sorted span searches require caller-maintained ordering, and mutable bit sets require external serialization.
 
@@ -64,7 +64,7 @@ Pool bookkeeping is thread-safe. Available references use reusable stack storage
 
 `new PoolOptions()` uses `PoolOptions.Default`, including rent validation and async waiting. An omitted or uninitialized options value also selects those defaults when passed to the pool. `MaxCapacity = -1` is unbounded; zero permits no owned objects. Negative initial capacity, maximum capacity below -1, and initial capacity above a bounded maximum are rejected before calling the factory. A failed factory releases its reserved capacity and wakes waiting renters. A throwing policy discard callback still disposes its `IDisposable` value; if both fail, their exceptions are aggregated.
 
-Call `TrimExcess(...)` to trim explicitly, and select a timed rent when a deadline is needed. Statistics counters require `TrackStatistics = true`.
+Call `TrimExcess()` for a 90% utilization target or pass a percentage explicitly (zero preserves all items), and select a timed rent when a deadline is needed. Statistics counters require `TrackStatistics = true`.
 
 ### Pool lifecycle migration
 
@@ -83,7 +83,7 @@ entityIds.ClearRetainingCapacity(); // Reuse the backing allocation.
 entityIds.Clear();                  // Clear and shrink to minimum capacity.
 ```
 
-`SwapbackArray<T>` removes an item by moving the last item into its slot. Indexed removal is O(1) before any optional shrink; searching by value is O(n), and shrinking copies retained values. Set `ShrinkThresholdPercent = Percent.Zero` to defer shrinking until the collection is empty, or reuse capacity with `ClearRetainingCapacity()` between workloads. The owner must keep borrowed spans exclusive through their use. `RemoveAll` rejects predicates that mutate the array before compaction can overwrite their changes; prior in-place work is not rolled back after a predicate failure.
+`SwapbackArray<T>` removes an item by moving the last item into its slot. Indexed removal is O(1) before any optional shrink; searching by value is O(n), and shrinking copies retained values. Set `ShrinkThresholdPercent = Percent.Zero` to defer shrinking until the collection is empty, or reuse capacity with `ClearRetainingCapacity()` between workloads. The owner must keep borrowed spans exclusive through their use. `RemoveAll` rejects predicates that mutate the array before compaction can overwrite their changes; predicate failures preserve the original contents except for changes made by the predicate itself. After the first match, small removals record predicate decisions on the stack. Larger removals rent one byte per remaining element until compaction finishes.
 
 `ReplaceAt` and the indexer require `index < Count`. `TryGetIndex` returns `false` with index zero when absent. Adding the collection directly to itself appends its current contents once. An enumerable that reads the collection indirectly, such as a LINQ query over it, is invalidated when appending starts and throws instead of growing indefinitely. A failed enumeration can leave successfully appended items in the destination and invalidates existing enumerators.
 
@@ -91,7 +91,7 @@ These collections require external synchronization for concurrent mutation and a
 
 ## Grids and borrowed views
 
-For fixed-capacity gameplay storage, see [generational slot maps and ring buffers](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/src/Bezoro.Core/Collections/README.md). For replayable procedural generation, shuffling, and weighted selection, see [deterministic random streams](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/src/Bezoro.Core/Random/README.md). Their capacities and state ownership are explicit; they do not introduce global random state or synchronize mutable game data implicitly.
+For fixed-capacity gameplay storage, see [generational slot maps and ring buffers](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/Collections/README.md). For replayable procedural generation, shuffling, and weighted selection, see [deterministic random streams](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/Random/README.md). Their capacities and state ownership are explicit; they do not introduce global random state or synchronize mutable game data implicitly.
 
 ```csharp
 using Bezoro.Core.Types;
@@ -178,12 +178,12 @@ Format enum values with `ToString()` and then the string extensions. `ColorHex`,
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/global.json):
 
 ```bash
 dotnet build src/Bezoro.Core/Bezoro.Core.csproj -c Release
 dotnet test tests/Bezoro.Core.Tests/Bezoro.Core.Tests.csproj -c Release -f net10.0
 ```
 
-The first command builds both runtime targets. See [the Core tests](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/tests/Bezoro.Core.Tests/README.md) for covered contracts.
+The first command builds both runtime targets. See [the Core tests](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/tests/Bezoro.Core.Tests/README.md) for covered contracts.
 

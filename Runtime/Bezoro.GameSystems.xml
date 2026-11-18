@@ -866,6 +866,12 @@
                 Producers can enqueue from any thread. ECS systems drain and consume latest-per-control snapshots on the world thread.
             </remarks>
         </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.#ctor">
+            <summary>Creates an unbounded input queue.</summary>
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.#ctor(System.Int32)">
+            <summary>Creates an input queue with a nonnegative pending-command limit.</summary>
+        </member>
         <member name="P:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.SimulationTimeSeconds">
             <summary>
                 Gets the simulation time accumulated by ingestion updates.
@@ -883,6 +889,9 @@
         </member>
         <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.Enqueue(Bezoro.GameSystems.InputSystem.Types.InputCommand@)">
             <inheritdoc />
+        </member>
+        <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.TryEnqueue(Bezoro.GameSystems.InputSystem.Types.InputCommand@)">
+            <summary>Attempts to admit a command without exceeding the configured backlog limit.</summary>
         </member>
         <member name="M:Bezoro.GameSystems.InputSystem.Types.InputCommandQueue.Enqueue(System.Int32,System.Single,System.Single,System.Single,System.UInt64)">
             <summary>

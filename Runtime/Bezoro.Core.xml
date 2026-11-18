@@ -49,11 +49,16 @@
             <param name="item">The rented object if successful; otherwise, <c>null</c>.</param>
             <returns><c>true</c> if an object was successfully rented; otherwise, <c>false</c>.</returns>
         </member>
+        <member name="M:Bezoro.Core.Abstractions.IPool`1.TrimExcess">
+            <summary>
+                Trims toward 90% utilization.
+            </summary>
+        </member>
         <member name="M:Bezoro.Core.Abstractions.IPool`1.TrimExcess(Bezoro.Core.Types.Percent)">
             <summary>
                 Trims excess capacity from the pool based on the specified target utilization.
             </summary>
-            <param name="targetUtilization">Target utilization percentage (0-100). Defaults to 90%.</param>
+            <param name="targetUtilization">Target utilization percentage (0-100). Zero disables trimming. A positive target retains at most the rented count multiplied by 100 and divided by the target, rounded down.</param>
             <returns>The number of objects removed from the pool.</returns>
         </member>
         <member name="M:Bezoro.Core.Abstractions.IPool`1.RentHandle">
@@ -4063,6 +4068,9 @@
         <member name="M:Bezoro.Core.Types.Pool.ObjectPool`1.TryRent(`0@)">
             <inheritdoc />
         </member>
+        <member name="M:Bezoro.Core.Types.Pool.ObjectPool`1.TrimExcess">
+            <inheritdoc />
+        </member>
         <member name="M:Bezoro.Core.Types.Pool.ObjectPool`1.TrimExcess(Bezoro.Core.Types.Percent)">
             <inheritdoc />
         </member>
@@ -4860,7 +4868,7 @@
             <param name="match">Predicate to select elements for removal.</param>
             <exception cref="T:System.ArgumentNullException">If <paramref name="match" /> is null.</exception>
             <exception cref="T:System.InvalidOperationException">The predicate mutates the array.</exception>
-            <remarks>Compaction is in place; work performed before a predicate failure is not rolled back.</remarks>
+            <remarks>The array is compacted after every predicate succeeds. Changes made by a predicate remain visible.</remarks>
         </member>
         <member name="M:Bezoro.Core.Types.SwapbackArray`1.Add(`0)">
             <summary>

@@ -105,6 +105,7 @@
             <remarks>
             Use one application owner per save slot. Commands are serialized within this owner; other processes/owners require host coordination.
             The host owns ISaveStore and its platform path. A successful atomic store write precedes snapshot publication; failures leave the visible snapshot unchanged.
+            Save-store callbacks may read the published snapshot. Nested mutations of this owner in the callback execution context throw.
             Saved facts derive Elo, history, quests, story and reward balances through existing Framework modules. This is not an online authority or tamper-proof economy.
             </remarks>
         </member>
@@ -414,6 +415,9 @@
         <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.AcknowledgeRejectedCaptures(System.Int64)">
             <summary>Acknowledges that the host observed and retained rejected records through the supplied count.</summary>
             <remarks>Does not retry writes or award rejected matches. Returns false if a newer rejection arrived or there is no admission failure to acknowledge.</remarks>
+        </member>
+        <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.AcknowledgeClockFailure(System.Exception)">
+            <summary>Acknowledges the latest clock failure reported by LastError. Its match used the system UTC clock.</summary>
         </member>
         <member name="M:Bezoro.Chess.Progression.ChessTrainingProgressRecorder.SetContext(Bezoro.Chess.Progression.ChessTrainingProgressMode,System.String,System.Double,System.Char)">
             <summary>Sets explicit match intent and actual configured opponent strength/perspective before a new session position or game.</summary>

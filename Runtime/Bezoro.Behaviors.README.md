@@ -85,5 +85,9 @@ Successful Start, Tick, Dispatch, and Stop paths use their existing storage. Con
 
 ## Validation
 
-The [test suite](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/tests/Bezoro.Behaviors.Tests/README.md) covers all composition directions, budget-one continuations, parallel fairness, tokens and one-shot completions, fault cleanup, constructor ownership, reentrancy, and warmed allocation checks. The [benchmarks](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/benchmarks/Bezoro.Behaviors.Benchmarks/README.md) use preallocated graphs and contexts. Managed tests do not establish Unity player, IL2CPP, or Godot export behavior.
+The [test suite](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/tests/Bezoro.Behaviors.Tests/README.md) covers all composition directions, budget-one continuations, parallel fairness, tokens and one-shot completions, fault cleanup, constructor ownership, reentrancy, and warmed allocation checks. The [benchmarks](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/benchmarks/Bezoro.Behaviors.Benchmarks/README.md) use preallocated graphs and contexts. Managed tests do not establish Unity player, IL2CPP, or Godot export behavior.
+
+## Callback ownership migration
+
+Supply an application handler to each tree or chart adapter that needs callbacks. Code that previously passed a `TreeBehavior<TContext>` or `StatechartBehavior<TContext>` as a handler must pass its application handler instead. The adapter invokes its private receiver under the owning graph reservation. Drive the adapter through Start, Tick, Stop and its signal API.
 

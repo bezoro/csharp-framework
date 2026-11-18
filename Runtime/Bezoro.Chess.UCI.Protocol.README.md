@@ -73,7 +73,7 @@ Low-level UCI transport, parsing, and engine-client orchestration for chess engi
 | `IExpectedPointsModel`, `EngineWdlExpectedPointsModel` | Replaceable probability model and engine-self-play default |
 | `MoveReviewAnnotation`, `IMoveReviewAnnotationPolicy` | Application-provided opening and special-label evidence |
 
-See the [review architecture and research](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/docs/chess-review.md) for the public Chess.com behavior studied, the implemented thresholds, and the proprietary features that are not reproduced.
+See the [review architecture and research](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/docs/chess-review.md) for the public Chess.com behavior studied, the implemented thresholds, and the proprietary features that are not reproduced.
 
 ## Local play without an engine
 
@@ -165,7 +165,7 @@ await client.IsReadyAsync(cancellationToken);
 
 `InfoPvReceived` remains a supported compatibility event for principal-variation consumers. The older event aliases remain available but are obsolete: `BestMoveReceived` projects `UciBestMoveMessage.BestMove` and `PonderMove` into two string arguments and reports "Use BestMoveMessageReceived instead.", while `LineReceived` reports "Use RawLineReceived instead." New code should use the canonical events.
 
-Typed `info` messages, `PrincipalVariation.TryParse`, and `SearchResult.TryParse` use one shared UCI info grammar. Outer whitespace and repeated ASCII spaces are accepted; tabs are not token separators. The `info` prefix, `cp`/`mate` score kinds, and score bounds are case-insensitive, while field keywords such as `depth` and `pv` retain their lowercase UCI spelling. Move text keeps the engine's original casing, and `string` and `pv` consume the remainder of their line.
+Typed `info` messages, `PrincipalVariation.TryParse`, and `SearchResult.TryParse` use one shared UCI info grammar. Whitespace, including tabs and repeated spaces, separates tokens in `info` and `bestmove` lines. The `info` prefix, `cp`/`mate` score kinds, and score bounds are case-insensitive, while field keywords such as `depth` and `pv` retain their lowercase UCI spelling. Move text keeps the engine's original casing, and `string` and `pv` consume the remainder of their line.
 
 Collection-bearing protocol snapshots use immutable storage:
 - `SearchParameters.SearchMoves`
@@ -620,13 +620,25 @@ if (result.BestPv is { Wdl: { } wdl } pv && pv.ScoreBound == UciScoreBound.Exact
 
 The parser preserves WDL in `UciInfoPayload.Wdl` and `PrincipalVariation.Wdl`. Malformed distributions remain absent. `PrincipalVariation.ScoreBound` distinguishes exact scores from lower and upper search bounds. A bound must not be presented as an exact evaluation of move quality. These are engine self-play estimates, not an Elo-specific human prediction or a reproduction of Chess.com's private review algorithm. See the [Stockfish FAQ](https://official-stockfish.github.io/docs/stockfish-wiki/Stockfish-FAQ.html).
 
+## Handshake metadata
+
+Each successful `uci` handshake publishes a coherent snapshot of engine identity and options after the readiness acknowledgment. Reinitialization keeps the prior snapshot available while the replacement is collected. Collection closes at `uciok`. Later option and identity lines still raise protocol events.
+
+`UciClientOptions.MaxAdvertisedOptions` bounds retained distinct option names to 4096 by default. The first names keep their advertised order, and repeated names update the entry case-insensitively. Surplus names remain available through protocol events.
+
+## Readiness and perft responses
+
+A handshake or readiness timeout covers sending the command and receiving its acknowledgment. Custom transports must observe the supplied cancellation token while waiting for write capacity. If a write or acknowledgment fails, stop and restart the client before issuing another serialized protocol command. A queued readiness check fails before sending a new command, so a late `readyok` cannot satisfy it. Cancellation while waiting for the command gate leaves the active exchange intact.
+
+Perft captures moves in the protocol reader through the matching `readyok`. Exceptions from raw-output subscribers do not affect the move set.
+
 ## Search completion and restart
 
 `GoAsync` and `GoFireAndForgetAsync` share one active-search slot. Overlapping searches throw `InvalidOperationException`. Fire-and-forget searches forward live events without retaining an unbounded PV history. `StopSearchAsync` waits for the engine's `bestmove` response and the stopped search's cleanup before returning. After a successful stop, a new search can begin immediately without separately awaiting the original `GoAsync` task. A `readyok` response alone does not acknowledge that a search has stopped.
 
 After cancellation or timeout, the client sends `stop` and drains its response within `SearchStopGracePeriod`. If the engine never acknowledges with `bestmove`, subsequent searches require `StopAsync` followed by `StartAsync`. UCI has no request identifiers, so reusing that connection could attribute an old best move to a new position.
 
-Search node counts, tablebase hits, and elapsed time are cumulative engine counters. `SearchResult` keeps their highest reported values, including `info` messages without a PV. `BestPv` and `BestCpScore` use the deepest primary variation and prefer the most recent report at equal depth. Engine terminal responses `bestmove 0000` and `bestmove (none)` complete normally.
+Search node counts, tablebase hits, and elapsed time are cumulative engine counters. `SearchResult` keeps their highest reported values, including `info` messages without a PV. `BestPv` and `BestCpScore` use the deepest primary variation and prefer the most recent report at equal depth. Engine terminal responses `bestmove 0000` and `bestmove (none)` complete normally. Ponder score improvements prefer a shorter winning mate, then a higher centipawn score, then a longer forced loss.
 
 Lifecycle operations serialize startup, shutdown, and disposal. Repeated disposal calls wait for the same serialized teardown. Command admission is checked before and after acquiring the protocol gate, so queued commands cannot write to an already disposed custom transport. Position commands validate lifetime and cancellation before enumerating caller moves. Serialized engine wrappers prepare the final immutable command text before admission, so caller iterators can perform other operations without running under a wrapper gate; sending rechecks lifetime and cancellation. Canceling the token originally passed to a successful `StartAsync` does not stop the reader; call `StopAsync` to end the client lifetime.
 
@@ -642,7 +654,7 @@ UCI node counts, nodes per second, tablebase hits, and elapsed milliseconds use 
 
 ### Parallel game review
 
-`UciGameReviewAnalyzer` accepts a pool of distinct, already started dedicated clients. Set `GameReviewOptions.MaxParallelPositions` to opt in; the default remains one. `ThreadsPerEngine`, `HashMegabytesPerEngine`, and `MaxGameMoves` provide explicit CPU, hash-table, and history budgets. Results remain chronological and immutable. Progress carries `PositionIndex` because searches can finish out of order. See [parallel review and resource budgets](https://github.com/bezoro/csharp-framework/blob/e3008d2df1a6c57d8ad68efbe7325016f6e4157b/docs/chess-review.md#parallel-review-and-resource-budgets) for ownership, cancellation, and engine configuration.
+`UciGameReviewAnalyzer` accepts a pool of distinct, already started dedicated clients. Set `GameReviewOptions.MaxParallelPositions` to opt in; the default remains one. `ThreadsPerEngine`, `HashMegabytesPerEngine`, and `MaxGameMoves` provide explicit CPU, hash-table, and history budgets. Results remain chronological and immutable. Progress carries `PositionIndex` because searches can finish out of order. See [parallel review and resource budgets](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/docs/chess-review.md#parallel-review-and-resource-budgets) for ownership, cancellation, and engine configuration.
 
 ## API migration
 
@@ -652,5 +664,7 @@ Refresh no longer queues Stockfish work. Call `GetLegalMoveAnalysisAsync()` for 
 
 `UciPositionAnalysisCoordinator.Dispose()` is terminal. Use `Cancel()` to clear and reuse a coordinator. Its cache and pending queue have finite configurable limits. `UciClientOptions.MaxCapturedPrincipalVariations` bounds recent PV snapshots retained by each awaited search, default 4096. Live events still receive every line, and `SearchResult.TryParse` preserves the complete caller-supplied transcript. Fire-and-forget searches retain no PV history.
 
-Malformed entries in position histories and `SearchMoves` now reject the whole command instead of silently dropping moves. Typed option and registration fields reject CR, LF, and NUL before transport writes. Search subsets therefore cannot silently become unrestricted searches. Process teardown starts the bounded exit or kill path while joining blocked stdin writes, allowing children that stopped reading to be released.
+Malformed entries in position histories and `SearchMoves` now reject the whole command instead of silently dropping moves. Typed option and registration fields reject CR, LF, and NUL before transport writes. Search subsets therefore cannot silently become unrestricted searches. Process teardown starts the exit deadline while joining the writer. After the writer retires, teardown can send `quit` and closes stdin so engines that wait for EOF can exit normally. A stdin write failure closes the outgoing channel and wakes pending writers. Client shutdown signals the reader to stop, closes the transport, and joins the read loop before reporting cancellation or callback failure.
+
+`ProcessUciTransportOptions.MaxIncomingLineLength` limits each decoded stdout and stderr line to 262,144 characters by default. An oversized line faults its reader and raises the transport's error event as soon as the limit is exceeded, even before a newline. Set the limit explicitly for engines with unusually long output. Readers use the configured stream encoding and accept its leading byte-order mark, including when a multibyte character spans pipe reads.
 

@@ -2686,6 +2686,9 @@
                 Default is 10MB (10,485,760 characters) - a generous safety ceiling for pathological cases.
             </summary>
         </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.ProcessUciTransportOptions.MaxIncomingLineLength">
+            <summary>Maximum decoded characters in a stdout or stderr line. Oversized lines fault that reader.</summary>
+        </member>
         <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.ProcessUciTransportOptions.QuitGracePeriodMs">
             <summary>
                 Grace period in milliseconds to wait after sending "quit" before forcing termination, when
@@ -3069,6 +3072,10 @@
             <summary>
                 Configures client-level protocol timeouts and parsing behavior.
             </summary>
+        </member>
+        <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions.MaxAdvertisedOptions">
+            <summary>Maximum distinct option names retained from each UCI handshake. Default is 4096.</summary>
+            <remarks>Later declarations of a retained name update its value. Additional names remain observable as protocol events.</remarks>
         </member>
         <member name="P:Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions.MaxCapturedPrincipalVariations">
             <summary>Maximum number of recent PV snapshots retained in a completed search result. Default is 4096.</summary>
@@ -4657,24 +4664,9 @@
                 Starts the stderr loop if needed.
             </summary>
         </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.BackgroundLoopManager.StartWriteLoop(System.Threading.Channels.ChannelReader{System.String},System.IO.StreamWriter)">
+        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.BackgroundLoopManager.StartWriteLoop(System.Threading.Channels.ChannelReader{System.String},System.IO.StreamWriter,System.Threading.Channels.ChannelWriter{System.String})">
             <summary>
                 Starts the write loop.
-            </summary>
-        </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.BackgroundLoopManager.TryWriteLine(System.IO.StreamWriter,System.String)">
-            <summary>
-                Attempts to write a line to the stream, returning false if the stream is disposed.
-            </summary>
-        </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.BackgroundLoopManager.TryReadLineAsync(System.IO.StreamReader)">
-            <summary>
-                Attempts to read a line from the stream, returning null if the stream is closed or disposed.
-            </summary>
-        </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.BackgroundLoopManager.TryFlush(System.IO.StreamWriter)">
-            <summary>
-                Attempts to flush the stream, swallowing any exceptions.
             </summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.BackgroundLoopManager.ProcessAvailableCommands(System.Threading.Channels.ChannelReader{System.String},System.IO.StreamWriter,System.Int32,System.Threading.CancellationToken)">
@@ -4717,6 +4709,12 @@
             <summary>
                 Thread-safe metrics tracker for background loops.
             </summary>
+        </member>
+        <member name="T:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.BoundedLineReader">
+            <summary>Reads decoded chunks, limiting each line before growing its accumulator.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.BoundedLineReader.#ctor(System.IO.StreamReader,System.Int32)">
+            <summary>Reads decoded chunks, limiting each line before growing its accumulator.</summary>
         </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.ChannelFactory">
             <summary>
@@ -4843,7 +4841,7 @@
                 Helper for initializing process streams.
             </summary>
         </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.StreamInitializer.InitializeStreams(System.Diagnostics.Process,System.Text.Encoding,System.Text.Encoding,System.Text.Encoding,System.Boolean,System.String,System.Boolean)">
+        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.StreamInitializer.InitializeStreams(System.Diagnostics.Process,System.Text.Encoding,System.Boolean,System.String,System.Boolean)">
             <summary>
                 Initializes streams for a process with the given encodings and options.
             </summary>
@@ -5002,6 +5000,12 @@
                 Parses raw engine output lines into typed UCI protocol messages.
             </summary>
         </member>
+        <member name="T:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.UciTokens">
+            <summary>Reads whitespace-delimited tokens without copying the engine's output line.</summary>
+        </member>
+        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.UciTokens.#ctor(System.ReadOnlySpan{System.Char})">
+            <summary>Reads whitespace-delimited tokens without copying the engine's output line.</summary>
+        </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.Domain.Common.Helpers.WriteOperationHelper">
             <summary>
                 Helper for write operations with timeout and cancellation support.
@@ -5023,19 +5027,10 @@
             </summary>
         </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.BestMoveLine">
-            <summary>
-                Represents a parsed "bestmove" line emitted by a UCI engine.
-            </summary>
+            <summary>Represents a parsed bestmove line emitted by a UCI engine.</summary>
         </member>
         <member name="M:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.BestMoveLine.#ctor(System.String,System.String)">
-            <summary>
-                Represents a parsed "bestmove" line emitted by a UCI engine.
-            </summary>
-        </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.BestMoveLine.TryParse(System.String,Bezoro.Chess.UCI.Protocol.Domain.EngineClient.BestMoveLine@)">
-            <summary>
-                Attempts to parse a "bestmove" output line.
-            </summary>
+            <summary>Represents a parsed bestmove line emitted by a UCI engine.</summary>
         </member>
         <member name="T:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.EngineActivityTracker">
             <summary>
@@ -5138,7 +5133,7 @@
                 Provides reusable command helpers for interacting with a UCI engine transport.
             </summary>
         </member>
-        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.UciEngineCommandModule.#ctor(Bezoro.Chess.UCI.Protocol.API.Abstractions.IUciTransport,Bezoro.Chess.UCI.Protocol.Domain.EngineClient.UciLineWaiterRegistry,Bezoro.Chess.UCI.Protocol.API.Abstractions.IUciLineSource,System.Action{Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity},Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions,System.Action)">
+        <member name="M:Bezoro.Chess.UCI.Protocol.Domain.EngineClient.UciEngineCommandModule.#ctor(Bezoro.Chess.UCI.Protocol.API.Abstractions.IUciTransport,Bezoro.Chess.UCI.Protocol.Domain.EngineClient.UciLineWaiterRegistry,System.Action{Bezoro.Chess.UCI.Protocol.API.Types.EngineActivity},Bezoro.Chess.UCI.Protocol.API.Types.UciClientOptions,System.Action,System.Action{System.Boolean},System.Action{System.Boolean})">
             <summary>
                 Provides reusable command helpers for interacting with a UCI engine transport.
             </summary>

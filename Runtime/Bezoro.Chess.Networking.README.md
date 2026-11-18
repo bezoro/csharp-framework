@@ -31,6 +31,8 @@ var receipt = match.Submit(ChessPlayerSeat.White, command);
 
 Commands contain a match identity, expected authoritative revision, and per-seat sequence, together with the requested action. They never supply authoritative FEN, clocks, or results. Moves must be complete lowercase UCI notation: resolve a promotion selection in the UI, then submit `a7a8q`, rather than submitting a partial promotion.
 
+When restoring a compatible local save with a pending promotion, the active seat submits the saved prefix plus its chosen suffix. The board advances by exactly one ply. For a computer seat the host restricts the engine search to the pending choices.
+
 Start each seat's sequence at one, and increment only after acceptance. Rejections leave the sequence available for a corrected request. The last identical accepted request per seat returns its original receipt without executing twice. Earlier sequences and reused sequences with different contents are rejected. This retains two receipts rather than an unbounded deduplication history. Because a duplicate receipt may describe an earlier revision, a receiving client must retain its newest snapshot rather than overwrite it with an older receipt.
 
 `GetSnapshot()` refreshes clocks and local adjudication. Call it when the host needs to publish time or detect a timeout, using the host's scheduler. Changing clock values does not increment the revision; a newly adjudicated result does. Project clocks should use a monotonic elapsed-time source, for example a fixed UTC origin plus `Stopwatch.Elapsed`, passed through `utcNowProvider`. Never let a peer set authoritative clock values. The framework supplies no prediction or network-latency compensation policy.
