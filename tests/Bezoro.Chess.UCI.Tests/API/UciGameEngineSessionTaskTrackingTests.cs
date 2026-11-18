@@ -124,6 +124,7 @@ public sealed class UciGameEngineSessionTaskTrackingTests
 			await DrainTrackedTasksAsync(session);
 			Assert.DoesNotContain(failedWorker, TrackedTasks(session));
 			await session.StopAsync();
+			Assert.False(ponderTransport.Transport.IsStarted);
 			Assert.Empty(TrackedTasks(session));
 		}
 		finally

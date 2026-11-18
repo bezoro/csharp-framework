@@ -102,11 +102,21 @@ internal sealed class UciPonderRuntime : IAsyncDisposable, IDisposable
 
 	public async Task StopAsync(CancellationToken ct = default)
 	{
-		await StopSearchAsync(ct).ConfigureAwait(false);
-		await _client.StopAsync(ct).ConfigureAwait(false);
-		ClearLastScores();
+		await _searchOperationGate.WaitAsync(ct).ConfigureAwait(false);
+		try
+		{
+			// Closing the transport retires the active search. A readiness handshake
+			// is only needed when the engine will be reused without a restart.
+			InvalidateSearch();
+			await _client.StopAsync(CancellationToken.None).ConfigureAwait(false);
+		}
+		finally
+		{
+			_searchOperationGate.Release();
+		}
 		if (_stopHook is { })
 			await _stopHook(ct).ConfigureAwait(false);
+		ct.ThrowIfCancellationRequested();
 	}
 
 	public async Task StopSearchAsync(CancellationToken ct = default)
@@ -124,21 +134,21 @@ internal sealed class UciPonderRuntime : IAsyncDisposable, IDisposable
 
 	private async Task StopSearchCoreAsync(CancellationToken ct)
 	{
-		DisableOutputForwarding();
-		Volatile.Write(ref _searchActive, 0);
-		Interlocked.Increment(ref _searchGeneration);
-
-		lock (_scoreLock)
-		{
-			_lastScoreMate = null;
-			_lastScoreCp   = null;
-		}
+		InvalidateSearch();
 
 		if (!_client.IsStarted)
 			return;
 
 		await _client.StopSearchAsync(ct).ConfigureAwait(false);
 		await _client.IsReadyAsync(ct).ConfigureAwait(false);
+	}
+
+	private void InvalidateSearch()
+	{
+		DisableOutputForwarding();
+		Volatile.Write(ref _searchActive, 0);
+		Interlocked.Increment(ref _searchGeneration);
+		ClearLastScores();
 	}
 
 	public async ValueTask DisposeAsync()

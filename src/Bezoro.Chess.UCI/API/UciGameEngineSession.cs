@@ -828,7 +828,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 		if (_engineClients is { })
 		{
 			cancellationRequested = await TryStopStepAsync(
-				StopSearchCoreAsync,
+				token => StopSearchCoreAsync(token, keepEngine: false),
 				cancellationRequested,
 				stopFailures,
 				ct,
@@ -2631,7 +2631,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 #pragma warning restore CS0618
 	}
 
-	private async Task StopSearchCoreAsync(CancellationToken ct)
+	private async Task StopSearchCoreAsync(CancellationToken ct, bool keepEngine = true)
 	{
 		await _ponderOperation.ConfigureAwait(false);
 		InvalidatePonderState(clearTransientState: true);
@@ -2639,7 +2639,7 @@ public sealed class UciGameEngineSession : IAsyncDisposable, IDisposable
 
 		try
 		{
-			if (_engineClients is { Ponder.IsStarted: true } engines)
+			if (keepEngine && _engineClients is { Ponder.IsStarted: true } engines)
 				await engines.Ponder.StopSearchAsync(ct).ConfigureAwait(false);
 		}
 		finally
