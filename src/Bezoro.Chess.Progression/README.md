@@ -1,6 +1,6 @@
 # Bezoro.Chess.Progression
 
-Local player progression composed from existing Framework modules. `PlayerProfile`, `PlayerMatchHistory` and `EloRatings` own profile/history/rating values; `QuestProgress` and `StoryProgress` own objective, claim and prerequisite rules; `CommerceAccount` owns currency, permanent ownership and purchase receipts. This optional module adds the chess application boundary and one atomic save. It contains no Unity references, loaded artwork, network services or global ranking.
+Local player progression composed from existing Framework modules. `PlayerProfile`, `PlayerMatchRecord` and `EloRatings` own profile/history/rating values; `QuestProgress` and `StoryProgress` own objective, claim and prerequisite rules; `CommerceAccount` owns currency, permanent ownership and purchase receipts. This optional module adds the chess application boundary and one atomic save. It contains no Unity references, loaded artwork, network services or global ranking.
 
 ```csharp
 var options = new ChessProgressOptions();
@@ -44,3 +44,6 @@ The bounded schema-1 payload retains profile metadata, distinct live-match facts
 Both .NET 10 and .NET Standard 2.1 are supported. Focused tests use the real atomic file store and local rule-session events to verify restore, cancellation/failure boundaries, duplicate matches and lessons, exactly-once rewards, typed cosmetic equipment, purchases and recorder drainage. These managed tests do not certify any game engine's rendering or player filesystem.
 
 If a custom completion clock throws, the recorder timestamps that match once with the system UTC clock and continues ordinary queue admission. Drain and retry report the latest clock failure until the host passes the observed LastError to AcknowledgeClockFailure. Acknowledgment clears the diagnostic only. Persistence retries keep the captured fallback timestamp.
+
+
+Profile commands update a private working state under the per-owner command gate. Immutable history and its match index share prior versions with retained snapshots. Successful commands encode the current ledger once. Duplicate matches use the index, and unchanged commands skip encoding and storage. A failed mutation or atomic write rebuilds the working state from the previously committed facts. Reads, including reads inside a save-store callback, see only committed snapshots. A store write must not wait for another mutation of the same owner. Such nested calls in its execution context throw before waiting for the command gate.
