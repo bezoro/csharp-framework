@@ -74,11 +74,12 @@ public sealed class TimerSystem : ISystem
 			? 0f : context.DeltaTime;
 
 		bool canFinish = PublishPendingTransitions(world);
+		int remainingDestructions = -1;
 
 		world.Query<TimerQuery>().ForEach<Timer>(
 			(Entity timerEntity, ref Timer timer) =>
 		{
-			AdvanceTimer(world, commands, timerEntity, ref timer, deltaTime, canFinish);
+			AdvanceTimer(world, commands, timerEntity, ref timer, deltaTime, canFinish, ref remainingDestructions);
 		}
 		);
 	}
@@ -89,7 +90,8 @@ public sealed class TimerSystem : ISystem
 		Entity        timerEntity,
 		ref Timer     timer,
 		float         deltaTime,
-		bool          canFinish)
+		bool          canFinish,
+		ref int       remainingDestructions)
 	{
 		if (timer.State != TimerState.Running || (deltaTime <= 0f && timer.ElapsedSeconds < timer.DurationSeconds))
 			return;
@@ -103,15 +105,24 @@ public sealed class TimerSystem : ISystem
 
 		timer.ElapsedSeconds = timer.DurationSeconds;
 		if (!canFinish) return;
+		bool oneShot = timer.Mode == TimerMode.OneShot;
+		if (oneShot)
+		{
+			// This update owns its command stream. Budget destruction before publishing a finish.
+			if (remainingDestructions < 0) remainingDestructions = commands.RemainingCapacity;
+			if (remainingDestructions == 0) return;
+		}
 
 		var finished = new TimerLifecycleEvent(timerEntity, TryResolveOwner(world, timerEntity), timer.TimerId,
 			TimerLifecycle.Finished, TimerState.Completed, timer.ElapsedSeconds, timer.DurationSeconds);
 		if (!world.GetOrCreateResource<TimerEventsResource>().TryEnqueue(in finished)) return;
 		timer.State = TimerState.Completed;
-		Notify(in finished);
-
-		if (timer.Mode == TimerMode.OneShot)
+		if (oneShot)
+		{
 			commands.Destroy(timerEntity);
+			remainingDestructions--;
+		}
+		Notify(in finished);
 	}
 
 	private bool PublishPendingTransitions(World world)

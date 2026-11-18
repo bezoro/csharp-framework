@@ -1,4 +1,5 @@
 using Bezoro.ECS.Services;
+using Bezoro.ECS.Types;
 using Bezoro.GameSystems.TimerSystem.Extensions;
 using Bezoro.GameSystems.TimerSystem.Types;
 using FluentAssertions;
@@ -11,6 +12,29 @@ namespace Bezoro.GameSystems.Tests.TimerSystem;
 [TestSubject(typeof(TimerSystemType))]
 public class TimerSystemTests
 {
+	[Theory]
+	[InlineData(WorldOverflowPolicy.FailFast)]
+	[InlineData(WorldOverflowPolicy.DropNewest)]
+	public void ExpiredOneShotsWaitForSpaceInTheDeferredCommandStream(WorldOverflowPolicy overflowPolicy)
+	{
+		using var world = new World(new WorldConfig { CommandCapacity = 1, OverflowPolicy = overflowPolicy });
+		var system = new TimerSystemType();
+		world.AddSystem(system);
+		int finished = 0;
+		system.Finished += _ => finished++;
+		var first = world.Spawn(new Timer(1, 1f, state: TimerState.Running, mode: TimerMode.OneShot));
+		var second = world.Spawn(new Timer(2, 1f, state: TimerState.Running, mode: TimerMode.OneShot));
+
+		world.Tick(1f);
+		Assert.Equal(1, finished);
+		Assert.NotEqual(world.IsAlive(first), world.IsAlive(second));
+
+		world.Tick(0f);
+		Assert.Equal(2, finished);
+		Assert.False(world.IsAlive(first));
+		Assert.False(world.IsAlive(second));
+	}
+
 	[Fact]
 	public void BoundedQueueRetriesControlTransitionAndOneShotCompletionInOrder()
 	{
