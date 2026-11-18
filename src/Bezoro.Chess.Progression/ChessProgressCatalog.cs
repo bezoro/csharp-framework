@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
 using Bezoro.Chess.Study;
@@ -59,7 +60,7 @@ public sealed class ChessProgressCatalog
         if (quests is null) throw new ArgumentNullException(nameof(quests));
         _quests = quests.ToArray();
         if (_quests.Any(quest => quest is null)) throw new ArgumentException("Quests cannot be null.", nameof(quests));
-        Quests = Array.AsReadOnly(_quests);
+        Quests = ImmutableList.CreateRange(_quests);
         QuestCatalog = new QuestCatalog(_quests.Select(quest => quest.Definition).ToArray());
         foreach (var quest in _quests)
             foreach (var objective in quest.Definition.Objectives)

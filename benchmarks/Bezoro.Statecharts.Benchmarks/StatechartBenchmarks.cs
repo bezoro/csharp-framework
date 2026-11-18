@@ -34,3 +34,42 @@ public class StatechartBenchmarks
     [Benchmark]
     public StatechartDispatchResult Transition() => _runner.Dispatch(default, ref _context);
 }
+
+/// <summary>Measures delivery of one broadcast with one independently enabled reaction in every region.</summary>
+[MemoryDiagnoser]
+public class OrthogonalDispatchBenchmarks
+{
+    private StatechartRunner<int> _runner = null!;
+    private int _context;
+
+    /// <summary>Number of simultaneously active regions receiving the signal.</summary>
+    [Params(1, 8, 32, 128, 512)]
+    public int ActiveRegions { get; set; }
+
+    /// <summary>Creates independent internal reactions and external self-transitions.</summary>
+    [GlobalSetup]
+    public void Setup()
+    {
+        var builder = new StatechartBuilder();
+        var react = builder.Signal();
+        var reenter = builder.Signal();
+        for (int i = 0; i < ActiveRegions; i++)
+        {
+            var region = builder.Region();
+            var state = region.State();
+            region.StartIn(state);
+            builder.Transition(state, react, state, kind: ChartTransitionKind.Internal);
+            builder.Transition(state, reenter, state);
+        }
+        _runner = new StatechartRunner<int>(builder.Build());
+        _runner.Start(ref _context);
+    }
+
+    /// <summary>Dispatches to every active region without reentry.</summary>
+    [Benchmark]
+    public StatechartDispatchResult InternalBroadcast() => _runner.Dispatch(default, ref _context);
+
+    /// <summary>Exits and reenters every active region.</summary>
+    [Benchmark]
+    public StatechartDispatchResult ExternalBroadcast() => _runner.Dispatch(new SignalId(1), ref _context);
+}

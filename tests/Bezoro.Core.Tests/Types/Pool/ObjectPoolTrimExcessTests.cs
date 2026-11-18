@@ -39,11 +39,13 @@ public class ObjectPoolTrimExcessTests
 		var policy = new TrackingPoolPolicy();
 		var pool = new ObjectPool<object>(policy, new() { InitialCapacity = 3, TrackStatistics = true });
 
-		pool.TrimExcess(Percent.Half).Should().Be(2);
+		pool.Rent();
+		pool.TrimExcess(default).Should().Be(0);
+		pool.TrimExcess(Percent.Half).Should().Be(1);
 
 		pool.AvailableCount.Should().Be(1);
-		pool.TotalCount.Should().Be(1);
-		pool.Statistics.TotalDiscarded.Should().Be(2);
-		policy.DiscardCount.Should().Be(2);
+		pool.TotalCount.Should().Be(2);
+		pool.Statistics.TotalDiscarded.Should().Be(1);
+		policy.DiscardCount.Should().Be(1);
 	}
 }

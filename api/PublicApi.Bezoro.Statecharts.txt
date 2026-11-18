@@ -1,0 +1,124 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Statecharts
+{
+    public readonly struct ChartRegion
+    {
+        public ChartRegion(Bezoro.StateMachines.StateId initialState, Bezoro.StateMachines.StateId? parentState = default) { }
+        public Bezoro.StateMachines.StateId InitialState { get; }
+        public Bezoro.StateMachines.StateId? ParentState { get; }
+    }
+    public readonly struct ChartState
+    {
+        public ChartState(Bezoro.Statecharts.RegionId region) { }
+        public Bezoro.Statecharts.RegionId Region { get; }
+    }
+    public readonly struct ChartTransition
+    {
+        public ChartTransition(Bezoro.StateMachines.StateId source, Bezoro.StateMachines.SignalId signal, Bezoro.StateMachines.StateId target, Bezoro.Conditions.ConditionProgram? guard = null, int priority = 0, Bezoro.Statecharts.ChartTransitionKind kind = 0) { }
+        public Bezoro.Conditions.ConditionProgram? Guard { get; }
+        public Bezoro.Statecharts.ChartTransitionKind Kind { get; }
+        public int Priority { get; }
+        public Bezoro.StateMachines.SignalId Signal { get; }
+        public Bezoro.StateMachines.StateId Source { get; }
+        public Bezoro.StateMachines.StateId Target { get; }
+    }
+    public enum ChartTransitionKind
+    {
+        External = 0,
+        Local = 1,
+        Internal = 2,
+    }
+    public interface IStatechartHandler<TContext>
+    {
+        bool EvaluateGuard(int predicateId, Bezoro.Statecharts.StatechartView configuration, in TContext context);
+        void OnEnter(Bezoro.StateMachines.StateId state, Bezoro.Statecharts.StateActivation activation, ref TContext context);
+        void OnExit(Bezoro.StateMachines.StateId state, Bezoro.Statecharts.StateActivation activation, ref TContext context);
+        void OnTransition(int transitionIndex, in Bezoro.Statecharts.ChartTransition transition, ref TContext context);
+    }
+    public readonly struct RegionId : System.IEquatable<Bezoro.Statecharts.RegionId>
+    {
+        public RegionId(int value) { }
+        public int Value { get; }
+        public bool Equals(Bezoro.Statecharts.RegionId other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Bezoro.Statecharts.RegionId left, Bezoro.Statecharts.RegionId right) { }
+        public static bool operator ==(Bezoro.Statecharts.RegionId left, Bezoro.Statecharts.RegionId right) { }
+    }
+    public readonly struct StateActivation : System.IEquatable<Bezoro.Statecharts.StateActivation>
+    {
+        public bool IsValid { get; }
+        public bool Equals(Bezoro.Statecharts.StateActivation other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Bezoro.Statecharts.StateActivation left, Bezoro.Statecharts.StateActivation right) { }
+        public static bool operator ==(Bezoro.Statecharts.StateActivation left, Bezoro.Statecharts.StateActivation right) { }
+    }
+    public sealed class StatechartBuilder
+    {
+        public StatechartBuilder() { }
+        public Bezoro.Statecharts.StatechartDefinition Build() { }
+        public Bezoro.Statecharts.StatechartRegion Region() { }
+        public Bezoro.Statecharts.StatechartRegion Region(Bezoro.StateMachines.StateHandle parent) { }
+        public Bezoro.StateMachines.SignalId Resolve(Bezoro.StateMachines.SignalHandle signal) { }
+        public Bezoro.StateMachines.StateId Resolve(Bezoro.StateMachines.StateHandle state) { }
+        public Bezoro.StateMachines.SignalHandle Signal() { }
+        public void Transition(Bezoro.StateMachines.StateHandle from, Bezoro.StateMachines.SignalHandle on, Bezoro.StateMachines.StateHandle to, Bezoro.Conditions.ConditionProgram? guard = null, int priority = 0, Bezoro.Statecharts.ChartTransitionKind kind = 0) { }
+    }
+    public sealed class StatechartDefinition
+    {
+        public StatechartDefinition(System.ReadOnlySpan<Bezoro.Statecharts.ChartState> states, System.ReadOnlySpan<Bezoro.Statecharts.ChartRegion> regions, System.ReadOnlySpan<Bezoro.Statecharts.ChartTransition> transitions, int signalCount) { }
+        public int GuardStackSize { get; }
+        public bool HasConfigurationTransitions { get; }
+        public int MaximumActiveStates { get; }
+        public int MaximumDepth { get; }
+        public int RegionCount { get; }
+        public System.ReadOnlySpan<Bezoro.Statecharts.ChartRegion> Regions { get; }
+        public int SignalCount { get; }
+        public int StateCount { get; }
+        public System.ReadOnlySpan<Bezoro.Statecharts.ChartState> States { get; }
+        public int TransitionSourceCount { get; }
+        public System.ReadOnlySpan<Bezoro.Statecharts.ChartTransition> Transitions { get; }
+    }
+    public readonly struct StatechartDispatchResult
+    {
+        public int EnteredCount { get; }
+        public int ExitedCount { get; }
+        public bool HasTransition { get; }
+        public int TransitionCount { get; }
+    }
+    public abstract class StatechartHandler<TContext> : Bezoro.Statecharts.IStatechartHandler<TContext>
+    {
+        protected StatechartHandler() { }
+        public virtual bool EvaluateGuard(int predicateId, Bezoro.Statecharts.StatechartView configuration, in TContext context) { }
+        public virtual void OnEnter(Bezoro.StateMachines.StateId state, Bezoro.Statecharts.StateActivation activation, ref TContext context) { }
+        public virtual void OnExit(Bezoro.StateMachines.StateId state, Bezoro.Statecharts.StateActivation activation, ref TContext context) { }
+        public virtual void OnTransition(int transitionIndex, in Bezoro.Statecharts.ChartTransition transition, ref TContext context) { }
+    }
+    public readonly struct StatechartRegion
+    {
+        public void StartIn(Bezoro.StateMachines.StateHandle state) { }
+        public Bezoro.StateMachines.StateHandle State() { }
+    }
+    public sealed class StatechartRunner<TContext>
+    {
+        public StatechartRunner(Bezoro.Statecharts.StatechartDefinition definition, Bezoro.Statecharts.IStatechartHandler<TContext>? handler = null) { }
+        public System.ReadOnlySpan<Bezoro.StateMachines.StateId> ActiveStates { get; }
+        public Bezoro.Statecharts.StatechartDefinition Definition { get; }
+        public bool IsFaulted { get; }
+        public bool IsRunning { get; }
+        public Bezoro.Statecharts.StatechartDispatchResult Dispatch(Bezoro.StateMachines.SignalId signal, ref TContext context) { }
+        public Bezoro.Statecharts.StateActivation GetActivation(Bezoro.StateMachines.StateId state) { }
+        public bool IsActive(Bezoro.StateMachines.StateId state) { }
+        public bool IsActive(Bezoro.Statecharts.StateActivation activation) { }
+        public void Reset(ref TContext context) { }
+        public void Start(ref TContext context) { }
+        public void Stop(ref TContext context) { }
+        public bool TryGetActivation(Bezoro.StateMachines.StateId state, out Bezoro.Statecharts.StateActivation activation) { }
+    }
+    public readonly ref struct StatechartView
+    {
+        public System.ReadOnlySpan<Bezoro.StateMachines.StateId> ActiveStates { get; }
+        public bool IsActive(Bezoro.StateMachines.StateId state) { }
+    }
+}

@@ -1,3 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Bezoro.ECS.Abstractions;
 using Bezoro.ECS.Attributes;
 using Bezoro.ECS.Internal;
@@ -12,6 +15,18 @@ namespace Bezoro.ECS.Tests.Internal;
 [TestSubject(typeof(GeneratedSystemMetadataResolver))]
 public class GeneratedSystemMetadataResolverTests
 {
+	[Fact]
+	public void GeneratedCatalog_DeclaresLinkerDependencyOnItsReflectedProperty()
+	{
+		var catalog = typeof(ResolverStructSystem).Assembly.GetType("Bezoro.ECS.Generated.GeneratedSystemMetadata", true)!;
+		var initializer = catalog.GetMethod("PreserveCatalog", BindingFlags.Static | BindingFlags.NonPublic)!;
+		Assert.True(initializer.IsDefined(typeof(ModuleInitializerAttribute)));
+		var dependency = Assert.Single(initializer.GetCustomAttributes<DynamicDependencyAttribute>());
+		var getter = catalog.GetProperty("All", BindingFlags.Static | BindingFlags.NonPublic)!.GetMethod!;
+		Assert.Equal(getter.Name, dependency.MemberSignature);
+		Assert.Null(dependency.Type);
+	}
+
 	[Fact]
 	public void TryGet_WhenSystemUsesWrite_ShouldClassifyComponentAsWrite()
 	{

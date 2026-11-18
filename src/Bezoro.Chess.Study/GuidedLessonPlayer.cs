@@ -284,7 +284,7 @@ public sealed class GuidedLessonPlayer
         string instruction = _lesson is null ? string.Empty : scripted ? BuildInstruction(CurrentStep) : _lesson.Puzzle!.Instruction;
         IReadOnlyList<char> promotions = Array.Empty<char>();
         if (Phase == GuidedLessonPhase.WaitingForMoveResult && _pendingMove.Length == 4 && _confirmed is { } pending)
-            promotions = Array.AsReadOnly(pending.Position.GetLegalMoves()
+            promotions = ImmutableList.CreateRange(pending.Position.GetLegalMoves()
                 .Where(candidate => candidate.Length == 5 && candidate.StartsWith(_pendingMove, StringComparison.OrdinalIgnoreCase)
                     && (!scripted || GuidedLessonMoves.IsExpected(CurrentStep.ExpectedPlayerMove, candidate, false)))
                 .Select(candidate => candidate[4]).Distinct().ToArray());

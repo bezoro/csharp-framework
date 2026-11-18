@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
 using Bezoro.Chess.UCI.Protocol.API.Common.Extensions;
@@ -140,8 +140,8 @@ public sealed class GuidedLessonDefinition
         Mode = mode;
         Puzzle = puzzle;
         InitialSetup = initialSetup;
-        Steps = new ReadOnlyCollection<GuidedLessonStep>((steps ?? []).ToArray());
-        Fundamentals = new ReadOnlyCollection<string>((fundamentals ?? []).ToArray());
+        Steps = (steps ?? []).ToImmutableList();
+        Fundamentals = (fundamentals ?? []).ToImmutableList();
         Fingerprint = ComputeFingerprint();
     }
 

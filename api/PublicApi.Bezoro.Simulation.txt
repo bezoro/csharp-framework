@@ -1,0 +1,190 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Simulation.Attributes
+{
+    public static class StatCalculator
+    {
+        public static Bezoro.Simulation.Attributes.StatEvaluation Evaluate(Bezoro.Simulation.Attributes.StatDefinition definition, System.ReadOnlySpan<Bezoro.Simulation.Attributes.StatModifier> modifiers) { }
+    }
+    public readonly struct StatDefinition
+    {
+        public StatDefinition(Bezoro.Simulation.Attributes.StatId id, double baseValue, double minimum = -1.7976931348623157E+308, double maximum = 1.7976931348623157E+308) { }
+        public double BaseValue { get; }
+        public Bezoro.Simulation.Attributes.StatId Id { get; }
+        public double Maximum { get; }
+        public double Minimum { get; }
+        public Bezoro.Simulation.Attributes.StatDefinition WithBaseValue(double baseValue) { }
+    }
+    public readonly struct StatEvaluation
+    {
+        public double UnclampedValue { get; }
+        public double Value { get; }
+        public bool WasClamped { get; }
+        public bool WasSaturated { get; }
+    }
+    public readonly struct StatId : System.IEquatable<Bezoro.Simulation.Attributes.StatId>
+    {
+        public StatId(int value) { }
+        public bool IsValid { get; }
+        public int Value { get; }
+        public bool Equals(Bezoro.Simulation.Attributes.StatId other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override string ToString() { }
+        public static bool operator !=(Bezoro.Simulation.Attributes.StatId left, Bezoro.Simulation.Attributes.StatId right) { }
+        public static bool operator ==(Bezoro.Simulation.Attributes.StatId left, Bezoro.Simulation.Attributes.StatId right) { }
+    }
+    public readonly struct StatModifier
+    {
+        public StatModifier(Bezoro.Simulation.Attributes.StatModifierOperation operation, double value, int priority = 0) { }
+        public Bezoro.Simulation.Attributes.StatModifierOperation Operation { get; }
+        public int Priority { get; }
+        public double Value { get; }
+    }
+    public readonly struct StatModifierHandle : System.IEquatable<Bezoro.Simulation.Attributes.StatModifierHandle>
+    {
+        public bool IsDefault { get; }
+        public bool Equals(Bezoro.Simulation.Attributes.StatModifierHandle other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Bezoro.Simulation.Attributes.StatModifierHandle left, Bezoro.Simulation.Attributes.StatModifierHandle right) { }
+        public static bool operator ==(Bezoro.Simulation.Attributes.StatModifierHandle left, Bezoro.Simulation.Attributes.StatModifierHandle right) { }
+    }
+    public enum StatModifierOperation
+    {
+        Add = 0,
+        AddPercent = 1,
+        Multiply = 2,
+        Override = 3,
+    }
+    public sealed class StatSet
+    {
+        public StatSet(System.ReadOnlySpan<Bezoro.Simulation.Attributes.StatDefinition> definitions, int modifierCapacity) { }
+        public int AvailableModifierSlots { get; }
+        public int ModifierCapacity { get; }
+        public int ModifierCount { get; }
+        public int StatCount { get; }
+        public Bezoro.Simulation.Attributes.StatModifierHandle AddModifier(Bezoro.Simulation.Attributes.StatId id, Bezoro.Simulation.Attributes.StatModifier modifier) { }
+        public int ClearModifiers() { }
+        public int ClearModifiers(Bezoro.Simulation.Attributes.StatId id) { }
+        public bool Contains(Bezoro.Simulation.Attributes.StatId id) { }
+        public int CopyModifiersTo(Bezoro.Simulation.Attributes.StatId id, System.Span<Bezoro.Simulation.Attributes.StatModifier> destination) { }
+        public Bezoro.Simulation.Attributes.StatEvaluation Evaluate(Bezoro.Simulation.Attributes.StatId id) { }
+        public Bezoro.Simulation.Attributes.StatDefinition GetDefinition(Bezoro.Simulation.Attributes.StatId id) { }
+        public int GetModifierCount(Bezoro.Simulation.Attributes.StatId id) { }
+        public double GetValue(Bezoro.Simulation.Attributes.StatId id) { }
+        public void SetBaseValue(Bezoro.Simulation.Attributes.StatId id, double baseValue) { }
+        public void SetDefinition(Bezoro.Simulation.Attributes.StatDefinition definition) { }
+        public bool TryAddModifier(Bezoro.Simulation.Attributes.StatId id, Bezoro.Simulation.Attributes.StatModifier modifier, out Bezoro.Simulation.Attributes.StatModifierHandle handle) { }
+        public bool TryGetModifier(Bezoro.Simulation.Attributes.StatModifierHandle handle, out Bezoro.Simulation.Attributes.StatId stat, out Bezoro.Simulation.Attributes.StatModifier modifier) { }
+        public bool TryRemoveModifier(Bezoro.Simulation.Attributes.StatModifierHandle handle) { }
+        public bool TryUpdateModifier(Bezoro.Simulation.Attributes.StatModifierHandle handle, Bezoro.Simulation.Attributes.StatModifier modifier) { }
+    }
+}
+namespace Bezoro.Simulation.Timing
+{
+    public readonly struct FixedStepAdvance : System.IEquatable<Bezoro.Simulation.Timing.FixedStepAdvance>
+    {
+        public System.TimeSpan DroppedTime { get; }
+        public double InterpolationAlpha { get; }
+        public long PendingStepCount { get; }
+        public Bezoro.Simulation.Timing.FixedStepState State { get; }
+        public int StepCount { get; }
+    }
+    public enum FixedStepBacklogPolicy
+    {
+        Preserve = 0,
+        DropOverflow = 1,
+    }
+    public static class FixedStepClock
+    {
+        public static Bezoro.Simulation.Timing.FixedStepAdvance Advance(in Bezoro.Simulation.Timing.FixedStepConfiguration configuration, in Bezoro.Simulation.Timing.FixedStepState state, System.TimeSpan elapsed) { }
+        public static Bezoro.Simulation.Timing.FixedStepAdvance AdvanceSeconds(in Bezoro.Simulation.Timing.FixedStepConfiguration configuration, in Bezoro.Simulation.Timing.FixedStepState state, double elapsedSeconds) { }
+    }
+    public readonly struct FixedStepConfiguration : System.IEquatable<Bezoro.Simulation.Timing.FixedStepConfiguration>
+    {
+        public FixedStepConfiguration(System.TimeSpan stepDuration, int maxStepsPerAdvance = 8, Bezoro.Simulation.Timing.FixedStepBacklogPolicy backlogPolicy = 0) { }
+        public Bezoro.Simulation.Timing.FixedStepBacklogPolicy BacklogPolicy { get; }
+        public int MaxStepsPerAdvance { get; }
+        public System.TimeSpan StepDuration { get; }
+    }
+    public readonly struct FixedStepState : System.IEquatable<Bezoro.Simulation.Timing.FixedStepState>
+    {
+        public FixedStepState(long tick, System.TimeSpan accumulatedTime = default) { }
+        public System.TimeSpan AccumulatedTime { get; }
+        public long Tick { get; }
+    }
+    public readonly struct ScheduledHandle : System.IEquatable<Bezoro.Simulation.Timing.ScheduledHandle>
+    {
+        public bool IsDefault { get; }
+        public bool Equals(Bezoro.Simulation.Timing.ScheduledHandle other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Bezoro.Simulation.Timing.ScheduledHandle left, Bezoro.Simulation.Timing.ScheduledHandle right) { }
+        public static bool operator ==(Bezoro.Simulation.Timing.ScheduledHandle left, Bezoro.Simulation.Timing.ScheduledHandle right) { }
+    }
+    public readonly struct ScheduledItem<T> : System.IEquatable<Bezoro.Simulation.Timing.ScheduledItem<T>>
+    {
+        public long DueTick { get; }
+        public Bezoro.Simulation.Timing.ScheduledHandle Handle { get; }
+        public T Value { get; }
+    }
+    public readonly struct SchedulerDrainResult : System.IEquatable<Bezoro.Simulation.Timing.SchedulerDrainResult>
+    {
+        public int Count { get; }
+        public bool HasMoreDue { get; }
+    }
+    public sealed class TickScheduler<T>
+    {
+        public TickScheduler(int capacity, long initialTick = 0) { }
+        public int Capacity { get; }
+        public int Count { get; }
+        public long CurrentTick { get; }
+        public bool HasDueItems { get; }
+        public int RemainingCapacity { get; }
+        public int RetiredSlotCount { get; }
+        public Bezoro.Simulation.Timing.SchedulerDrainResult AdvanceTo(long tick, System.Span<Bezoro.Simulation.Timing.ScheduledItem<T>> destination) { }
+        public void Clear() { }
+        public bool Contains(Bezoro.Simulation.Timing.ScheduledHandle handle) { }
+        public Bezoro.Simulation.Timing.SchedulerDrainResult DrainDue(System.Span<Bezoro.Simulation.Timing.ScheduledItem<T>> destination) { }
+        public Bezoro.Simulation.Timing.ScheduledHandle Schedule(T value, long delayTicks) { }
+        public Bezoro.Simulation.Timing.ScheduledHandle ScheduleAt(T value, long dueTick) { }
+        public bool TryCancel(Bezoro.Simulation.Timing.ScheduledHandle handle, out T value) { }
+        public bool TryGet(Bezoro.Simulation.Timing.ScheduledHandle handle, out Bezoro.Simulation.Timing.ScheduledItem<T> item) { }
+        public bool TryPeek(out Bezoro.Simulation.Timing.ScheduledItem<T> item) { }
+        public bool TryRescheduleAt(Bezoro.Simulation.Timing.ScheduledHandle handle, long dueTick) { }
+        public bool TrySchedule(T value, long delayTicks, out Bezoro.Simulation.Timing.ScheduledHandle handle) { }
+        public bool TryScheduleAt(T value, long dueTick, out Bezoro.Simulation.Timing.ScheduledHandle handle) { }
+    }
+}
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.Simulation.Timing.FixedStepAdvance::Equals(Bezoro.Simulation.Timing.FixedStepAdvance)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepAdvance::Equals(System.Object)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepAdvance::op_Equality(Bezoro.Simulation.Timing.FixedStepAdvance,Bezoro.Simulation.Timing.FixedStepAdvance)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepAdvance::op_Inequality(Bezoro.Simulation.Timing.FixedStepAdvance,Bezoro.Simulation.Timing.FixedStepAdvance)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepConfiguration::Equals(Bezoro.Simulation.Timing.FixedStepConfiguration)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepConfiguration::Equals(System.Object)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepConfiguration::op_Equality(Bezoro.Simulation.Timing.FixedStepConfiguration,Bezoro.Simulation.Timing.FixedStepConfiguration)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepConfiguration::op_Inequality(Bezoro.Simulation.Timing.FixedStepConfiguration,Bezoro.Simulation.Timing.FixedStepConfiguration)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepState::Equals(Bezoro.Simulation.Timing.FixedStepState)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepState::Equals(System.Object)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepState::op_Equality(Bezoro.Simulation.Timing.FixedStepState,Bezoro.Simulation.Timing.FixedStepState)
+// System.Boolean Bezoro.Simulation.Timing.FixedStepState::op_Inequality(Bezoro.Simulation.Timing.FixedStepState,Bezoro.Simulation.Timing.FixedStepState)
+// System.Boolean Bezoro.Simulation.Timing.ScheduledItem`1::Equals(Bezoro.Simulation.Timing.ScheduledItem`1<T>)
+// System.Boolean Bezoro.Simulation.Timing.ScheduledItem`1::Equals(System.Object)
+// System.Boolean Bezoro.Simulation.Timing.ScheduledItem`1::op_Equality(Bezoro.Simulation.Timing.ScheduledItem`1<T>,Bezoro.Simulation.Timing.ScheduledItem`1<T>)
+// System.Boolean Bezoro.Simulation.Timing.ScheduledItem`1::op_Inequality(Bezoro.Simulation.Timing.ScheduledItem`1<T>,Bezoro.Simulation.Timing.ScheduledItem`1<T>)
+// System.Boolean Bezoro.Simulation.Timing.SchedulerDrainResult::Equals(Bezoro.Simulation.Timing.SchedulerDrainResult)
+// System.Boolean Bezoro.Simulation.Timing.SchedulerDrainResult::Equals(System.Object)
+// System.Boolean Bezoro.Simulation.Timing.SchedulerDrainResult::op_Equality(Bezoro.Simulation.Timing.SchedulerDrainResult,Bezoro.Simulation.Timing.SchedulerDrainResult)
+// System.Boolean Bezoro.Simulation.Timing.SchedulerDrainResult::op_Inequality(Bezoro.Simulation.Timing.SchedulerDrainResult,Bezoro.Simulation.Timing.SchedulerDrainResult)
+// System.Int32 Bezoro.Simulation.Timing.FixedStepAdvance::GetHashCode()
+// System.Int32 Bezoro.Simulation.Timing.FixedStepConfiguration::GetHashCode()
+// System.Int32 Bezoro.Simulation.Timing.FixedStepState::GetHashCode()
+// System.Int32 Bezoro.Simulation.Timing.ScheduledItem`1::GetHashCode()
+// System.Int32 Bezoro.Simulation.Timing.SchedulerDrainResult::GetHashCode()
+// System.String Bezoro.Simulation.Timing.FixedStepAdvance::ToString()
+// System.String Bezoro.Simulation.Timing.FixedStepConfiguration::ToString()
+// System.String Bezoro.Simulation.Timing.FixedStepState::ToString()
+// System.String Bezoro.Simulation.Timing.ScheduledItem`1::ToString()
+// System.String Bezoro.Simulation.Timing.SchedulerDrainResult::ToString()

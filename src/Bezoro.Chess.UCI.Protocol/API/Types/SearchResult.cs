@@ -144,7 +144,7 @@ public readonly record struct SearchResult
 			if (string.IsNullOrWhiteSpace(line)) continue;
 			if (!UciProtocolParser.TryParse(line, out var message))
 			{
-				if (line.AsSpan().TrimStart().StartsWith("bestmove ", StringComparison.OrdinalIgnoreCase))
+				if (BestMoveLine.HasKeyword(line))
 					return false;
 				continue;
 			}

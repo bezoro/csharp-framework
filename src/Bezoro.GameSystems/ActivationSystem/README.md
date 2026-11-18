@@ -145,6 +145,7 @@ When the world runs on a worker, configure `CallbackDispatcher` to marshal callb
 - The processor builds its cancellation index only when cancellation requests exist and allocates candidate storage only when pending entries exist.
 - Synchronous callback/dispatcher failures are caught by the dispatch system. A budget does not bound producer backlog. Register and cancel only through the ingress queue from external threads; pipeline setup, resource inspection, and disposal stay on the world thread.
 - Event and dispatch queues support optional preallocation, a retained-backlog limit and `TryEnqueue` under the [shared queue contract](../README.md#runtime-behavior). A dispatch pass attempts at most the count observed at its start, so self-reposting callbacks and concurrent producers cannot extend that pass indefinitely. Keep one dispatch consumer when delivery order matters.
+- A full completion event queue does not block activation callbacks. The processor retries the completion notification on later ticks while the activation set remains complete.
 
 ## Migration
 
@@ -156,3 +157,6 @@ When the world runs on a worker, configure `CallbackDispatcher` to marshal callb
 dotnet build src/Bezoro.GameSystems/Bezoro.GameSystems.csproj -c Release
 dotnet test tests/Bezoro.GameSystems.Tests/Bezoro.GameSystems.Tests.csproj -c Release -f net10.0 --filter "FullyQualifiedName~ActivationSystem"
 ```
+
+A tick with no free dispatch slots only counts pending entries. With a single available activation, one scan selects the highest priority and uses the lowest handle ID to break ties.
+For larger finite budgets, selection periodically discards candidates outside the highest-ranked batch. Candidate storage scales with the smaller of the budget and pending count.

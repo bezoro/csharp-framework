@@ -84,6 +84,16 @@ public sealed class SystemMetadataGenerator : IIncrementalGenerator
 				}
 
 				builder.AppendLine("    }; ");
+				if (models.Length != 0)
+				{
+					// A module initializer is reachable whenever this consumer assembly is used. Root the
+					// getter without constructing its catalog until the resolver first requests it.
+					builder.AppendLine("#if NET5_0_OR_GREATER");
+					builder.AppendLine("    [global::System.Runtime.CompilerServices.ModuleInitializer]");
+					builder.AppendLine("    [global::System.Diagnostics.CodeAnalysis.DynamicDependency(\"get_All\")]");
+					builder.AppendLine("    internal static void PreserveCatalog() { }");
+					builder.AppendLine("#endif");
+				}
 				builder.AppendLine("}");
 
 				productionContext.AddSource(

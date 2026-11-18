@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Bezoro.PlayerProfiles;
 using Bezoro.Progression;
 
@@ -27,7 +28,7 @@ public sealed class ChessQuestSnapshot
             var objective = definition.Definition.Objectives[index];
             objectives[index] = new(objective.Counter, progress.GetObjectiveProgress(Id, index), objective.Target);
         }
-        Objectives = Array.AsReadOnly(objectives);
+        Objectives = ImmutableList.CreateRange(objectives);
         Rewards = definition.Definition.Rewards;
     }
     /// <summary>Gets the stable quest identity.</summary>
@@ -59,18 +60,21 @@ public readonly struct ChessStageSnapshot
 /// <summary>A fully persisted, immutable local player view. Retained snapshots never change after later commands.</summary>
 public sealed class ChessPlayerSnapshot
 {
-    internal ChessPlayerSnapshot(PlayerProfile profile, EloRating rating, PlayerMatchRecord[] history,
+    internal ChessPlayerSnapshot(PlayerProfile profile, EloRating rating, ImmutableList<PlayerMatchRecord> history,
+        ImmutableDictionary<string, int> matchIndices, int wins, int draws,
         ChessQuestSnapshot[] quests, ChessStageSnapshot[] stages, Dictionary<ProgressionId, long> rewards,
         ChessCosmeticSnapshot[] cosmetics, string boardId, string piecesId)
     {
-        Profile = profile; TrainingRating = rating; History = Array.AsReadOnly(history);
-        Quests = Array.AsReadOnly(quests); Stages = Array.AsReadOnly(stages);
-        RewardBalances = new System.Collections.ObjectModel.ReadOnlyDictionary<ProgressionId, long>(rewards);
-        Cosmetics = Array.AsReadOnly(cosmetics); EquippedBoardId = boardId; EquippedPiecesId = piecesId;
-        Wins = history.Count(record => record.Outcome == PlayerMatchOutcome.Win);
-        Draws = history.Count(record => record.Outcome == PlayerMatchOutcome.Draw);
-        Losses = history.Length - Wins - Draws;
+        Profile = profile; TrainingRating = rating; History = history;
+        MatchIndices = matchIndices;
+        Quests = ImmutableList.CreateRange(quests); Stages = ImmutableList.CreateRange(stages);
+        RewardBalances = rewards.ToImmutableDictionary();
+        Cosmetics = ImmutableList.CreateRange(cosmetics); EquippedBoardId = boardId; EquippedPiecesId = piecesId;
+        Wins = wins;
+        Draws = draws;
+        Losses = history.Count - Wins - Draws;
     }
+    internal ImmutableDictionary<string, int> MatchIndices { get; }
     /// <summary>Gets local profile presentation metadata.</summary>
     public PlayerProfile Profile { get; }
     /// <summary>Gets Elo in the local training pool, never an online or global ranking.</summary>

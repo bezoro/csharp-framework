@@ -127,6 +127,7 @@ internal sealed class WorldResourceStore
 		var created = new ResourceBox<T>(value);
 		lock (_gate)
 		{
+			EnsureUniqueDisposable(typeof(T), created);
 			_resources.Add(typeof(T), created);
 			return ref created.Value;
 		}
@@ -191,6 +192,7 @@ internal sealed class WorldResourceStore
 		{
 			ThrowIfDisposed();
 			EnsureCanMutate();
+			EnsureUniqueDisposable(resourceType, replacement);
 			if (!_resources.TryGetValue(resourceType, out existing!))
 			{
 				_resources.Add(resourceType, replacement);
@@ -206,6 +208,15 @@ internal sealed class WorldResourceStore
 			lock (_gate) _resources.Add(resourceType, replacement);
 		}
 		finally { EndUserCode(); }
+	}
+
+	// Value-type registrations own copies. Reference registrations can also own a boxed disposable.
+	private void EnsureUniqueDisposable(Type resourceType, IResourceBox candidate)
+	{
+		if (resourceType.IsValueType || candidate.BoxedValue is not IDisposable disposable) return;
+		foreach (var entry in _resources)
+			if (entry.Key != resourceType && !entry.Key.IsValueType && ReferenceEquals(entry.Value.BoxedValue, disposable))
+				throw new InvalidOperationException($"This disposable resource is already registered under '{entry.Key.FullName}'.");
 	}
 
 	private void EndUserCode()

@@ -1,0 +1,153 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Chess.Networking
+{
+    public sealed class AuthoritativeChessMatch : System.IDisposable
+    {
+        public AuthoritativeChessMatch(System.Guid matchId, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSetup setup, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchTimeControl? timeControl = default, bool allowTakebacks = false, Bezoro.Chess.Networking.ChessPlayerSeat? engineSeat = default, int maximumHalfmoves = 4096, System.Func<System.DateTimeOffset>? utcNowProvider = null) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave CaptureSave() { }
+        public void Dispose() { }
+        public Bezoro.Chess.Networking.ChessMatchSnapshot GetSnapshot() { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.Networking.ChessEngineTurnResult> PlayEngineTurnAsync(Bezoro.Chess.Networking.IChessMoveService service, Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters search, System.Threading.CancellationToken ct = default) { }
+        public Bezoro.Chess.Networking.ChessMatchCommandReceipt Submit(Bezoro.Chess.Networking.ChessPlayerSeat authenticatedSeat, Bezoro.Chess.Networking.ChessMatchCommand command) { }
+        public Bezoro.Chess.Networking.ChessMatchSnapshot TakebackEngineGame(int halfmoves = 2) { }
+        public static Bezoro.Chess.Networking.AuthoritativeChessMatch Restore(System.Guid newMatchId, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchSave save, bool countTimeSinceSave = false, bool allowTakebacks = false, Bezoro.Chess.Networking.ChessPlayerSeat? engineSeat = default, int maximumHalfmoves = 4096, System.Func<System.DateTimeOffset>? utcNowProvider = null) { }
+    }
+    public readonly struct ChessEnginePosition : System.IEquatable<Bezoro.Chess.Networking.ChessEnginePosition>
+    {
+        public ChessEnginePosition(System.Guid MatchId, long Revision, Bezoro.Chess.UCI.Protocol.API.Types.Fen BaseFen, System.Collections.Immutable.ImmutableArray<string> Moves) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen BaseFen { get; init; }
+        public System.Guid MatchId { get; init; }
+        public System.Collections.Immutable.ImmutableArray<string> Moves { get; init; }
+        public long Revision { get; init; }
+    }
+    public readonly struct ChessEngineTurnResult : System.IEquatable<Bezoro.Chess.Networking.ChessEngineTurnResult>
+    {
+        public ChessEngineTurnResult(bool Applied, Bezoro.Chess.Networking.ChessMatchSnapshot Snapshot) { }
+        public bool Applied { get; init; }
+        public Bezoro.Chess.Networking.ChessMatchSnapshot Snapshot { get; init; }
+    }
+    public readonly struct ChessMatchCommand : System.IEquatable<Bezoro.Chess.Networking.ChessMatchCommand>
+    {
+        public ChessMatchCommand(System.Guid MatchId, long ExpectedRevision, long Sequence, Bezoro.Chess.Networking.ChessMatchCommandKind Kind, string? Move = null, int TakebackHalfmoves = 1) { }
+        public long ExpectedRevision { get; init; }
+        public Bezoro.Chess.Networking.ChessMatchCommandKind Kind { get; init; }
+        public System.Guid MatchId { get; init; }
+        public string? Move { get; init; }
+        public long Sequence { get; init; }
+        public int TakebackHalfmoves { get; init; }
+    }
+    public enum ChessMatchCommandKind
+    {
+        Move = 0,
+        Resign = 1,
+        OfferDraw = 2,
+        AcceptDraw = 3,
+        DeclineDraw = 4,
+        ClaimDraw = 5,
+        RequestTakeback = 6,
+        AcceptTakeback = 7,
+        DeclineTakeback = 8,
+    }
+    public readonly struct ChessMatchCommandReceipt : System.IEquatable<Bezoro.Chess.Networking.ChessMatchCommandReceipt>
+    {
+        public ChessMatchCommandReceipt(Bezoro.Chess.Networking.ChessMatchCommandStatus Status, long Sequence, Bezoro.Chess.Networking.ChessMatchSnapshot Snapshot) { }
+        public long Sequence { get; init; }
+        public Bezoro.Chess.Networking.ChessMatchSnapshot Snapshot { get; init; }
+        public Bezoro.Chess.Networking.ChessMatchCommandStatus Status { get; init; }
+    }
+    public enum ChessMatchCommandStatus
+    {
+        Uninitialized = 0,
+        Accepted = 1,
+        WrongMatch = 2,
+        StaleRevision = 3,
+        InvalidSequence = 4,
+        NotAuthorized = 5,
+        InvalidAction = 6,
+        MatchFinished = 7,
+        MoveLimitReached = 8,
+    }
+    public readonly struct ChessMatchSnapshot : System.IEquatable<Bezoro.Chess.Networking.ChessMatchSnapshot>
+    {
+        public ChessMatchSnapshot(System.Guid MatchId, long Revision, Bezoro.Chess.UCI.Protocol.API.Types.Fen BaseFen, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState State, Bezoro.Chess.Networking.ChessTakebackOffer? TakebackOffer) { }
+        public Bezoro.Chess.UCI.Protocol.API.Types.Fen BaseFen { get; init; }
+        public System.Guid MatchId { get; init; }
+        public long Revision { get; init; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState State { get; init; }
+        public Bezoro.Chess.Networking.ChessTakebackOffer? TakebackOffer { get; init; }
+        public Bezoro.Chess.Networking.ChessEnginePosition CreateEnginePosition() { }
+    }
+    public enum ChessPlayerSeat
+    {
+        White = 0,
+        Black = 1,
+    }
+    public readonly struct ChessTakebackOffer : System.IEquatable<Bezoro.Chess.Networking.ChessTakebackOffer>
+    {
+        public ChessTakebackOffer(Bezoro.Chess.Networking.ChessPlayerSeat OfferedBy, int Halfmoves) { }
+        public int Halfmoves { get; init; }
+        public Bezoro.Chess.Networking.ChessPlayerSeat OfferedBy { get; init; }
+    }
+    public interface IChessMoveService
+    {
+        System.Threading.Tasks.Task<string> FindMoveAsync(Bezoro.Chess.Networking.ChessEnginePosition position, Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters search, System.Threading.CancellationToken ct = default);
+    }
+    public interface IChessReviewService
+    {
+        System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewResult> ReviewAsync(Bezoro.Chess.Networking.ChessEnginePosition position, System.IProgress<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewProgress>? progress = null, System.Threading.CancellationToken ct = default);
+    }
+    public sealed class UciChessMoveService : Bezoro.Chess.Networking.IChessMoveService
+    {
+        public UciChessMoveService(Bezoro.Chess.UCI.Protocol.API.UciEngineClient client, int maximumHalfmoves = 4096) { }
+        public System.Threading.Tasks.Task<string> FindMoveAsync(Bezoro.Chess.Networking.ChessEnginePosition position, Bezoro.Chess.UCI.Protocol.API.Types.SearchParameters search, System.Threading.CancellationToken ct = default) { }
+    }
+    public sealed class UciChessReviewService : Bezoro.Chess.Networking.IChessReviewService
+    {
+        public UciChessReviewService(Bezoro.Chess.UCI.Protocol.API.UciGameReviewAnalyzer analyzer) { }
+        public System.Threading.Tasks.Task<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewResult> ReviewAsync(Bezoro.Chess.Networking.ChessEnginePosition position, System.IProgress<Bezoro.Chess.UCI.Protocol.API.Types.GameReviewProgress>? progress = null, System.Threading.CancellationToken ct = default) { }
+    }
+}
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.Chess.Networking.ChessEnginePosition::Equals(Bezoro.Chess.Networking.ChessEnginePosition)
+// System.Boolean Bezoro.Chess.Networking.ChessEnginePosition::Equals(System.Object)
+// System.Boolean Bezoro.Chess.Networking.ChessEnginePosition::op_Equality(Bezoro.Chess.Networking.ChessEnginePosition,Bezoro.Chess.Networking.ChessEnginePosition)
+// System.Boolean Bezoro.Chess.Networking.ChessEnginePosition::op_Inequality(Bezoro.Chess.Networking.ChessEnginePosition,Bezoro.Chess.Networking.ChessEnginePosition)
+// System.Boolean Bezoro.Chess.Networking.ChessEngineTurnResult::Equals(Bezoro.Chess.Networking.ChessEngineTurnResult)
+// System.Boolean Bezoro.Chess.Networking.ChessEngineTurnResult::Equals(System.Object)
+// System.Boolean Bezoro.Chess.Networking.ChessEngineTurnResult::op_Equality(Bezoro.Chess.Networking.ChessEngineTurnResult,Bezoro.Chess.Networking.ChessEngineTurnResult)
+// System.Boolean Bezoro.Chess.Networking.ChessEngineTurnResult::op_Inequality(Bezoro.Chess.Networking.ChessEngineTurnResult,Bezoro.Chess.Networking.ChessEngineTurnResult)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchCommand::Equals(Bezoro.Chess.Networking.ChessMatchCommand)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchCommand::Equals(System.Object)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchCommand::op_Equality(Bezoro.Chess.Networking.ChessMatchCommand,Bezoro.Chess.Networking.ChessMatchCommand)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchCommand::op_Inequality(Bezoro.Chess.Networking.ChessMatchCommand,Bezoro.Chess.Networking.ChessMatchCommand)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchCommandReceipt::Equals(Bezoro.Chess.Networking.ChessMatchCommandReceipt)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchCommandReceipt::Equals(System.Object)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchCommandReceipt::op_Equality(Bezoro.Chess.Networking.ChessMatchCommandReceipt,Bezoro.Chess.Networking.ChessMatchCommandReceipt)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchCommandReceipt::op_Inequality(Bezoro.Chess.Networking.ChessMatchCommandReceipt,Bezoro.Chess.Networking.ChessMatchCommandReceipt)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchSnapshot::Equals(Bezoro.Chess.Networking.ChessMatchSnapshot)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchSnapshot::Equals(System.Object)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchSnapshot::op_Equality(Bezoro.Chess.Networking.ChessMatchSnapshot,Bezoro.Chess.Networking.ChessMatchSnapshot)
+// System.Boolean Bezoro.Chess.Networking.ChessMatchSnapshot::op_Inequality(Bezoro.Chess.Networking.ChessMatchSnapshot,Bezoro.Chess.Networking.ChessMatchSnapshot)
+// System.Boolean Bezoro.Chess.Networking.ChessTakebackOffer::Equals(Bezoro.Chess.Networking.ChessTakebackOffer)
+// System.Boolean Bezoro.Chess.Networking.ChessTakebackOffer::Equals(System.Object)
+// System.Boolean Bezoro.Chess.Networking.ChessTakebackOffer::op_Equality(Bezoro.Chess.Networking.ChessTakebackOffer,Bezoro.Chess.Networking.ChessTakebackOffer)
+// System.Boolean Bezoro.Chess.Networking.ChessTakebackOffer::op_Inequality(Bezoro.Chess.Networking.ChessTakebackOffer,Bezoro.Chess.Networking.ChessTakebackOffer)
+// System.Int32 Bezoro.Chess.Networking.ChessEnginePosition::GetHashCode()
+// System.Int32 Bezoro.Chess.Networking.ChessEngineTurnResult::GetHashCode()
+// System.Int32 Bezoro.Chess.Networking.ChessMatchCommand::GetHashCode()
+// System.Int32 Bezoro.Chess.Networking.ChessMatchCommandReceipt::GetHashCode()
+// System.Int32 Bezoro.Chess.Networking.ChessMatchSnapshot::GetHashCode()
+// System.Int32 Bezoro.Chess.Networking.ChessTakebackOffer::GetHashCode()
+// System.String Bezoro.Chess.Networking.ChessEnginePosition::ToString()
+// System.String Bezoro.Chess.Networking.ChessEngineTurnResult::ToString()
+// System.String Bezoro.Chess.Networking.ChessMatchCommand::ToString()
+// System.String Bezoro.Chess.Networking.ChessMatchCommandReceipt::ToString()
+// System.String Bezoro.Chess.Networking.ChessMatchSnapshot::ToString()
+// System.String Bezoro.Chess.Networking.ChessTakebackOffer::ToString()
+// System.Void Bezoro.Chess.Networking.ChessEnginePosition::Deconstruct(System.Guid&,System.Int64&,Bezoro.Chess.UCI.Protocol.API.Types.Fen&,System.Collections.Immutable.ImmutableArray`1<System.String>&)
+// System.Void Bezoro.Chess.Networking.ChessEngineTurnResult::Deconstruct(System.Boolean&,Bezoro.Chess.Networking.ChessMatchSnapshot&)
+// System.Void Bezoro.Chess.Networking.ChessMatchCommand::Deconstruct(System.Guid&,System.Int64&,System.Int64&,Bezoro.Chess.Networking.ChessMatchCommandKind&,System.String&,System.Int32&)
+// System.Void Bezoro.Chess.Networking.ChessMatchCommandReceipt::Deconstruct(Bezoro.Chess.Networking.ChessMatchCommandStatus&,System.Int64&,Bezoro.Chess.Networking.ChessMatchSnapshot&)
+// System.Void Bezoro.Chess.Networking.ChessMatchSnapshot::Deconstruct(System.Guid&,System.Int64&,Bezoro.Chess.UCI.Protocol.API.Types.Fen&,Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState&,System.Nullable`1<Bezoro.Chess.Networking.ChessTakebackOffer>&)
+// System.Void Bezoro.Chess.Networking.ChessTakebackOffer::Deconstruct(Bezoro.Chess.Networking.ChessPlayerSeat&,System.Int32&)

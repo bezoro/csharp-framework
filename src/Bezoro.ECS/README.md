@@ -122,7 +122,7 @@ Parallel entity jobs partition chunk ranges. Each range receives a job copy, so 
 
 ## Resource ownership
 
-`SetResource`/`ReplaceResource` transfer ownership to the world when registration succeeds. Replacing/removing a disposable resource disposes the previous value. Assigning the same reference keeps it alive. If previous-value disposal throws, the replacement has not been accepted and remains caller-owned. `Clear` and `Dispose` detach ownership and attempt every disposal even after a failure.
+`SetResource`/`ReplaceResource` transfer ownership to the world when registration succeeds. Replacing/removing a disposable resource disposes the previous value. Assigning the same reference under the same key keeps it alive. Each disposable reference can have one registration key per world. A second key is rejected before disposal or replacement, including factory and snapshot registrations. If previous-value disposal throws, the replacement has not been accepted and remains caller-owned. `Clear` and `Dispose` detach ownership and attempt every disposal even after a failure.
 
 `GetOrCreateResource(factory)` invokes the factory only when absent and rejects null. Factories and disposal callbacks run outside the resource-store lock, so they may coordinate reads from other workers. While one of these callbacks is active, operations that would mutate the store reject with `InvalidOperationException` before taking ownership; existing-resource reads remain available. World reset/clear/disposal from a resource callback is also rejected. A failed factory leaves no registration, and a failed replacement disposal leaves the proposed replacement caller-owned. Restored struct resources materialize one stable typed box, including concurrent first reads. Resource values and borrowed references still require their own access discipline.
 
@@ -138,7 +138,7 @@ Relationships use a marker ID for each relation-type/target pair and share `Comp
 
 ## Snapshot transport and ownership
 
-Applications choose their serializer and implement `IWorldSnapshotWriter`/`IWorldSnapshotReader`. Capture produces `WorldSnapshot` records. Restore validates the payload and explicit allow-lists before clearing existing state. Types are denied by default; `AllowAll...` options are for trusted input.
+Applications choose their serializer and implement `IWorldSnapshotWriter`/`IWorldSnapshotReader`. Capture produces `WorldSnapshot` records. Restore validates the payload and explicit allow-lists before clearing existing state. When a resource is registered under a base class or interface, both its registered type and concrete value type must pass the resource allow-list and any additional type validator. Restore preserves the registration key. Types are denied by default; `AllowAll...` options are for trusted input.
 
 `WorldSnapshot` is a mutable transport DTO, not a deep immutable copy. Its arrays belong to the payload, and captured reference objects remain shared with their source components/resources. A serializer/reader must materialize independent resource instances before restoring into another owner. Restore transfers ownership of accepted resources to the destination world. Do not restore the same disposable instance into multiple worlds or back into a world that will dispose that instance during clear.
 

@@ -51,7 +51,7 @@ public readonly record struct PrincipalVariation(
 	{
 		pv = new(0, 0, 0, null, null, 0, 0, 0, 0, ImmutableArray<string>.Empty, string.Empty);
 		if (string.IsNullOrWhiteSpace(line) ||
-			!UciInfoParser.TryParseTrimmed(line.Trim(), out var info) ||
+			!UciInfoParser.TryParseTrimmed(line, out var info, captureDetails: false) ||
 			info.PrincipalVariation is not { } parsed)
 			return false;
 

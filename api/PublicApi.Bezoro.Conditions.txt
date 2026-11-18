@@ -1,0 +1,35 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Conditions
+{
+    public sealed class ConditionExpression
+    {
+        public static Bezoro.Conditions.ConditionExpression False { get; }
+        public static Bezoro.Conditions.ConditionExpression True { get; }
+        public Bezoro.Conditions.ConditionExpression And(Bezoro.Conditions.ConditionExpression other) { }
+        public Bezoro.Conditions.ConditionProgram Compile(int maximumNodes = 4096, int maximumInstructions = 16384) { }
+        public Bezoro.Conditions.ConditionExpression Or(Bezoro.Conditions.ConditionExpression other) { }
+        public static Bezoro.Conditions.ConditionExpression All(params Bezoro.Conditions.ConditionExpression[] expressions) { }
+        public static Bezoro.Conditions.ConditionExpression All(System.ReadOnlySpan<Bezoro.Conditions.ConditionExpression> expressions) { }
+        public static Bezoro.Conditions.ConditionExpression Any(params Bezoro.Conditions.ConditionExpression[] expressions) { }
+        public static Bezoro.Conditions.ConditionExpression Any(System.ReadOnlySpan<Bezoro.Conditions.ConditionExpression> expressions) { }
+        public static Bezoro.Conditions.ConditionExpression Choose(Bezoro.Conditions.ConditionExpression test, Bezoro.Conditions.ConditionExpression whenTrue, Bezoro.Conditions.ConditionExpression whenFalse) { }
+        public static Bezoro.Conditions.ConditionExpression Equal(Bezoro.Conditions.ConditionExpression left, Bezoro.Conditions.ConditionExpression right) { }
+        public static Bezoro.Conditions.ConditionExpression Not(Bezoro.Conditions.ConditionExpression expression) { }
+        public static Bezoro.Conditions.ConditionExpression Predicate(int predicateId) { }
+        public static Bezoro.Conditions.ConditionExpression Xor(Bezoro.Conditions.ConditionExpression left, Bezoro.Conditions.ConditionExpression right) { }
+    }
+    public sealed class ConditionProgram
+    {
+        public int ExpressionNodeCount { get; }
+        public int InstructionCount { get; }
+        public int PredicateCount { get; }
+        public int RequiredStackSize { get; }
+        public bool Evaluate<TContext>(in TContext context, Bezoro.Conditions.IConditionEvaluator<TContext> evaluator, System.Span<bool> scratch) { }
+        public bool Evaluate<TContext, TEvaluator>(in TContext context, ref TEvaluator evaluator, System.Span<bool> scratch)
+            where TEvaluator : Bezoro.Conditions.IConditionEvaluator<TContext> { }
+    }
+    public interface IConditionEvaluator<TContext>
+    {
+        bool Evaluate(int predicateId, in TContext context);
+    }
+}

@@ -15,6 +15,12 @@ internal static class UciProtocolParser
 
 		string trimmed = line.Trim();
 
+		if (UciInfoParser.TryParseTrimmed(trimmed, out var info))
+		{
+			message = UciProtocolMessage.From(new UciInfoMessage(info, trimmed));
+			return true;
+		}
+
 		if (trimmed.Equals(UciConstants.Responses.UCI_OK, StringComparison.OrdinalIgnoreCase))
 		{
 			message = UciProtocolMessage.From(new UciUciOkMessage(trimmed));
@@ -65,12 +71,6 @@ internal static class UciProtocolParser
 		if (TryParseProtection(trimmed, "registration", static (state, raw) => new UciRegistrationMessage(state, raw), out var registration))
 		{
 			message = UciProtocolMessage.From(registration);
-			return true;
-		}
-
-		if (UciInfoParser.TryParseTrimmed(trimmed, out var info))
-		{
-			message = UciProtocolMessage.From(new UciInfoMessage(info, trimmed));
 			return true;
 		}
 

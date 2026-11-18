@@ -11,6 +11,21 @@ namespace Bezoro.GameSystems.Tests.InputSystem;
 public sealed class InputIngressBudgetTests
 {
 	[Fact]
+	public void ConcurrentProducersRespectCapacityAndDrainingReopensAdmission()
+	{
+		using var world = new World();
+		var queue = new InputCommandQueue(4);
+		world.SetResource(queue);
+		world.AddSystem(new InputIngestionSystem(1));
+		System.Threading.Tasks.Parallel.For(0, 32, i => queue.TryEnqueue(new InputCommand(i, 0, 0, 0, 1)));
+		Assert.Equal(4, queue.PendingCommandCount);
+		Assert.Throws<InvalidOperationException>(() => queue.Enqueue(default));
+		world.FixedTick(0);
+		Assert.True(queue.TryEnqueue(default));
+		Assert.False(queue.TryEnqueue(default));
+	}
+
+	[Fact]
 	public void Budget_CountsDequeuedStaleCommandsAndLeavesBacklog()
 	{
 		using var world = new World();

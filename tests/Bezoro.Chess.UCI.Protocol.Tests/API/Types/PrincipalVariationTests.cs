@@ -75,11 +75,12 @@ public class PrincipalVariationTests
 	}
 
 	[Fact]
-	public void TryParse_WhenTokensUseTabs_ShouldReturnFalse()
+	public void TryParse_WhenTokensUseTabs_ShouldParseVariation()
 	{
-		bool ok = PrincipalVariation.TryParse("info\tdepth\t12\tpv\te2e4", out _);
+		bool ok = PrincipalVariation.TryParse("info\tdepth\t12\tpv\te2e4", out var value);
 
-		ok.Should().BeFalse();
+		ok.Should().BeTrue();
+		value.Moves.Should().Equal("e2e4");
 	}
 
 	[Fact]

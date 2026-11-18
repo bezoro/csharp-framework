@@ -182,6 +182,12 @@ public sealed class StatechartDefinition
             if (transition.Kind is < ChartTransitionKind.External or > ChartTransitionKind.Internal)
                 throw new ArgumentException("Unknown transition kind.", nameof(transitions));
             _domains[i] = ComputeDomain(transition);
+            // A source leaf occupies exactly one slot in its own region. Internal transitions
+            // leave that slot intact; exits rooted at that region can remove only that leaf
+            // from the prior configuration. Other simultaneously active leaves are disjoint.
+            if (_childRegionOffsets[transition.Source.Value] != _childRegionOffsets[transition.Source.Value + 1] ||
+                (_domains[i] >= 0 && _domains[i] != _states[transition.Source.Value].Region.Value))
+                HasIndependentSources = false;
             HasConfigurationTransitions |= transition.Kind != ChartTransitionKind.Internal;
             _transitionOrder[i] = i;
             _sourceOffsets[transition.Source.Value + 1]++;
@@ -221,6 +227,8 @@ public sealed class StatechartDefinition
     /// <summary>Gets whether any transition can change active state configuration.</summary>
     public bool HasConfigurationTransitions { get; private set; }
 
+    internal bool HasIndependentSources { get; } = true;
+    internal int DomainEnd(int transition) => _regionEnds[_domains[transition]];
     internal ReadOnlySpan<StateId> InitialStates => _initialStates;
     internal int Rank(StateId state) => _ranks[state.Value];
     internal int Depth(StateId state) => _depths[state.Value];

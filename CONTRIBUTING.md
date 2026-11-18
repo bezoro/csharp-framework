@@ -13,7 +13,7 @@ pwsh -NoProfile -File scripts/Test-Framework.ps1 -NoBuild
 pwsh -NoProfile -File scripts/Export-PublicApi.ps1 -Check
 ```
 
-For a public-type addition, review the change and regenerate the inventory with `scripts/Export-PublicApi.ps1`. This inventory checks type declarations, not full member-level binary compatibility. Review signatures, enum numeric values, constructors, and behavioral compatibility separately.
+For a public API change, build Release and regenerate the compiled API snapshots with `scripts/Export-PublicApi.ps1`. Review the generated signature changes for each target framework and document intentional breaking changes. Behavioral changes still need focused tests and review.
 
 ## Code changes
 
@@ -37,7 +37,7 @@ Use Conventional Commits, for example `fix(chess): reject moves after resignatio
 
 Package versions come from SemVer Git tags through `scripts/Get-PackageVersion.ps1`. Do not hand-edit release versions in generated UPM output. `BEZORO_PACKAGE_VERSION` and `-PackageVersion` are explicit local overrides. Stable release tags use `vMAJOR.MINOR.PATCH`. During the 0.x development series, release breaking changes on a new minor version and document migration steps. Preview versions inspect commits since the stable tag: breaking changes take precedence over features, which take precedence over patch changes. No release tag is implied by a development branch or an unreleased change note.
 
-The source branch owns the build scripts and template. Updates to `main`, including merges, automatically validate both platforms and publish generated DLLs to `upm`; do not maintain a second hand-edited copy of the framework there. Pushes to working branches do not start CI. Use local checks during development. Dispatch the workflow manually only when a consolidated pre-merge check is needed; `publish_upm` can also request publication from `main`.
+The source branch owns the build scripts and template. Updates to `main`, including merges, automatically validate both platforms and publish the Unity package staged by the Linux validation job to `upm`. Publication is queued by destination and an outdated official run skips publication. Pushes to working branches do not start CI. Use local checks during development. Dispatch the workflow manually when a consolidated pre-merge check is needed. The `publish_upm` input can also request publication from `main`.
 
 For a platform-specific failure, set `validation_platform` to `windows` or `linux` in a manual validation run. This avoids repeating the other runner unnecessarily. Publication requests and automatic main integration always use both platforms, regardless of the selected diagnostic target.
 

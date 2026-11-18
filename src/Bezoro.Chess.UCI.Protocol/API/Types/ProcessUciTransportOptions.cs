@@ -77,6 +77,9 @@ public readonly struct ProcessUciTransportOptions()
 	/// </summary>
 	public int MaxLineLength { get; init; } = ProcessUciTransportConstants.DEFAULT_MAX_LINE_LENGTH;
 
+	/// <summary>Maximum decoded characters in a stdout or stderr line. Oversized lines fault that reader.</summary>
+	public int MaxIncomingLineLength { get; init; } = 256 * 1024;
+
 	/// <summary>
 	///     Grace period in milliseconds to wait after sending "quit" before forcing termination, when
 	///     <see cref="QuitGracePeriod" /> is not set.

@@ -1,0 +1,59 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Spatial
+{
+    public readonly struct Bounds2D : System.IEquatable<Bezoro.Spatial.Bounds2D>
+    {
+        public Bounds2D(System.Numerics.Vector2 minimum, System.Numerics.Vector2 maximum) { }
+        public double Height { get; }
+        public System.Numerics.Vector2 Maximum { get; }
+        public System.Numerics.Vector2 Minimum { get; }
+        public double Width { get; }
+        public bool Contains(System.Numerics.Vector2 point) { }
+        public bool Equals(Bezoro.Spatial.Bounds2D other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public bool Intersects(Bezoro.Spatial.Bounds2D other) { }
+        public static bool operator !=(Bezoro.Spatial.Bounds2D left, Bezoro.Spatial.Bounds2D right) { }
+        public static bool operator ==(Bezoro.Spatial.Bounds2D left, Bezoro.Spatial.Bounds2D right) { }
+    }
+    public sealed class PointSpatialIndex<T>
+    {
+        public PointSpatialIndex(Bezoro.Spatial.Bounds2D worldBounds, float cellSize, int capacity, int maximumCells) { }
+        public int AvailableCapacity { get; }
+        public int Capacity { get; }
+        public int CellCount { get; }
+        public float CellSize { get; }
+        public int Columns { get; }
+        public int Count { get; }
+        public int Rows { get; }
+        public Bezoro.Spatial.Bounds2D WorldBounds { get; }
+        public Bezoro.Core.Collections.SlotHandle Add(System.Numerics.Vector2 position, T value) { }
+        public void Clear() { }
+        public bool Contains(Bezoro.Core.Collections.SlotHandle handle) { }
+        public Bezoro.Spatial.SpatialQueryResult QueryCircle(System.Numerics.Vector2 center, float radius, System.Span<Bezoro.Spatial.SpatialHit<T>> destination) { }
+        public Bezoro.Spatial.SpatialQueryResult QueryRectangle(Bezoro.Spatial.Bounds2D bounds, System.Span<Bezoro.Spatial.SpatialHit<T>> destination) { }
+        public bool Remove(Bezoro.Core.Collections.SlotHandle handle) { }
+        public bool TryAdd(System.Numerics.Vector2 position, T value, out Bezoro.Core.Collections.SlotHandle handle) { }
+        public bool TryGet(Bezoro.Core.Collections.SlotHandle handle, out Bezoro.Spatial.SpatialHit<T> hit) { }
+        public bool TryMove(Bezoro.Core.Collections.SlotHandle handle, System.Numerics.Vector2 position) { }
+        public bool TrySetValue(Bezoro.Core.Collections.SlotHandle handle, T value) { }
+    }
+    public readonly struct SpatialHit<T>
+    {
+        public Bezoro.Core.Collections.SlotHandle Handle { get; }
+        public System.Numerics.Vector2 Position { get; }
+        public T Value { get; }
+    }
+    public readonly struct SpatialQueryResult
+    {
+        public bool IsSuccess { get; }
+        public int RequiredCapacity { get; }
+        public Bezoro.Spatial.SpatialQueryStatus Status { get; }
+        public int WrittenCount { get; }
+    }
+    public enum SpatialQueryStatus
+    {
+        Success = 0,
+        DestinationTooSmall = 1,
+    }
+}

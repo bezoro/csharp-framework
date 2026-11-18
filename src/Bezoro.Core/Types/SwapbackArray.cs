@@ -363,7 +363,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 	/// <param name="match">Predicate to select elements for removal.</param>
 	/// <exception cref="ArgumentNullException">If <paramref name="match" /> is null.</exception>
 	/// <exception cref="InvalidOperationException">The predicate mutates the array.</exception>
-	/// <remarks>Compaction is in place; work performed before a predicate failure is not rolled back.</remarks>
+	/// <remarks>The array is compacted after every predicate succeeds. Changes made by a predicate remain visible.</remarks>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public uint RemoveAll(Predicate<T> match)
 	{
@@ -709,27 +709,38 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private uint CompactArray(Predicate<T> match, uint originalCount)
 	{
-		uint write = 0;
-		uint read  = 0;
 		uint version = Version;
-
-		while (read < originalCount)
+		int length = (int)originalCount;
+		int first = 0;
+		while (first < length)
 		{
-			bool remove = match(_items[read]);
-			if (Version != version)
-				throw new InvalidOperationException("The removal predicate must not mutate the array.");
-			if (!remove)
-			{
-				if (write != read)
-					_items[write] = _items[read];
-
-				write++;
-			}
-
-			read++;
+			bool remove = match(_items[first]);
+			if (Version != version) throw new InvalidOperationException("The removal predicate must not mutate the array.");
+			if (remove) break;
+			first++;
 		}
+		if (first == length) return originalCount;
 
-		return write;
+		int remaining = length - first - 1;
+		bool[]? rented = null;
+		Span<bool> keep = remaining <= 256 ? stackalloc bool[remaining] :
+			(rented = System.Buffers.ArrayPool<bool>.Shared.Rent(remaining)).AsSpan(0, remaining);
+		try
+		{
+			for (int offset = 0; offset < keep.Length; offset++)
+			{
+				keep[offset] = !match(_items[first + 1 + offset]);
+				if (Version != version) throw new InvalidOperationException("The removal predicate must not mutate the array.");
+			}
+			int write = first;
+			for (int offset = 0; offset < keep.Length; offset++)
+				if (keep[offset]) _items[write++] = _items[first + 1 + offset];
+			return (uint)write;
+		}
+		finally
+		{
+			if (rented != null) System.Buffers.ArrayPool<bool>.Shared.Return(rented);
+		}
 	}
 
 	/// <summary>

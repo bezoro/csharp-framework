@@ -1,6 +1,6 @@
 # Chess protocol benchmarks
 
-These benchmarks separate local gameplay and rules from engine startup and search. `LocalGameplayBenchmarks` measures move application, opening legal moves, and eight local plies. `LocalRulesBenchmarks` measures generation and tactical classification with fresh or retained legal-move lists. `UciInfoParsingBenchmarks` checks both parser entry points against the same three-move variation before measuring them.
+These benchmarks separate local gameplay and rules from engine startup and search. `LocalGameplayBenchmarks` measures move application, opening legal moves, and eight local plies. `LocalRulesBenchmarks` measures generation and tactical classification with fresh or retained legal-move lists. `UciInfoParsingBenchmarks` checks both parser entry points against the same three-move variation before measuring them. It also measures typed parsing of a WDL report with ten PV moves (`ParseWdlTenMoves`).
 
 Run an optimized measurement with allocation diagnostics:
 

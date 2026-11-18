@@ -1,0 +1,218 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Logging
+{
+    public static class Logger
+    {
+        public static Bezoro.Logging.Types.LogLevel MinimumLevel { get; set; }
+        public static event System.Action<Bezoro.Logging.Types.LogPayload>? OnLog;
+        public static Bezoro.Logging.Utilities.PerformanceTimer BeginTimer(string operationName, Bezoro.Logging.Types.LogCategory? category = default, object? contextObject = null) { }
+        public static bool IsEnabled(Bezoro.Logging.Types.LogLevel level = 1, Bezoro.Logging.Types.LogCategory? category = default) { }
+        [System.Diagnostics.Conditional("DEBUG")]
+        public static void Log(System.Exception exception, string? customMessage = null, Bezoro.Logging.Types.LogCategory? category = default, object? contextObject = null, bool captureCallerInfo = true, [System.Runtime.CompilerServices.CallerMemberName] string? memberName = null, [System.Runtime.CompilerServices.CallerFilePath] string? filePath = null) { }
+        [System.Diagnostics.Conditional("DEBUG")]
+        public static void Log(object? message, Bezoro.Logging.Types.LogLevel level = 1, Bezoro.Logging.Types.LogCategory? category = default, object? contextObject = null, bool captureCallerInfo = false, [System.Runtime.CompilerServices.CallerMemberName] string? memberName = null, [System.Runtime.CompilerServices.CallerFilePath] string? filePath = null) { }
+        [System.Diagnostics.Conditional("DEBUG")]
+        public static void LogError(object message, Bezoro.Logging.Types.LogCategory? category = default, object? contextObject = null, bool captureCallerInfo = false, [System.Runtime.CompilerServices.CallerMemberName] string? memberName = null, [System.Runtime.CompilerServices.CallerFilePath] string? filePath = null) { }
+        [System.Diagnostics.Conditional("DEBUG")]
+        public static void LogException(System.Exception exception, string? customMessage = null, Bezoro.Logging.Types.LogCategory? category = default, object? contextObject = null, bool captureCallerInfo = true, [System.Runtime.CompilerServices.CallerMemberName] string? memberName = null, [System.Runtime.CompilerServices.CallerFilePath] string? filePath = null) { }
+        [System.Diagnostics.Conditional("DEBUG")]
+        public static void LogSuccess(object message, Bezoro.Logging.Types.LogCategory? category = default, object? contextObject = null, bool captureCallerInfo = false, [System.Runtime.CompilerServices.CallerMemberName] string? memberName = null, [System.Runtime.CompilerServices.CallerFilePath] string? filePath = null) { }
+        [System.Diagnostics.Conditional("DEBUG")]
+        public static void LogWarning(object message, Bezoro.Logging.Types.LogCategory? category = default, object? contextObject = null, bool captureCallerInfo = false, [System.Runtime.CompilerServices.CallerMemberName] string? memberName = null, [System.Runtime.CompilerServices.CallerFilePath] string? filePath = null) { }
+    }
+}
+namespace Bezoro.Logging.Types
+{
+    public readonly struct FileLocationConfig
+    {
+        public bool Enabled { get; init; }
+        public bool ShowFullPath { get; init; }
+        public static Bezoro.Logging.Types.FileLocationConfig Disabled { get; }
+        public static Bezoro.Logging.Types.FileLocationConfig FilenameOnly { get; }
+        public static Bezoro.Logging.Types.FileLocationConfig FullPath { get; }
+    }
+    public readonly struct FrameCountConfig
+    {
+        public bool Enabled { get; init; }
+        public System.Func<int>? Provider { get; init; }
+        public static Bezoro.Logging.Types.FrameCountConfig Disabled { get; }
+        public static Bezoro.Logging.Types.FrameCountConfig Create(System.Func<int> provider) { }
+    }
+    public readonly struct GroupingConfig
+    {
+        public Bezoro.Logging.Types.LoggerSettings.ContextGrouping GroupBy { get; }
+        public bool IncludeInOutput { get; }
+        public int TimeWindowMs { get; }
+        public static Bezoro.Logging.Types.GroupingConfig None { get; }
+        public static Bezoro.Logging.Types.GroupingConfig Create(Bezoro.Logging.Types.LoggerSettings.ContextGrouping groupBy, bool includeInOutput = true, int timeWindowMs = 100) { }
+    }
+    public enum LogCategory
+    {
+        None = 0,
+        Default = 1,
+        System = 2,
+        Other = 3,
+        Debug = 4,
+        Test = 5,
+        Profiling = 6,
+        Editor = 7,
+        Analytics = 8,
+        Performance = 9,
+        Memory = 10,
+        Security = 11,
+        Database = 12,
+        FileIo = 13,
+        Configuration = 14,
+        Loading = 15,
+        SaveSystem = 16,
+        Resources = 17,
+        AssetBundle = 18,
+        SceneManagement = 19,
+        Rendering = 20,
+        Particles = 21,
+        Shaders = 22,
+        PostProcessing = 23,
+        Lighting = 24,
+        Gameplay = 25,
+        Combat = 26,
+        Inventory = 27,
+        Quest = 28,
+        Dialog = 29,
+        LevelGeneration = 30,
+        Progression = 31,
+        Achievement = 32,
+        Economy = 33,
+        Input = 34,
+        Ui = 35,
+        Animation = 36,
+        Physics = 37,
+        Physics2D = 38,
+        Ai = 39,
+        Audio = 40,
+        Network = 41,
+        Cloud = 42,
+        Authentication = 43,
+        Social = 44,
+        Purchasing = 45,
+        Localization = 46,
+        Camera = 47,
+        Initialization = 48,
+        Utilities = 49,
+        Uci = 50,
+    }
+    public static class LogCategoryEmoji
+    {
+        public static string GetEmoji(Bezoro.Logging.Types.LogCategory category) { }
+    }
+    public enum LogLevel
+    {
+        None = 0,
+        Info = 1,
+        Success = 2,
+        Warning = 3,
+        Error = 4,
+        Exception = 5,
+        Divider = 6,
+    }
+    public static class LogLevelEmoji
+    {
+        public static string GetEmoji(Bezoro.Logging.Types.LogLevel level) { }
+    }
+    public sealed class LogPayload
+    {
+        public LogPayload(Bezoro.Logging.Types.LogLevel level, string message, string formattedMessage, string severityEmoji) { }
+        public string? AsyncContext { get; init; }
+        public int AsyncContextDepth { get; init; }
+        public System.Collections.Generic.IReadOnlyList<string>? AsyncContextHierarchy { get; init; }
+        public string? CallerInfo { get; init; }
+        public Bezoro.Logging.Types.LogCategory? Category { get; init; }
+        public string? CategoryEmoji { get; init; }
+        public object? ContextObject { get; init; }
+        public System.Exception? Exception { get; init; }
+        public string? ExceptionType { get; init; }
+        public string FormattedMessage { get; }
+        public string? GroupingContext { get; init; }
+        public string? InnerExceptionMessage { get; init; }
+        public string? InnerExceptionType { get; init; }
+        public Bezoro.Logging.Types.LogLevel Level { get; }
+        public string Message { get; }
+        public string SeverityEmoji { get; }
+        public string? StackTrace { get; init; }
+        public string? Stage { get; init; }
+        public Bezoro.Logging.Types.LogStyle Style { get; init; }
+        public System.DateTime Timestamp { get; init; }
+    }
+    public sealed class LogStyle
+    {
+        public LogStyle(System.ConsoleColor color, bool bold = false, bool italic = false) { }
+        public bool Bold { get; init; }
+        public System.ConsoleColor Color { get; init; }
+        public bool Italic { get; init; }
+    }
+    public static class LoggerSettings
+    {
+        public static bool Enabled { get; set; }
+        public static Bezoro.Logging.Types.LogStyle ErrorStyle { get; set; }
+        public static Bezoro.Logging.Types.LogStyle ExceptionStyle { get; set; }
+        public static Bezoro.Logging.Types.FileLocationConfig FileLocation { get; set; }
+        public static Bezoro.Logging.Types.FrameCountConfig FrameCount { get; set; }
+        public static Bezoro.Logging.Types.GroupingConfig Grouping { get; set; }
+        public static Bezoro.Logging.Types.LogStyle InfoStyle { get; set; }
+        public static System.Collections.Generic.ISet<Bezoro.Logging.Types.LogCategory> MutedCategories { get; }
+        public static Bezoro.Logging.Types.SequenceNumberConfig SequenceNumber { get; set; }
+        public static Bezoro.Logging.Types.StageConfig Stage { get; set; }
+        public static Bezoro.Logging.Types.LogStyle SuccessStyle { get; set; }
+        public static Bezoro.Logging.Types.ThreadIdConfig ThreadId { get; set; }
+        public static Bezoro.Logging.Types.TimestampConfig Timestamp { get; set; }
+        public static Bezoro.Logging.Types.LogStyle WarningStyle { get; set; }
+        public static System.IDisposable BeginAsyncContext(string contextName) { }
+        public enum ContextGrouping
+        {
+            None = 0,
+            CallerType = 1,
+            CallerMethod = 2,
+            Category = 3,
+            Thread = 4,
+            Level = 5,
+            TimeWindow = 6,
+            AsyncContext = 7,
+        }
+    }
+    public readonly struct SequenceNumberConfig
+    {
+        public bool Enabled { get; init; }
+        public static Bezoro.Logging.Types.SequenceNumberConfig Off { get; }
+        public static Bezoro.Logging.Types.SequenceNumberConfig On { get; }
+    }
+    public readonly struct StageConfig
+    {
+        public System.Func<string?, string?, string?>? DividerProvider { get; init; }
+        public bool Enabled { get; init; }
+        public System.Func<string?>? Provider { get; init; }
+        public static Bezoro.Logging.Types.StageConfig Disabled { get; }
+        public static Bezoro.Logging.Types.StageConfig Create(System.Func<string?> provider, System.Func<string?, string?, string?>? dividerProvider = null) { }
+        public static string? DefaultDividerProvider(string? fromStage, string? toStage) { }
+    }
+    public readonly struct ThreadIdConfig
+    {
+        public bool Enabled { get; init; }
+        public static Bezoro.Logging.Types.ThreadIdConfig Off { get; }
+        public static Bezoro.Logging.Types.ThreadIdConfig On { get; }
+    }
+    public readonly struct TimestampConfig
+    {
+        public bool Enabled { get; init; }
+        public string Format { get; init; }
+        public static Bezoro.Logging.Types.TimestampConfig Default { get; }
+        public static Bezoro.Logging.Types.TimestampConfig Disabled { get; }
+        public static Bezoro.Logging.Types.TimestampConfig Create(string format) { }
+    }
+}
+namespace Bezoro.Logging.Utilities
+{
+    public readonly struct PerformanceTimer : System.IDisposable
+    {
+        public PerformanceTimer(string operationName, Bezoro.Logging.Types.LogCategory? category, object? contextObject) { }
+        public void Dispose() { }
+    }
+}

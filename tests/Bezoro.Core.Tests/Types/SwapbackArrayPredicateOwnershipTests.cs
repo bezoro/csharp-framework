@@ -7,6 +7,17 @@ namespace Bezoro.Core.Tests.Types;
 public sealed class SwapbackArrayPredicateOwnershipTests
 {
     [Fact]
+    public void ThrowAfterMatchingAndKeepingElementsPreservesContentsAndVersion()
+    {
+        var values = new SwapbackArray<int> { 1, 2, 3 };
+        var version = values.Version;
+        Assert.Throws<FormatException>(() => values.RemoveAll(value =>
+            value == 3 ? throw new FormatException() : value == 1));
+        Assert.Equal(new[] { 1, 2, 3 }, values.ToArray());
+        Assert.Equal(version, values.Version);
+    }
+
+    [Fact]
     public void PredicateCannotAppendAValueThatCompactionWouldSilentlyDiscard()
     {
         var values = new SwapbackArray<int> { 1, 2, 3 };

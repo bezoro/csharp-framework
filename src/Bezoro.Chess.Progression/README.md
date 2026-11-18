@@ -1,6 +1,6 @@
 # Bezoro.Chess.Progression
 
-Local player progression composed from existing Framework modules. `PlayerProfile`, `PlayerMatchHistory` and `EloRatings` own profile/history/rating values; `QuestProgress` and `StoryProgress` own objective, claim and prerequisite rules; `CommerceAccount` owns currency, permanent ownership and purchase receipts. This optional module adds the chess application boundary and one atomic save. It contains no Unity references, loaded artwork, network services or global ranking.
+Local player progression composed from existing Framework modules. `PlayerProfile`, `PlayerMatchRecord` and `EloRatings` own profile/history/rating values; `QuestProgress` and `StoryProgress` own objective, claim and prerequisite rules; `CommerceAccount` owns currency, permanent ownership and purchase receipts. This optional module adds the chess application boundary and one atomic save. It contains no Unity references, loaded artwork, network services or global ranking.
 
 ```csharp
 var options = new ChessProgressOptions();
@@ -42,3 +42,8 @@ Default board and piece cosmetics are always owned and initially equipped. Their
 The bounded schema-1 payload retains profile metadata, distinct live-match facts, verified lesson receipts, ordered quest/purchase identities, equipment and a checked balance snapshot. Restore replays those facts through the existing Framework owners, validates the exact player/catalog/rating policy, rejects conflicting identities and verifies balances against the claim/purchase ledger. The persistence envelope provides corruption detection, not authentication or protection against a user rolling back their own offline files. Catalog/rating-policy changes require an explicit migration; unknown schemas, corrupt saves and foreign profiles are never silently reset or overwritten. Localize presentation in the host by stable content IDs; changing authored teaching definitions changes their fingerprint.
 
 Both .NET 10 and .NET Standard 2.1 are supported. Focused tests use the real atomic file store and local rule-session events to verify restore, cancellation/failure boundaries, duplicate matches and lessons, exactly-once rewards, typed cosmetic equipment, purchases and recorder drainage. These managed tests do not certify any game engine's rendering or player filesystem.
+
+If a custom completion clock throws, the recorder timestamps that match once with the system UTC clock and continues ordinary queue admission. Drain and retry report the latest clock failure until the host passes the observed LastError to AcknowledgeClockFailure. Acknowledgment clears the diagnostic only. Persistence retries keep the captured fallback timestamp.
+
+
+Profile commands update a private working state under the per-owner command gate. Immutable history and its match index share prior versions with retained snapshots. Successful commands encode the current ledger once. Duplicate matches use the index, and unchanged commands skip encoding and storage. A failed mutation or atomic write rebuilds the working state from the previously committed facts. Reads, including reads inside a save-store callback, see only committed snapshots. A store write must not wait for another mutation of the same owner. Such nested calls in its execution context throw before waiting for the command gate.

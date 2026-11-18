@@ -48,6 +48,7 @@ public sealed class ChessTrainingProgressRecorder : IDisposable, IAsyncDisposabl
     private bool _disposed;
     private Exception? _lastError;
     private Exception? _captureError;
+    private Exception? _clockError;
     private long _rejectedCaptureCount;
     private ChessTrainingCaptureRejection? _lastRejectedCapture;
     private Action<ChessTrainingCaptureRejection>? _captureRejected;
@@ -84,7 +85,7 @@ public sealed class ChessTrainingProgressRecorder : IDisposable, IAsyncDisposabl
     }
 
     /// <summary>Gets the last captured observation/storage failure, or null. DrainAsync also reports it.</summary>
-    public Exception? LastError { get { lock (_sync) return _captureError ?? _lastError; } }
+    public Exception? LastError { get { lock (_sync) return _captureError ?? _clockError ?? _lastError; } }
     /// <summary>Gets the number of terminal records awaiting a successful durable write.</summary>
     public int PendingCount { get { lock (_sync) return _pending.Count; } }
     /// <summary>Gets the maximum accepted records awaiting storage, including an in-flight write.</summary>
@@ -117,6 +118,18 @@ public sealed class ChessTrainingProgressRecorder : IDisposable, IAsyncDisposabl
         {
             if (_captureError is null || observedCount != _rejectedCaptureCount) return false;
             _captureError = null;
+            return true;
+        }
+    }
+
+    /// <summary>Acknowledges the latest clock failure reported by LastError. Its match used the system UTC clock.</summary>
+    public bool AcknowledgeClockFailure(Exception observedError)
+    {
+        if (observedError is null) throw new ArgumentNullException(nameof(observedError));
+        lock (_sync)
+        {
+            if (!ReferenceEquals(_clockError, observedError)) return false;
+            _clockError = null;
             return true;
         }
     }
@@ -196,10 +209,19 @@ public sealed class ChessTrainingProgressRecorder : IDisposable, IAsyncDisposabl
             lock (_sync) { if (!CanCapture(finished)) return; }
             // The host clock may run arbitrary code, including context changes or disposal.
             // Keep it outside our gate and revalidate eligibility before publishing a record.
-            DateTimeOffset completedAt = finished.State.Clock?.SnapshotUtc ?? _utcNow();
+            DateTimeOffset completedAt;
+            Exception? clockError = null;
+            try { completedAt = finished.State.Clock?.SnapshotUtc ?? _utcNow(); }
+            catch (Exception exception)
+            {
+                completedAt = DateTimeOffset.UtcNow;
+                clockError = new InvalidOperationException("The completion clock failed for match " + finished.GameId
+                    + ". Its terminal record uses the system UTC timestamp.", exception);
+            }
             lock (_sync)
             {
                 if (!CanCapture(finished)) return;
+                if (clockError is not null) _clockError = clockError;
                 var match = new ChessTrainingMatch(_gameId.ToString("N"), _opponentId, _opponentRating,
                     _playerSide, finished.State.Result, completedAt, ChessMatchProgressSource.LiveTraining);
                 _captured = true;
@@ -277,7 +299,7 @@ public sealed class ChessTrainingProgressRecorder : IDisposable, IAsyncDisposabl
             await pending.ConfigureAwait(false);
             lock (_sync)
             {
-                if ((_captureError ?? _lastError) is { } error)
+                if ((_captureError ?? _clockError ?? _lastError) is { } error)
                     throw new InvalidOperationException("Local training progress could not be recorded. Pending records retain their original identities and timestamps; rejected records require explicit host recovery.", error);
                 if (!_running && _pending.Count == 0) return;
             }

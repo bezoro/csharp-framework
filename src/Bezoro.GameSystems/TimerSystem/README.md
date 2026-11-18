@@ -109,3 +109,5 @@ dotnet test tests/Bezoro.GameSystems.Tests/Bezoro.GameSystems.Tests.csproj -c Re
 ```
 
 See [the module README](../README.md) for .NET 10, .NET Standard 2.1, and Unity 6 integration.
+
+When a bounded lifecycle queue fills, pending control events retain their order. A timer at its duration remains running until its Finished event is admitted. A one-shot timer also waits for space in the update's deferred command stream, then schedules destruction before invoking the Finished callback.

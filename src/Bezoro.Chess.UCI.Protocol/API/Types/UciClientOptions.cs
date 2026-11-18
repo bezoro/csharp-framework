@@ -5,6 +5,10 @@ namespace Bezoro.Chess.UCI.Protocol.API.Types;
 /// </summary>
 public readonly struct UciClientOptions()
 {
+	/// <summary>Maximum distinct option names retained from each UCI handshake. Default is 4096.</summary>
+	/// <remarks>Later declarations of a retained name update its value. Additional names remain observable as protocol events.</remarks>
+	public int MaxAdvertisedOptions { get; init; } = 4096;
+
 	/// <summary>Maximum number of recent PV snapshots retained in a completed search result. Default is 4096.</summary>
 	/// <remarks>Live protocol events still receive every line. Fire-and-forget searches retain no PV history.</remarks>
 	public int MaxCapturedPrincipalVariations { get; init; } = 4096;

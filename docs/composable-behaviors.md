@@ -89,3 +89,7 @@ The statechart example opens and closes a chest, keeps Grounded.Walking active d
 The NPC example runs BT -> statechart -> BT -> flat FSM -> BT and a compiled subtree. Scheduled perception interrupts patrol once, and the combat graph completes aiming and attacking. It also executes the C# 9 consumer with a one-visit budget.
 
 Managed builds, tests and compiler checks do not establish Unity Editor, IL2CPP or Godot export compatibility. Validate intended engine/player targets and stripping settings. Development pushes do not run CI; main integration validates all discovered suites on both platforms before UPM publication.
+
+## Callback ownership migration
+
+Supply an application handler to each tree or chart adapter that needs callbacks. Code that previously passed a `TreeBehavior<TContext>` or `StatechartBehavior<TContext>` as a handler must pass its application handler instead. The adapter invokes its private receiver under the owning graph reservation. Drive the adapter through Start, Tick, Stop and its signal API.

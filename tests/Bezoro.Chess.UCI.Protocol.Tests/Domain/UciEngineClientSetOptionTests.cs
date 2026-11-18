@@ -42,7 +42,7 @@ public class UciEngineClientSetOptionTests
 
 		// Assert
 		await transport.Received(1).WriteLineAsync($"setoption name SyzygyPath value {VALUE_WITH_SPACES}", ct);
-		await transport.Received(1).WriteLineAsync("isready",                                              ct);
+		await transport.Received(1).WriteLineAsync("isready", Arg.Any<CancellationToken>());
 
 		await client.DisposeAsync();
 	}
@@ -64,7 +64,7 @@ public class UciEngineClientSetOptionTests
 
 		// Assert
 		await transport.Received(1).WriteLineAsync("setoption name Ponder", ct);
-		await transport.Received(1).WriteLineAsync("isready",               ct);
+		await transport.Received(1).WriteLineAsync("isready", Arg.Any<CancellationToken>());
 
 		await client.DisposeAsync();
 	}
@@ -86,7 +86,7 @@ public class UciEngineClientSetOptionTests
 
 		// Assert
 		await transport.Received(1).WriteLineAsync("setoption name Hash value 256", ct);
-		await transport.Received(1).WriteLineAsync("isready",                       ct);
+		await transport.Received(1).WriteLineAsync("isready", Arg.Any<CancellationToken>());
 
 		await client.DisposeAsync();
 	}

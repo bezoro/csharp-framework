@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Bezoro.ECS.Abstractions;
 using Bezoro.ECS.Options;
 using Bezoro.ECS.Services;
@@ -32,6 +33,7 @@ internal sealed class WorldSnapshotService(
 		var snapshotRelations     = snapshot.Relations;
 		var entityIds             = new HashSet<Entity>(snapshotEntities.Length);
 		var resourceTypes         = new HashSet<Type>();
+		ConditionalWeakTable<object, object>? disposableOwners = null;
 		var missingComponentTypes = new HashSet<Type>();
 		var relationMarkerTypes   = new HashSet<(Type relationType, Entity target)>();
 		var relationTriples       = new HashSet<(Type relationType, Entity source, Entity target)>();
@@ -45,6 +47,13 @@ internal sealed class WorldSnapshotService(
 		{
 			var resource = snapshotResources[i];
 			ValidateSnapshotResource(resource, options);
+			if (!resource.ResourceType.IsValueType && resource.Value is IDisposable)
+			{
+				disposableOwners ??= new();
+				if (disposableOwners.TryGetValue(resource.Value, out _))
+					throw new InvalidOperationException("A disposable resource instance cannot have multiple snapshot registrations.");
+				disposableOwners.Add(resource.Value, resource.Value);
+			}
 			if (!resourceTypes.Add(resource.ResourceType))
 				throw new InvalidOperationException(
 					$"Duplicate snapshot resource type '{resource.ResourceType.FullName}' is not allowed."
@@ -280,19 +289,26 @@ internal sealed class WorldSnapshotService(
 				$"Snapshot resource '{resource.ResourceType.FullName}' contains a null value."
 			);
 
-		if (resource.Value.GetType() != resource.ResourceType)
+		var concreteType = resource.Value.GetType();
+		if (!resource.ResourceType.IsAssignableFrom(concreteType))
 			throw new InvalidOperationException(
-				$"Snapshot resource value type '{resource.Value.GetType().FullName}' does not match declared type '{resource.ResourceType.FullName}'."
+				$"Snapshot resource value type '{resource.Value.GetType().FullName}' is not assignable to declared type '{resource.ResourceType.FullName}'."
 			);
 
-		if (!options.IsResourceTypeAllowListed(resource.ResourceType))
+		ValidateResourceType(resource.ResourceType, options);
+		if (concreteType != resource.ResourceType) ValidateResourceType(concreteType, options);
+	}
+
+	private static void ValidateResourceType(Type type, SnapshotDeserializationOptions options)
+	{
+		if (!options.IsResourceTypeAllowListed(type))
 			throw new InvalidOperationException(
-				$"Snapshot resource type '{resource.ResourceType.FullName}' is not allow-listed."
+				$"Snapshot resource type '{type.FullName}' is not allow-listed."
 			);
 
-		if (!options.IsTypeAllowed(resource.ResourceType))
+		if (!options.IsTypeAllowed(type))
 			throw new InvalidOperationException(
-				$"Snapshot resource type '{resource.ResourceType.FullName}' is not allowed."
+				$"Snapshot resource type '{type.FullName}' is not allowed."
 			);
 	}
 }

@@ -16,25 +16,67 @@ public sealed class UnityPackagePublishScriptTests
         fixture.WritePackageFile("Runtime/Current.dll", "first assembly");
         fixture.WritePackageFile("Runtime/Obsolete.dll", "obsolete assembly");
 
-        var first = fixture.Publish("1111111111111111111111111111111111111111");
+        string firstRevision = fixture.CommitSource();
+        var first = fixture.Publish(firstRevision);
         first.ExitCode.Should().Be(0, first.Output);
         string firstHead = fixture.ReadGit("rev-parse", "upm");
         fixture.ReadGit("log", "-1", "--format=%s", "upm")
-            .Should().StartWith("chore(upm): ").And.Contain("1111111111111111111111111111111111111111");
+            .Should().StartWith("chore(upm): ").And.Contain(firstRevision);
         fixture.ReadGit("show", "upm:Runtime/Current.dll").Should().Be("first assembly");
 
-        var unchanged = fixture.Publish("1111111111111111111111111111111111111111");
+        var unchanged = fixture.Publish(firstRevision);
         unchanged.ExitCode.Should().Be(0, unchanged.Output);
         fixture.ReadGit("rev-parse", "upm").Should().Be(firstHead);
 
         fixture.WritePackageFile("Runtime/Current.dll", "replacement assembly");
         fixture.RemovePackageFile("Runtime/Obsolete.dll");
-        var replacement = fixture.Publish("2222222222222222222222222222222222222222");
+        var replacement = fixture.Publish(fixture.CommitSource());
         replacement.ExitCode.Should().Be(0, replacement.Output);
         fixture.ReadGit("show", "upm:Runtime/Current.dll").Should().Be("replacement assembly");
         fixture.ReadGit("ls-tree", "-r", "--name-only", "upm").Should().NotContain("Obsolete.dll");
         fixture.ReadGit("rev-list", "--count", "upm").Should().Be("2");
         fixture.ReadGit("rev-parse", "upm^").Should().Be(firstHead);
+    }
+
+    [Fact]
+    public void DelayedPublicationCannotReplacePackageFromLaterSource()
+    {
+        using var fixture = new PublishFixture();
+        string older = fixture.CommitSource();
+        string newer = fixture.CommitSource();
+        fixture.WritePackageFile("package.json", "{\"version\":\"1.2.4\"}");
+        var first = fixture.Publish(newer);
+        first.ExitCode.Should().Be(0, first.Output);
+        string head = fixture.ReadGit("rev-parse", "upm");
+
+        fixture.WritePackageFile("package.json", "{\"version\":\"1.2.3\"}");
+        var late = fixture.Publish(older);
+
+        late.ExitCode.Should().Be(0, late.Output);
+        late.Output.Should().Contain("UPM already publishes a newer source commit");
+        fixture.ReadGit("rev-parse", "upm").Should().Be(head);
+        fixture.ReadGit("show", "upm:package.json").Should().Contain("1.2.4");
+    }
+
+    [Fact]
+    public void IdenticalPackageAdvancesTheOfficialSourceWatermark()
+    {
+        using var fixture = new PublishFixture();
+        string first = fixture.CommitSource();
+        string delayed = fixture.CommitSource();
+        string latest = fixture.CommitSource();
+        fixture.WritePackageFile("package.json", "{\"version\":\"1.2.3\"}");
+        var initial = fixture.Publish(first);
+        initial.ExitCode.Should().Be(0, initial.Output);
+
+        var unchanged = fixture.Publish(latest);
+        unchanged.ExitCode.Should().Be(0, unchanged.Output);
+        fixture.ReadGit("log", "-1", "--format=%s", "upm").Should().EndWith(latest);
+
+        fixture.WritePackageFile("package.json", "{\"version\":\"1.2.4\"}");
+        var late = fixture.Publish(delayed);
+        late.ExitCode.Should().Be(0, late.Output);
+        fixture.ReadGit("show", "upm:package.json").Should().Contain("1.2.3");
     }
 
     private sealed class PublishFixture : IDisposable
@@ -44,6 +86,7 @@ public sealed class UnityPackagePublishScriptTests
         private readonly string _bareRepository;
         private readonly string _package;
         private readonly string _gitConfig;
+        private readonly string _source;
         private readonly string _script;
 
         public PublishFixture()
@@ -54,10 +97,14 @@ public sealed class UnityPackagePublishScriptTests
             _bareRepository = Path.Combine(_root, "repository.git");
             _package = Path.Combine(_root, "package");
             _gitConfig = Path.Combine(_root, "gitconfig");
+            _source = Path.Combine(_root, "source");
             _script = Path.Combine(repository, "scripts", "Publish-UnityPackageBranch.ps1");
             Directory.CreateDirectory(_package);
             File.WriteAllText(_gitConfig, string.Empty);
             Git("init", "--bare", _bareRepository);
+            Git("init", "--initial-branch=main", _source);
+            Git("-C", _source, "config", "user.name", "Package fixture");
+            Git("-C", _source, "config", "user.email", "test@example.invalid");
             // Rewrite only this fixture URL. No request reaches GitHub or uses real credentials.
             Git("config", "--file", _gitConfig,
                 "url." + new Uri(_bareRepository).AbsoluteUri + ".insteadOf", Remote);
@@ -72,8 +119,15 @@ public sealed class UnityPackagePublishScriptTests
 
         public void RemovePackageFile(string relativePath) => File.Delete(Path.Combine(_package, relativePath));
 
+        public string CommitSource()
+        {
+            Git("-C", _source, "commit", "--allow-empty", "-m", Guid.NewGuid().ToString("N"));
+            return Git("-C", _source, "rev-parse", "HEAD").Output.Trim();
+        }
+
         public (int ExitCode, string Output) Publish(string sourceRevision) => Run("pwsh", sourceRevision,
-            "-NoProfile", "-NonInteractive", "-File", _script, "-PackagePath", _package, "-Branch", "upm");
+            "-NoProfile", "-NonInteractive", "-File", _script, "-PackagePath", _package, "-Branch", "upm",
+            "-SourceRepositoryPath", _source);
 
         public string ReadGit(params string[] arguments)
         {

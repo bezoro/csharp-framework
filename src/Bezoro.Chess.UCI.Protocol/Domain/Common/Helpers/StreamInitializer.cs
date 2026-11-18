@@ -18,34 +18,22 @@ internal static class StreamInitializer
 	public static ProcessStreams InitializeStreams(
 		Process   process,
 		Encoding? stdinEncoding,
-		Encoding? stdoutEncoding,
-		Encoding? stderrEncoding,
 		bool      redirectStandardError,
 		string    newLine,
 		bool      autoFlush)
 	{
 		var stdinEnc  = stdinEncoding ?? process.StandardInput.Encoding;
-		var stdoutEnc = stdoutEncoding ?? process.StandardOutput.CurrentEncoding;
-		var stderrEnc = stderrEncoding ??
-						(redirectStandardError ? process.StandardError.CurrentEncoding : Encoding.UTF8);
-
-		var stdin = new StreamWriter(process.StandardInput.BaseStream, stdinEnc, 64 * 1024, true)
+		var stdin = new StreamWriter(process.StandardInput.BaseStream, stdinEnc, 64 * 1024, leaveOpen: false)
 		{
 			NewLine   = newLine,
 			AutoFlush = autoFlush
 		};
 
-		var stdout = new StreamReader(process.StandardOutput.BaseStream, stdoutEnc, false, 64 * 1024, true);
-
-		var stderr = redirectStandardError
-						 ? new StreamReader(process.StandardError.BaseStream, stderrEnc, false, 32 * 1024, true)
-						 : null;
-
 		return new()
 		{
 			Stdin  = stdin,
-			Stdout = stdout,
-			Stderr = stderr
+			Stdout = process.StandardOutput,
+			Stderr = redirectStandardError ? process.StandardError : null
 		};
 	}
 

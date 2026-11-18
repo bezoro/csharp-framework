@@ -69,6 +69,19 @@ public sealed class CommandStream : IDisposable
 		}
 	}
 
+	/// <summary>Gets the number of free command slots. Concurrent producers may consume them after this read.</summary>
+	public int RemainingCapacity
+	{
+		get
+		{
+			lock (_gate)
+			{
+				ThrowIfDisposed();
+				return _commandCapacity - _commandCount;
+			}
+		}
+	}
+
 	internal World Owner { get; }
 
 	/// <summary>

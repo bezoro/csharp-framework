@@ -1,0 +1,527 @@
+// net10.0, netstandard2.1
+namespace Bezoro.GameSystems.ActivationSystem.Abstractions
+{
+    public interface IActivationCommandSink
+    {
+        bool Cancel(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle handle);
+        Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle Register(System.Action callback, int priority = 0);
+    }
+}
+namespace Bezoro.GameSystems.ActivationSystem.Extensions
+{
+    public static class ActivationWorldExtensions
+    {
+        public static void AddActivationPipeline(this Bezoro.ECS.Services.World world) { }
+        public static Bezoro.GameSystems.ActivationSystem.Types.ActivationCommandQueue GetOrCreateActivationCommandQueue(this Bezoro.ECS.Services.World world) { }
+    }
+}
+namespace Bezoro.GameSystems.ActivationSystem.Services
+{
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationConfig))]
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource))]
+    public sealed class ActivationDispatchSystem : Bezoro.ECS.Abstractions.ISystem
+    {
+        public ActivationDispatchSystem() { }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public void OnCreate(Bezoro.ECS.Services.World world) { }
+        public void Update(in Bezoro.ECS.Types.SystemContext context) { }
+    }
+    [Bezoro.ECS.Attributes.Writes(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationCancellationRequest))]
+    [Bezoro.ECS.Attributes.Writes(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry))]
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationCommandQueue))]
+    public sealed class ActivationIngestionSystem : Bezoro.ECS.Abstractions.ISystem
+    {
+        public ActivationIngestionSystem() { }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public void OnCreate(Bezoro.ECS.Services.World world) { }
+        public void Update(in Bezoro.ECS.Types.SystemContext context) { }
+    }
+    [Bezoro.ECS.Attributes.Reads(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationCancellationRequest))]
+    [Bezoro.ECS.Attributes.ReadsResource(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationConfig))]
+    [Bezoro.ECS.Attributes.Writes(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationEntry))]
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationDispatchQueueResource))]
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationEventsResource))]
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.ActivationSystem.Types.ActivationRuntimeState))]
+    public sealed class ActivationProcessingSystem : Bezoro.ECS.Abstractions.ISystem
+    {
+        public ActivationProcessingSystem() { }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public event System.Action<Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent>? Completed;
+        public void OnCreate(Bezoro.ECS.Services.World world) { }
+        public void Update(in Bezoro.ECS.Types.SystemContext context) { }
+    }
+}
+namespace Bezoro.GameSystems.ActivationSystem.Types
+{
+    public delegate void ActivationCallbackDispatcher(System.Action callback);
+    public readonly struct ActivationCancellationRequest
+    {
+        public ActivationCancellationRequest(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle handle) { }
+        public Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle Handle { get; }
+    }
+    public sealed class ActivationCommandQueue : Bezoro.GameSystems.ActivationSystem.Abstractions.IActivationCommandSink
+    {
+        public ActivationCommandQueue() { }
+        public int PendingCommandCount { get; }
+        public bool Cancel(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle handle) { }
+        public Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle Register(System.Action callback, int priority = 0) { }
+    }
+    public readonly struct ActivationCompletedEvent
+    {
+        public ActivationCompletedEvent(int activatedCount) { }
+        public int ActivatedCount { get; }
+    }
+    public readonly struct ActivationConfig
+    {
+        public ActivationConfig(int maxActivationsPerTick = 2147483647, Bezoro.GameSystems.ActivationSystem.Types.ActivationCallbackDispatcher? callbackDispatcher = null) { }
+        public Bezoro.GameSystems.ActivationSystem.Types.ActivationCallbackDispatcher? CallbackDispatcher { get; }
+        public int MaxActivationsPerTick { get; }
+    }
+    public sealed class ActivationDispatchQueueResource
+    {
+        public ActivationDispatchQueueResource() { }
+        public ActivationDispatchQueueResource(int initialCapacity = 0, int maxCapacity = 2147483647) { }
+        public int Count { get; }
+        public int MaxCapacity { get; }
+        public void Clear() { }
+        public void Enqueue(System.Action callback) { }
+        public bool TryDequeue(out System.Action callback) { }
+        public bool TryEnqueue(System.Action callback) { }
+    }
+    public struct ActivationEntry
+    {
+        public ActivationEntry(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle handle, System.Action callback, int priority = 0) { }
+        public Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle Handle { get; }
+        public int Priority { get; }
+        public Bezoro.GameSystems.ActivationSystem.Types.ActivationState State { get; }
+    }
+    public sealed class ActivationEventsResource
+    {
+        public ActivationEventsResource() { }
+        public ActivationEventsResource(int initialCapacity = 0, int maxCapacity = 2147483647) { }
+        public int Count { get; }
+        public int MaxCapacity { get; }
+        public void Clear() { }
+        public void Enqueue(in Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent eventData) { }
+        public bool TryDequeue(out Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent eventData) { }
+        public bool TryEnqueue(in Bezoro.GameSystems.ActivationSystem.Types.ActivationCompletedEvent eventData) { }
+    }
+    public readonly struct ActivationHandle : System.IEquatable<Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle>
+    {
+        public readonly int Id;
+        public static readonly Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle None;
+        public ActivationHandle(int id) { }
+        public bool IsValid { get; }
+        public bool Equals(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override string ToString() { }
+        public static bool operator !=(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle left, Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle right) { }
+        public static bool operator ==(Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle left, Bezoro.GameSystems.ActivationSystem.Types.ActivationHandle right) { }
+    }
+    public sealed class ActivationRuntimeState
+    {
+        public ActivationRuntimeState() { }
+        public int ActivatedCount { get; }
+        public bool IsComplete { get; }
+        public int PendingCount { get; }
+    }
+    public enum ActivationState : byte
+    {
+        Pending = 0,
+        Activated = 1,
+        Cancelled = 2,
+    }
+}
+namespace Bezoro.GameSystems.HealthSystem.Extensions
+{
+    public static class HealthWorldExtensions
+    {
+        public static bool QueueHealthDamage(this Bezoro.ECS.Services.World world, Bezoro.ECS.Types.Entity targetEntity, uint amount) { }
+        public static bool QueueHealthDirectDamage(this Bezoro.ECS.Services.World world, Bezoro.ECS.Types.Entity targetEntity, uint amount) { }
+        public static bool QueueHealthHeal(this Bezoro.ECS.Services.World world, Bezoro.ECS.Types.Entity targetEntity, uint amount) { }
+        public static bool QueueHealthIncreaseHealth(this Bezoro.ECS.Services.World world, Bezoro.ECS.Types.Entity targetEntity, uint amount) { }
+        public static bool QueueSetHealthMax(this Bezoro.ECS.Services.World world, Bezoro.ECS.Types.Entity targetEntity, uint maxHealth, Bezoro.Core.Types.MaxValueUpdateMode mode = 0) { }
+    }
+}
+namespace Bezoro.GameSystems.HealthSystem.Services
+{
+    [Bezoro.ECS.Attributes.Reads(typeof(Bezoro.GameSystems.HealthSystem.Types.HealthMutationRequest))]
+    [Bezoro.ECS.Attributes.Writes(typeof(Bezoro.GameSystems.HealthSystem.Types.Health))]
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.HealthSystem.Types.HealthEventsResource?))]
+    public sealed class HealthSystem : Bezoro.ECS.Abstractions.ISystem
+    {
+        public HealthSystem() { }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public Bezoro.ECS.Types.SystemUpdateSettings UpdateSettings { get; }
+        public event System.Action<Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent>? Changed;
+        public void OnCreate(Bezoro.ECS.Services.World world) { }
+        public void Update(in Bezoro.ECS.Types.SystemContext context) { }
+    }
+}
+namespace Bezoro.GameSystems.HealthSystem.Types
+{
+    public struct Health
+    {
+        public uint Current;
+        public uint ExcessCurrent;
+        public uint ExcessMax;
+        public uint Max;
+        public Health(uint max, uint current, uint excessCurrent = 0, uint excessMax = 0) { }
+        public Bezoro.Core.Types.Percent BasePercentage { get; }
+        public uint EffectiveCurrent { get; }
+        public Bezoro.Core.Types.Percent ExcessPercentage { get; }
+        public bool IsEmpty { get; }
+        public bool IsFull { get; }
+        public Bezoro.Core.Types.Percent TotalPercentage { get; }
+    }
+    public enum HealthChangeKind
+    {
+        Damage = 0,
+        Heal = 1,
+        DirectDamage = 2,
+        IncreaseHealth = 3,
+        SetMax = 4,
+    }
+    public readonly struct HealthChangedEvent : System.IEquatable<Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent>
+    {
+        public HealthChangedEvent(Bezoro.ECS.Types.Entity TargetEntity, Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind Kind, uint Value, Bezoro.Core.Types.MaxValueUpdateMode MaxUpdateMode, uint OldCurrent, uint OldMax, uint OldExcess, uint NewCurrent, uint NewMax, uint NewExcess) { }
+        public bool Changed { get; }
+        public long DeltaCurrent { get; }
+        public long DeltaExcess { get; }
+        public long DeltaMax { get; }
+        public Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind Kind { get; init; }
+        public Bezoro.Core.Types.MaxValueUpdateMode MaxUpdateMode { get; init; }
+        public uint NewCurrent { get; init; }
+        public uint NewExcess { get; init; }
+        public uint NewMax { get; init; }
+        public uint OldCurrent { get; init; }
+        public uint OldExcess { get; init; }
+        public uint OldMax { get; init; }
+        public Bezoro.ECS.Types.Entity TargetEntity { get; init; }
+        public uint Value { get; init; }
+    }
+    public sealed class HealthEventsResource
+    {
+        public HealthEventsResource() { }
+        public HealthEventsResource(int initialCapacity = 0, int maxCapacity = 2147483647) { }
+        public int Count { get; }
+        public int MaxCapacity { get; }
+        public void Clear() { }
+        public void Enqueue(in Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent eventData) { }
+        public bool TryDequeue(out Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent eventData) { }
+        public bool TryEnqueue(in Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent eventData) { }
+    }
+    public enum HealthMutationKind : byte
+    {
+        Damage = 0,
+        Heal = 1,
+        SetMax = 2,
+        DirectDamage = 3,
+        IncreaseHealth = 4,
+    }
+    public readonly struct HealthMutationRequest
+    {
+        public HealthMutationRequest(Bezoro.ECS.Types.Entity targetEntity, Bezoro.GameSystems.HealthSystem.Types.HealthMutationKind kind, uint value, Bezoro.Core.Types.MaxValueUpdateMode maxUpdateMode = 0) { }
+        public Bezoro.GameSystems.HealthSystem.Types.HealthMutationKind Kind { get; }
+        public Bezoro.Core.Types.MaxValueUpdateMode MaxUpdateMode { get; }
+        public Bezoro.ECS.Types.Entity TargetEntity { get; }
+        public uint Value { get; }
+    }
+}
+namespace Bezoro.GameSystems.InputSystem.Abstractions
+{
+    public interface IInputCommandSink
+    {
+        void Enqueue(in Bezoro.GameSystems.InputSystem.Types.InputCommand command);
+    }
+}
+namespace Bezoro.GameSystems.InputSystem.Extensions
+{
+    public static class InputWorldExtensions
+    {
+        public static void AddMovementInputPipeline(this Bezoro.ECS.Services.World world, int maxCommandsPerUpdate = 2147483647) { }
+        public static Bezoro.GameSystems.InputSystem.Types.InputCommandQueue GetOrCreateInputCommandQueue(this Bezoro.ECS.Services.World world) { }
+    }
+}
+namespace Bezoro.GameSystems.InputSystem.Services
+{
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.InputSystem.Types.InputCommandQueue))]
+    public sealed class InputIngestionSystem : Bezoro.ECS.Abstractions.ISystem
+    {
+        public InputIngestionSystem(int maxCommandsPerUpdate = 2147483647) { }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public int MaxCommandsPerUpdate { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public void OnCreate(Bezoro.ECS.Services.World world) { }
+        public void Update(in Bezoro.ECS.Types.SystemContext context) { }
+    }
+    [Bezoro.ECS.Attributes.Reads(typeof(Bezoro.GameSystems.InputSystem.Types.InputControl))]
+    [Bezoro.ECS.Attributes.Reads(typeof(Bezoro.GameSystems.InputSystem.Types.MovementInputSettings))]
+    [Bezoro.ECS.Attributes.ReadsResource(typeof(Bezoro.GameSystems.InputSystem.Types.InputCommandQueue))]
+    [Bezoro.ECS.Attributes.Writes(typeof(Bezoro.GameSystems.InputSystem.Types.MovementIntent))]
+    [Bezoro.ECS.Attributes.Writes(typeof(Bezoro.GameSystems.MovementSystem.Types.Velocity))]
+    public sealed class IntentToVelocitySystem : Bezoro.ECS.Abstractions.ISystem
+    {
+        public IntentToVelocitySystem() { }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public void OnCreate(Bezoro.ECS.Services.World world) { }
+        public void Update(in Bezoro.ECS.Types.SystemContext context) { }
+    }
+}
+namespace Bezoro.GameSystems.InputSystem.Types
+{
+    public readonly struct InputCommand
+    {
+        public InputCommand(int controlId, float moveX, float moveY, float moveZ, ulong sequence) { }
+        public int ControlId { get; }
+        public float MoveX { get; }
+        public float MoveY { get; }
+        public float MoveZ { get; }
+        public ulong Sequence { get; }
+    }
+    public sealed class InputCommandQueue : Bezoro.GameSystems.InputSystem.Abstractions.IInputCommandSink
+    {
+        public InputCommandQueue() { }
+        public InputCommandQueue(int maximumPendingCommands) { }
+        public int PendingCommandCount { get; }
+        public double SimulationTimeSeconds { get; }
+        public int TrackedControlCount { get; }
+        public void Enqueue(in Bezoro.GameSystems.InputSystem.Types.InputCommand command) { }
+        public void Enqueue(int controlId, float moveX, float moveY, float moveZ, ulong sequence) { }
+        public bool ForgetControl(int controlId) { }
+        public bool TryEnqueue(in Bezoro.GameSystems.InputSystem.Types.InputCommand command) { }
+    }
+    public struct InputControl
+    {
+        public int ControlId;
+    }
+    public struct MovementInputSettings
+    {
+        public float HoldDurationSeconds;
+        public float Speed;
+    }
+    public struct MovementIntent
+    {
+        public float X;
+        public float Y;
+        public float Z;
+    }
+}
+namespace Bezoro.GameSystems.MovementSystem.Services
+{
+    [Bezoro.ECS.Attributes.Reads(typeof(Bezoro.GameSystems.MovementSystem.Types.Velocity))]
+    [Bezoro.ECS.Attributes.Writes(typeof(Bezoro.GameSystems.MovementSystem.Types.Position))]
+    public sealed class MovementSystem : Bezoro.ECS.Abstractions.ISystem
+    {
+        public MovementSystem() { }
+        public MovementSystem(Bezoro.ECS.Types.SystemUpdateSettings updateSettings) { }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public Bezoro.ECS.Types.SystemUpdateSettings UpdateSettings { get; }
+        public void OnCreate(Bezoro.ECS.Services.World world) { }
+        public void Update(in Bezoro.ECS.Types.SystemContext context) { }
+    }
+}
+namespace Bezoro.GameSystems.MovementSystem.Types
+{
+    public struct Position
+    {
+        public float X;
+        public float Y;
+        public float Z;
+    }
+    public struct Velocity
+    {
+        public float X;
+        public float Y;
+        public float Z;
+    }
+}
+namespace Bezoro.GameSystems.StreamingSystem.Services
+{
+    [Bezoro.ECS.Attributes.Reads(typeof(Bezoro.GameSystems.MovementSystem.Types.Position))]
+    [Bezoro.ECS.Attributes.ReadsResource(typeof(Bezoro.GameSystems.StreamingSystem.Types.StreamingConfig))]
+    [Bezoro.ECS.Attributes.Writes(typeof(Bezoro.GameSystems.StreamingSystem.Types.StreamState))]
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.StreamingSystem.Types.StreamingEventsResource?))]
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.StreamingSystem.Types.StreamingRuntimeState?))]
+    public sealed class StreamingSystem : Bezoro.ECS.Abstractions.ISystem
+    {
+        public StreamingSystem() { }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public Bezoro.ECS.Types.SystemUpdateSettings UpdateSettings { get; }
+        public event System.Action<Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent>? Changed;
+        public event System.Action<Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent>? StreamedIn;
+        public event System.Action<Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent>? StreamedOut;
+        public void OnCreate(Bezoro.ECS.Services.World world) { }
+        public void Update(in Bezoro.ECS.Types.SystemContext context) { }
+    }
+}
+namespace Bezoro.GameSystems.StreamingSystem.Types
+{
+    public struct StreamState
+    {
+        public bool IsStreamedIn;
+    }
+    public struct StreamingConfig
+    {
+        public int MaxEntitiesPerTick;
+        public System.Numerics.Vector3 ReferencePosition;
+        public float StreamInDistance;
+        public float StreamOutDistance;
+    }
+    public sealed class StreamingEventsResource
+    {
+        public StreamingEventsResource() { }
+        public StreamingEventsResource(int initialCapacity = 0, int maxCapacity = 2147483647) { }
+        public int Count { get; }
+        public int MaxCapacity { get; }
+        public void Clear() { }
+        public void Enqueue(in Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent eventData) { }
+        public bool TryDequeue(out Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent eventData) { }
+        public bool TryEnqueue(in Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent eventData) { }
+    }
+    public sealed class StreamingRuntimeState
+    {
+        public StreamingRuntimeState() { }
+        public int NextEntityIndex { get; set; }
+    }
+    public readonly struct StreamingStateChangedEvent : System.IEquatable<Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent>
+    {
+        public StreamingStateChangedEvent(Bezoro.ECS.Types.Entity TargetEntity, Bezoro.GameSystems.StreamingSystem.Types.StreamingTransition Transition, double DistanceSquared) { }
+        public double DistanceSquared { get; init; }
+        public bool IsStreamedIn { get; }
+        public Bezoro.ECS.Types.Entity TargetEntity { get; init; }
+        public Bezoro.GameSystems.StreamingSystem.Types.StreamingTransition Transition { get; init; }
+    }
+    public enum StreamingTransition
+    {
+        StreamedIn = 0,
+        StreamedOut = 1,
+    }
+}
+namespace Bezoro.GameSystems.TimerSystem.Extensions
+{
+    public static class TimerWorldExtensions
+    {
+        public static bool PauseTimer(this Bezoro.ECS.Services.World world, Bezoro.ECS.Types.Entity timerEntity) { }
+        public static bool RestartTimer(this Bezoro.ECS.Services.World world, Bezoro.ECS.Types.Entity timerEntity) { }
+        public static bool ResumeTimer(this Bezoro.ECS.Services.World world, Bezoro.ECS.Types.Entity timerEntity) { }
+        public static bool StartTimer(this Bezoro.ECS.Services.World world, Bezoro.ECS.Types.Entity timerEntity) { }
+        public static bool StopTimer(this Bezoro.ECS.Services.World world, Bezoro.ECS.Types.Entity timerEntity) { }
+    }
+}
+namespace Bezoro.GameSystems.TimerSystem.Services
+{
+    [Bezoro.ECS.Attributes.Reads(typeof(Bezoro.GameSystems.TimerSystem.Types.TimerOwner))]
+    [Bezoro.ECS.Attributes.Writes(typeof(Bezoro.GameSystems.TimerSystem.Types.Timer))]
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.TimerSystem.Types.TimerEventsResource?))]
+    [Bezoro.ECS.Attributes.WritesResource(typeof(Bezoro.GameSystems.TimerSystem.Types.TimerTransitionQueue?))]
+    public sealed class TimerSystem : Bezoro.ECS.Abstractions.ISystem
+    {
+        public TimerSystem() { }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public Bezoro.ECS.Types.SystemUpdateSettings UpdateSettings { get; }
+        public event System.Action<Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent>? Finished;
+        public event System.Action<Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent>? Paused;
+        public event System.Action<Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent>? Restarted;
+        public event System.Action<Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent>? Resumed;
+        public event System.Action<Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent>? Started;
+        public event System.Action<Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent>? Stopped;
+        public void OnCreate(Bezoro.ECS.Services.World world) { }
+        public void Update(in Bezoro.ECS.Types.SystemContext context) { }
+    }
+}
+namespace Bezoro.GameSystems.TimerSystem.Types
+{
+    public struct Timer
+    {
+        public float DurationSeconds;
+        public float ElapsedSeconds;
+        public Bezoro.GameSystems.TimerSystem.Types.TimerMode Mode;
+        public Bezoro.GameSystems.TimerSystem.Types.TimerState State;
+        public int TimerId;
+        public Timer(int timerId, float durationSeconds, float elapsedSeconds = 0, Bezoro.GameSystems.TimerSystem.Types.TimerState state = 2, Bezoro.GameSystems.TimerSystem.Types.TimerMode mode = 1) { }
+        public float Progress { get; }
+        public float RemainingSeconds { get; }
+    }
+    public sealed class TimerEventsResource
+    {
+        public TimerEventsResource() { }
+        public TimerEventsResource(int initialCapacity = 0, int maxCapacity = 2147483647) { }
+        public int Count { get; }
+        public int MaxCapacity { get; }
+        public void Clear() { }
+        public void Enqueue(in Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent eventData) { }
+        public bool TryDequeue(out Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent eventData) { }
+        public bool TryEnqueue(in Bezoro.GameSystems.TimerSystem.Types.TimerLifecycleEvent eventData) { }
+    }
+    public enum TimerLifecycle : byte
+    {
+        Started = 0,
+        Paused = 1,
+        Stopped = 2,
+        Finished = 3,
+        Resumed = 4,
+        Restarted = 5,
+    }
+    public readonly struct TimerLifecycleEvent
+    {
+        public TimerLifecycleEvent(Bezoro.ECS.Types.Entity timerEntity, Bezoro.ECS.Types.Entity ownerEntity, int timerId, Bezoro.GameSystems.TimerSystem.Types.TimerLifecycle lifecycle, Bezoro.GameSystems.TimerSystem.Types.TimerState state, float elapsedSeconds, float durationSeconds) { }
+        public float DurationSeconds { get; }
+        public float ElapsedSeconds { get; }
+        public Bezoro.GameSystems.TimerSystem.Types.TimerLifecycle Lifecycle { get; }
+        public Bezoro.ECS.Types.Entity OwnerEntity { get; }
+        public float Progress { get; }
+        public Bezoro.GameSystems.TimerSystem.Types.TimerState State { get; }
+        public Bezoro.ECS.Types.Entity TimerEntity { get; }
+        public int TimerId { get; }
+    }
+    public enum TimerMode
+    {
+        OneShot = 0,
+        Persistent = 1,
+    }
+    public readonly struct TimerOwner : System.IEquatable<Bezoro.GameSystems.TimerSystem.Types.TimerOwner>
+    {
+        public TimerOwner(Bezoro.ECS.Types.Entity OwnerEntity) { }
+        public Bezoro.ECS.Types.Entity OwnerEntity { get; init; }
+    }
+    public enum TimerState : byte
+    {
+        Running = 0,
+        Paused = 1,
+        Stopped = 2,
+        Completed = 3,
+    }
+}
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::Equals(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent)
+// System.Boolean Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::Equals(System.Object)
+// System.Boolean Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::op_Equality(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent,Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent)
+// System.Boolean Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::op_Inequality(Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent,Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent)
+// System.Boolean Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::Equals(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent)
+// System.Boolean Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::Equals(System.Object)
+// System.Boolean Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::op_Equality(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent,Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent)
+// System.Boolean Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::op_Inequality(Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent,Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent)
+// System.Boolean Bezoro.GameSystems.TimerSystem.Types.TimerOwner::Equals(Bezoro.GameSystems.TimerSystem.Types.TimerOwner)
+// System.Boolean Bezoro.GameSystems.TimerSystem.Types.TimerOwner::Equals(System.Object)
+// System.Boolean Bezoro.GameSystems.TimerSystem.Types.TimerOwner::op_Equality(Bezoro.GameSystems.TimerSystem.Types.TimerOwner,Bezoro.GameSystems.TimerSystem.Types.TimerOwner)
+// System.Boolean Bezoro.GameSystems.TimerSystem.Types.TimerOwner::op_Inequality(Bezoro.GameSystems.TimerSystem.Types.TimerOwner,Bezoro.GameSystems.TimerSystem.Types.TimerOwner)
+// System.Int32 Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::GetHashCode()
+// System.Int32 Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::GetHashCode()
+// System.Int32 Bezoro.GameSystems.TimerSystem.Types.TimerOwner::GetHashCode()
+// System.String Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::ToString()
+// System.String Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::ToString()
+// System.String Bezoro.GameSystems.TimerSystem.Types.TimerOwner::ToString()
+// System.Void Bezoro.GameSystems.HealthSystem.Types.HealthChangedEvent::Deconstruct(Bezoro.ECS.Types.Entity&,Bezoro.GameSystems.HealthSystem.Types.HealthChangeKind&,System.UInt32&,Bezoro.Core.Types.MaxValueUpdateMode&,System.UInt32&,System.UInt32&,System.UInt32&,System.UInt32&,System.UInt32&,System.UInt32&)
+// System.Void Bezoro.GameSystems.StreamingSystem.Types.StreamingStateChangedEvent::Deconstruct(Bezoro.ECS.Types.Entity&,Bezoro.GameSystems.StreamingSystem.Types.StreamingTransition&,System.Double&)
+// System.Void Bezoro.GameSystems.TimerSystem.Types.TimerOwner::Deconstruct(Bezoro.ECS.Types.Entity&)

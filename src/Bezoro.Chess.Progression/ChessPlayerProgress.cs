@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Globalization;
 using Bezoro.Commerce;
 using Bezoro.Chess.Study;
@@ -35,6 +36,7 @@ public sealed class ChessProgressOptions
 /// <remarks>
 /// Use one application owner per save slot. Commands are serialized within this owner; other processes/owners require host coordination.
 /// The host owns ISaveStore and its platform path. A successful atomic store write precedes snapshot publication; failures leave the visible snapshot unchanged.
+/// Save-store callbacks may read the published snapshot. Nested mutations of this owner in the callback execution context throw.
 /// Saved facts derive Elo, history, quests, story and reward balances through existing Framework modules. This is not an online authority or tamper-proof economy.
 /// </remarks>
 public sealed class ChessPlayerProgress
@@ -45,6 +47,8 @@ public sealed class ChessPlayerProgress
     private readonly string _slot;
     private readonly ChessProgressOptions _options;
     private readonly SemaphoreSlim _commands = new(1, 1);
+    private readonly AsyncLocal<object?> _storeContext = new();
+    private object? _activeStoreWrite;
     private ProgressState _state;
     private ChessPlayerSnapshot _snapshot;
 
@@ -52,6 +56,7 @@ public sealed class ChessPlayerProgress
     {
         _store = store; _slot = slot; Catalog = catalog; _options = options; _state = state;
         _snapshot = state.Snapshot();
+        state.NeedsRollback = false;
     }
     /// <summary>Gets immutable quest/curriculum content; it does not contain player counters.</summary>
     public ChessProgressCatalog Catalog { get; }
@@ -118,9 +123,9 @@ public sealed class ChessPlayerProgress
         return ChangeAsync(state =>
         {
             if (match.Source == ChessMatchProgressSource.Replay) return false;
-            if (state.Matches.Any(previous => previous.MatchId == match.MatchId))
+            if (state.MatchIndices.TryGetValue(match.MatchId, out int index))
             {
-                if (state.Matches.First(previous => previous.MatchId == match.MatchId).Equals(match)) return false;
+                if (state.Matches[index].Equals(match)) return false;
                 throw new InvalidOperationException("A completed match identity already refers to different metadata.");
             }
             if (state.History.Count == _options.HistoryCapacity)
@@ -160,23 +165,41 @@ public sealed class ChessPlayerProgress
 
     private async ValueTask<bool> ChangeAsync(Func<ProgressState, bool> change, CancellationToken cancellationToken)
     {
+        if (_storeContext.Value is { } context && ReferenceEquals(context, Volatile.Read(ref _activeStoreWrite)))
+            throw new InvalidOperationException("A save-store write cannot reenter its active profile command.");
         await _commands.WaitAsync(cancellationToken).ConfigureAwait(false);
+        int lessonCount = _state.Lessons.Count;
+        int commerceCount = _state.CommerceFacts.Count;
         try
         {
-            var candidate = _state.Clone();
-            if (!change(candidate)) return false;
-            var snapshot = candidate.Snapshot();
-            byte[] payload = ProgressSaveCodec.Encode(candidate);
+            if (!change(_state)) return false;
+            _state.NeedsRollback = true;
+            var snapshot = _state.Snapshot();
+            byte[] payload = ProgressSaveCodec.Encode(_state);
             if (payload.Length > _options.MaximumSaveBytes) throw new InvalidDataException("The profile exceeds the configured payload limit; no facts were evicted.");
-            await _store.WriteAsync(_slot, SaveSchemaVersion, payload, cancellationToken).ConfigureAwait(false);
-            Volatile.Write(ref _state, candidate);
+            // Only the immutable, previously committed snapshot is visible during the host's write.
+            object token = new();
+            Volatile.Write(ref _activeStoreWrite, token);
+            _storeContext.Value = token;
+            try { await _store.WriteAsync(_slot, SaveSchemaVersion, payload, cancellationToken).ConfigureAwait(false); }
+            finally
+            {
+                Volatile.Write(ref _activeStoreWrite, null);
+                _storeContext.Value = null;
+            }
             Volatile.Write(ref _snapshot, snapshot);
+            _state.NeedsRollback = false;
             return true;
+        }
+        catch
+        {
+            if (_state.NeedsRollback) _state = _state.RestoreCommitted(_snapshot, lessonCount, commerceCount);
+            throw;
         }
         finally { _commands.Release(); }
     }
 
-    internal bool HasRecordedMatch(string matchId) => Volatile.Read(ref _state).History.TryGet(matchId, out _);
+    internal bool HasRecordedMatch(string matchId) => Snapshot.MatchIndices.ContainsKey(matchId);
 
     private static void ValidateProfile(PlayerProfile profile)
     {
@@ -207,7 +230,11 @@ internal sealed class ProgressState
 {
     internal readonly ChessProgressCatalog Catalog;
     internal readonly ChessProgressOptions Options;
-    internal readonly PlayerMatchHistory History;
+    internal ImmutableList<PlayerMatchRecord> History = ImmutableList<PlayerMatchRecord>.Empty;
+    internal ImmutableDictionary<string, int> MatchIndices = ImmutableDictionary<string, int>.Empty;
+    internal int Wins;
+    internal int Draws;
+    internal bool NeedsRollback;
     internal readonly QuestProgress Quests;
     internal readonly StoryProgress Story;
     internal readonly List<ChessTrainingMatch> Matches = new();
@@ -223,7 +250,6 @@ internal sealed class ProgressState
     {
         Profile = profile; Catalog = catalog; Options = options;
         Rating = new EloRating(options.InitialTrainingRating);
-        History = new PlayerMatchHistory(profile.PlayerId, options.HistoryCapacity);
         Quests = new QuestProgress(catalog.QuestCatalog);
         Story = new StoryProgress(catalog.Campaign.Story);
         int capacity = checked(catalog.Cosmetics.Definitions.Count + catalog.Quests.Sum(quest => quest.Definition.Rewards.Count));
@@ -237,16 +263,22 @@ internal sealed class ProgressState
         Quests.Record(ChessProgressIds.ProfileOpened);
     }
 
-    internal ProgressState Clone()
+    // Roll back only on failure. Fact lists are append-only, so their committed prefixes and
+    // the published metadata are sufficient even when a derived counter failed partway.
+    internal ProgressState RestoreCommitted(ChessPlayerSnapshot snapshot, int lessons, int commerce)
     {
-        var clone = new ProgressState(Profile, Catalog, Options);
-        foreach (var match in Matches) clone.ApplyMatch(match);
-        foreach (var lesson in Lessons) clone.ApplyLesson(lesson);
-        foreach (var fact in CommerceFacts)
-            if (!(fact.IsClaim ? clone.ApplyClaim(fact.Quest) : clone.ApplyPurchase(fact.CosmeticId!)))
-                throw new InvalidDataException("The saved commerce fact is not valid.");
-        clone.RestoreEquipment(EquippedBoardId, EquippedPiecesId);
-        return clone;
+        var restored = new ProgressState(snapshot.Profile, Catalog, Options);
+        for (int i = 0; i < snapshot.History.Count; i++) restored.ApplyMatch(Matches[i]);
+        for (int i = 0; i < lessons; i++) restored.ApplyLesson(Lessons[i]);
+        for (int i = 0; i < commerce; i++)
+        {
+            var fact = CommerceFacts[i];
+            if (!(fact.IsClaim ? restored.ApplyClaim(fact.Quest) : restored.ApplyPurchase(fact.CosmeticId!)))
+                throw new InvalidDataException("The committed commerce fact is invalid.");
+        }
+        restored.RestoreEquipment(snapshot.EquippedBoardId, snapshot.EquippedPiecesId);
+        restored.NeedsRollback = false;
+        return restored;
     }
 
     internal void ApplyMatch(ChessTrainingMatch match)
@@ -254,10 +286,15 @@ internal sealed class ProgressState
         if (!match.IsValid || match.Source != ChessMatchProgressSource.LiveTraining) throw new InvalidDataException("Only initialized live training matches belong in progress history.");
         var record = new PlayerMatchRecord(match.MatchId, Profile.PlayerId, match.OpponentId, match.Outcome,
             match.CompletedAt, "local-training", true, match.ReplayReference);
-        if (History.Append(record) != MatchHistoryAppendResult.Added) throw new InvalidDataException("Match identity is duplicated, conflicting, or history capacity was reached; no identities may be evicted.");
+        if (History.Count >= Options.HistoryCapacity || MatchIndices.ContainsKey(match.MatchId)) throw new InvalidDataException("Match identity is duplicated, conflicting, or history capacity was reached; no identities may be evicted.");
+        NeedsRollback = true;
         Rating = EloRatings.ApplyResult(Rating, new EloRating(match.OpponentRating), match.Outcome, Options.RatingKFactor).FirstPlayer;
         Quests.Record(ChessProgressIds.MatchesFinished);
         if (match.Outcome == PlayerMatchOutcome.Win) Quests.Record(ChessProgressIds.MatchesWon);
+        MatchIndices = MatchIndices.Add(match.MatchId, Matches.Count);
+        History = History.Add(record);
+        if (record.Outcome == PlayerMatchOutcome.Win) Wins++;
+        if (record.Outcome == PlayerMatchOutcome.Draw) Draws++;
         Matches.Add(match);
     }
 
@@ -269,6 +306,7 @@ internal sealed class ProgressState
             || Lessons.Any(previous => previous.LessonId == lesson.LessonId || previous.AttemptId == lesson.AttemptId)
             || !Story.TryComplete(stage.Id, 1, out var completion) || !completion.IsFirstCompletion)
             throw new InvalidDataException("The lesson receipt is duplicated, locked, or belongs to another authored definition.");
+        NeedsRollback = true;
         Lessons.Add(lesson);
         Quests.Record(ChessProgressIds.LessonsCompleted);
     }
@@ -276,6 +314,7 @@ internal sealed class ProgressState
     internal bool ApplyClaim(ProgressionId quest)
     {
         if (!Quests.TryClaim(quest, out var batch)) return false;
+        NeedsRollback = true;
         var aggregated = new Dictionary<ProgressionId, long>();
         foreach (var reward in batch.Rewards)
         {
@@ -344,12 +383,11 @@ internal sealed class ProgressState
 
     internal ChessPlayerSnapshot Snapshot()
     {
-        var history = new PlayerMatchRecord[History.Count]; History.CopyTo(history);
         var quests = Catalog.Quests.Select(quest => new ChessQuestSnapshot(quest, Quests)).ToArray();
         var stages = Catalog.Campaign.Stages.Select(stage => new ChessStageSnapshot(stage.Id, stage.Lesson.Id, Story.IsUnlocked(stage.Id), Story.GetBestStars(stage.Id))).ToArray();
         long balance = Commerce.GetBalance(ChessCosmeticCatalog.Currency);
         var cosmetics = Catalog.Cosmetics.Definitions.Select(definition => new ChessCosmeticSnapshot(definition,
             Commerce.OwnsSkin(definition.Id), definition.Id == (definition.Slot == ChessCosmeticSlot.Board ? EquippedBoardId : EquippedPiecesId), balance)).ToArray();
-        return new ChessPlayerSnapshot(Profile, Rating, history, quests, stages, Balances(), cosmetics, EquippedBoardId, EquippedPiecesId);
+        return new ChessPlayerSnapshot(Profile, Rating, History, MatchIndices, Wins, Draws, quests, stages, Balances(), cosmetics, EquippedBoardId, EquippedPiecesId);
     }
 }

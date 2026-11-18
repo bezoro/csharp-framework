@@ -14,6 +14,18 @@ public class ProcessUciTransportLifecycleTests(StockfishFixture fixture, ITestOu
 	: IntegrationTestBase(fixture, output)
 {
 	[Fact]
+	public async Task StopWithoutQuit_ShouldDeliverEofAndAllowNormalChildExit()
+	{
+		await using var process = ProcessUciTransportTestHelpers.ExitOnInputProcess()
+			.WithQuitGracePeriod(TimeSpan.FromSeconds(3)).Build();
+		int? code = null;
+		process.Exited += (exitCode, _) => code = exitCode;
+		await process.StartAsync();
+		await process.StopAsync();
+		code.Should().Be(0);
+	}
+
+	[Fact]
 	public void Constructor_WhenArgsContainsNull_ShouldThrowArgumentException()
 	{
 		Log("Starting test: Constructor_WhenArgsContainsNull_ShouldThrowArgumentException");

@@ -1,0 +1,108 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Behaviors
+{
+    public readonly struct BehaviorCompositionLimits
+    {
+        public const int SupportedDepth = 64;
+        public BehaviorCompositionLimits(int maximumDepth, int maximumComponents = 4096) { }
+        public int MaximumComponents { get; }
+        public int MaximumDepth { get; }
+    }
+    public abstract class Behavior<TContext> : Bezoro.Behaviors.IBehavior<TContext>
+    {
+        protected Behavior(Bezoro.Behaviors.BehaviorCompositionLimits limits = default) { }
+        protected Behavior(Bezoro.Behaviors.Behavior<TContext>[] children, Bezoro.Behaviors.BehaviorCompositionLimits limits) { }
+        protected bool CanAcceptSignals { get; }
+        public System.ReadOnlySpan<Bezoro.Behaviors.Behavior<TContext>> Children { get; }
+        public int ComponentCount { get; }
+        public int CompositionDepth { get; }
+        public bool IsBudgetSuspended { get; protected set; }
+        public Bezoro.BehaviorTrees.BehaviorStatus Status { get; }
+        protected void BeginSignalOperation() { }
+        protected void EndSignalOperation() { }
+        protected System.Exception? FaultCleanup(ref TContext context) { }
+        protected virtual bool IsChildScopeLive(int childIndex) { }
+        protected abstract void OnStart(ref TContext context);
+        protected abstract void OnStop(ref TContext context);
+        protected abstract Bezoro.BehaviorTrees.BehaviorStatus OnTick(ref TContext context, ref Bezoro.BehaviorTrees.BehaviorBudget budget);
+        public void Start(ref TContext context) { }
+        protected void StartChild(Bezoro.Behaviors.Behavior<TContext> child, ref TContext context) { }
+        public void Stop(ref TContext context) { }
+        protected void StopChild(Bezoro.Behaviors.Behavior<TContext> child, ref TContext context) { }
+        public Bezoro.BehaviorTrees.BehaviorStatus Tick(ref TContext context, ref Bezoro.BehaviorTrees.BehaviorBudget budget) { }
+        protected Bezoro.BehaviorTrees.BehaviorStatus TickChild(Bezoro.Behaviors.Behavior<TContext> child, ref TContext context, ref Bezoro.BehaviorTrees.BehaviorBudget budget) { }
+    }
+    public interface IBehavior<TContext>
+    {
+        bool IsBudgetSuspended { get; }
+        Bezoro.BehaviorTrees.BehaviorStatus Status { get; }
+        void Start(ref TContext context);
+        void Stop(ref TContext context);
+        Bezoro.BehaviorTrees.BehaviorStatus Tick(ref TContext context, ref Bezoro.BehaviorTrees.BehaviorBudget budget);
+    }
+    public readonly struct StateBehaviorBinding<TContext>
+    {
+        public StateBehaviorBinding(Bezoro.StateMachines.StateId state, Bezoro.Behaviors.Behavior<TContext> child, Bezoro.StateMachines.SignalId? successSignal = default, Bezoro.StateMachines.SignalId? failureSignal = default) { }
+        public Bezoro.Behaviors.Behavior<TContext> Child { get; }
+        public Bezoro.StateMachines.SignalId? FailureSignal { get; }
+        public Bezoro.StateMachines.StateId State { get; }
+        public Bezoro.StateMachines.SignalId? SuccessSignal { get; }
+    }
+    public sealed class StateMachineBehavior<TContext> : Bezoro.Behaviors.Behavior<TContext>
+    {
+        public StateMachineBehavior(Bezoro.StateMachines.StateMachineDefinition definition, System.ReadOnlySpan<Bezoro.Behaviors.StateBehaviorBinding<TContext>> bindings = default, System.ReadOnlySpan<Bezoro.StateMachines.StateId> successStates = default, System.ReadOnlySpan<Bezoro.StateMachines.StateId> failureStates = default, Bezoro.Behaviors.BehaviorCompositionLimits limits = default) { }
+        public ulong ActivationVersion { get; }
+        public System.ReadOnlySpan<Bezoro.Behaviors.StateBehaviorBinding<TContext>> Bindings { get; }
+        public Bezoro.StateMachines.StateId CurrentState { get; }
+        public Bezoro.StateMachines.StateMachineDefinition Definition { get; }
+        public bool IsStateActive { get; }
+        public Bezoro.StateMachines.StateStep Dispatch(Bezoro.StateMachines.SignalId signal, ref TContext context) { }
+        protected override bool IsChildScopeLive(int childIndex) { }
+        protected override void OnStart(ref TContext context) { }
+        protected override void OnStop(ref TContext context) { }
+        protected override Bezoro.BehaviorTrees.BehaviorStatus OnTick(ref TContext context, ref Bezoro.BehaviorTrees.BehaviorBudget budget) { }
+        public bool TryDispatch(ulong activationVersion, Bezoro.StateMachines.SignalId signal, ref TContext context) { }
+    }
+    public sealed class StatechartBehavior<TContext> : Bezoro.Behaviors.Behavior<TContext>
+    {
+        public StatechartBehavior(Bezoro.Statecharts.StatechartDefinition definition, Bezoro.Statecharts.IStatechartHandler<TContext>? handler = null, System.ReadOnlySpan<Bezoro.Behaviors.StateBehaviorBinding<TContext>> bindings = default, System.ReadOnlySpan<Bezoro.StateMachines.StateId> successStates = default, System.ReadOnlySpan<Bezoro.StateMachines.StateId> failureStates = default, Bezoro.Behaviors.BehaviorCompositionLimits limits = default, int maximumCompletionsPerTick = 16) { }
+        public System.ReadOnlySpan<Bezoro.StateMachines.StateId> ActiveStates { get; }
+        public System.ReadOnlySpan<Bezoro.Behaviors.StateBehaviorBinding<TContext>> Bindings { get; }
+        public int CompletionCapacity { get; }
+        public Bezoro.Statecharts.StatechartDefinition Definition { get; }
+        public int MaximumCompletionsPerTick { get; }
+        public int PendingCompletionCount { get; }
+        public Bezoro.Statecharts.StatechartDispatchResult Dispatch(Bezoro.StateMachines.SignalId signal, ref TContext context) { }
+        public Bezoro.Statecharts.StateActivation GetActivation(Bezoro.StateMachines.StateId state) { }
+        public bool IsActive(Bezoro.StateMachines.StateId state) { }
+        public bool IsActive(Bezoro.Statecharts.StateActivation activation) { }
+        protected override bool IsChildScopeLive(int childIndex) { }
+        protected override void OnStart(ref TContext context) { }
+        protected override void OnStop(ref TContext context) { }
+        protected override Bezoro.BehaviorTrees.BehaviorStatus OnTick(ref TContext context, ref Bezoro.BehaviorTrees.BehaviorBudget budget) { }
+        public bool TryDispatch(Bezoro.Statecharts.StateActivation activation, Bezoro.StateMachines.SignalId signal, ref TContext context) { }
+    }
+    public readonly struct TreeBehaviorBinding<TContext>
+    {
+        public TreeBehaviorBinding(int nodeId, Bezoro.Behaviors.Behavior<TContext> child) { }
+        public Bezoro.Behaviors.Behavior<TContext> Child { get; }
+        public int NodeId { get; }
+    }
+    public sealed class TreeBehaviorBuilder<TContext>
+    {
+        public TreeBehaviorBuilder(Bezoro.BehaviorTrees.BehaviorTreeCompilation compilation, Bezoro.BehaviorTrees.IBehaviorTreeHandler<TContext>? handler = null) { }
+        public void Bind(Bezoro.BehaviorTrees.BehaviorActionHandle action, Bezoro.Behaviors.Behavior<TContext> child) { }
+        public Bezoro.Behaviors.TreeBehavior<TContext> Build(Bezoro.Behaviors.BehaviorCompositionLimits limits = default) { }
+    }
+    public sealed class TreeBehavior<TContext> : Bezoro.Behaviors.Behavior<TContext>
+    {
+        public TreeBehavior(Bezoro.BehaviorTrees.BehaviorTreeDefinition definition, Bezoro.BehaviorTrees.IBehaviorTreeHandler<TContext>? handler = null, System.ReadOnlySpan<Bezoro.Behaviors.TreeBehaviorBinding<TContext>> bindings = default, Bezoro.Behaviors.BehaviorCompositionLimits limits = default) { }
+        public System.ReadOnlySpan<Bezoro.Behaviors.TreeBehaviorBinding<TContext>> Bindings { get; }
+        public Bezoro.BehaviorTrees.BehaviorTreeDefinition Definition { get; }
+        public bool IsActive(Bezoro.BehaviorTrees.BehaviorActivation activation) { }
+        protected override bool IsChildScopeLive(int childIndex) { }
+        protected override void OnStart(ref TContext context) { }
+        protected override void OnStop(ref TContext context) { }
+        protected override Bezoro.BehaviorTrees.BehaviorStatus OnTick(ref TContext context, ref Bezoro.BehaviorTrees.BehaviorBudget budget) { }
+    }
+}

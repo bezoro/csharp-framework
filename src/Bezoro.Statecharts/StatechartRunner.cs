@@ -139,8 +139,9 @@ public sealed class StatechartRunner<TContext>
                 int ordered = PopSourceHead(ref candidateCount);
                 int candidate = Definition.OrderedTransition(ordered);
                 var transition = Definition.Transitions[candidate];
+                int possibleConflicts = Definition.HasIndependentSources ? 0 : selectedCount;
                 bool suppressed = false;
-                for (int i = 0; i < selectedCount; i++)
+                for (int i = 0; i < possibleConflicts; i++)
                     if (Definition.SuppressesSource(_selected[i], transition.Source)) { suppressed = true; break; }
                 if (suppressed) continue;
                 if (transition.Guard is not null &&
@@ -150,7 +151,7 @@ public sealed class StatechartRunner<TContext>
                     continue;
                 }
                 bool conflict = false;
-                for (int i = 0; i < selectedCount; i++)
+                for (int i = 0; i < possibleConflicts; i++)
                     if (Definition.Conflicts(candidate, _selected[i])) { conflict = true; break; }
                 if (!conflict) _selected[selectedCount++] = candidate;
             }
@@ -170,10 +171,18 @@ public sealed class StatechartRunner<TContext>
             }
             int exitCount = 0;
             if (domainCount > 0)
+            {
+                // Both the active states and the selected, disjoint domains are in rank order.
+                int domainIndex = 0;
                 foreach (StateId state in ActiveStates)
-                    for (int i = 0; i < domainCount; i++)
-                        if (Definition.IsInDomain(state, Definition.Domain(_candidates[i])))
-                        { _exitPlan[exitCount++] = state; break; }
+                {
+                    int rank = Definition.Rank(state);
+                    while (domainIndex < domainCount && rank >= Definition.DomainEnd(_candidates[domainIndex]))
+                        domainIndex++;
+                    if (domainIndex == domainCount) break;
+                    if (rank >= Definition.DomainStart(_candidates[domainIndex])) _exitPlan[exitCount++] = state;
+                }
+            }
             int entryCount = 0;
             for (int i = 0; i < domainCount; i++)
                 entryCount = Definition.AppendEntries(_candidates[i], _entryPlan, entryCount, _regionStack, _targetPath);

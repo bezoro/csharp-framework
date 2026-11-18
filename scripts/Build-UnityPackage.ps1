@@ -44,27 +44,6 @@ foreach ($part in $outputParts) {
     }
 }
 
-if (Test-Path -LiteralPath $outputRoot) {
-	Remove-Item -LiteralPath $outputRoot -Recurse -Force
-}
-
-New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
-foreach ($templateItem in Get-ChildItem -LiteralPath $templateRoot -Force) {
-    Copy-Item -LiteralPath $templateItem.FullName -Destination $outputRoot -Recurse -Force
-}
-New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
-Copy-Item -LiteralPath $licensePath -Destination (Join-Path $outputRoot "LICENSE.md") -Force
-
-$manifestPath = Join-Path $outputRoot "package.json"
-$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-$manifest.version = $PackageVersion
-$manifest | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath $manifestPath -Encoding utf8
-
-$legacyPluginsRoot = Join-Path $runtimeRoot "Plugins"
-if (Test-Path -LiteralPath $legacyPluginsRoot) {
-	Remove-Item -LiteralPath $legacyPluginsRoot -Recurse -Force
-}
-
 # These assemblies belong to Unity's .NET Standard 2.1 profile. Shipping NuGet
 # copies introduces duplicate definitions in Unity, so use the host's versions.
 $hostAssemblies = @(
@@ -84,6 +63,33 @@ try {
 }
 catch { }
 $documentationBase = "https://github.com/bezoro/csharp-framework/blob/$documentationRevision/"
+$versionSeparator = if ($PackageVersion.Contains('+')) { '.' } else { '+' }
+$sourceVersion = "$PackageVersion$versionSeparator$documentationRevision"
+
+function Get-AssemblyInformationalVersion([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $reader = [System.Reflection.PortableExecutable.PEReader]::new($stream)
+        try {
+            $metadata = [System.Reflection.Metadata.PEReaderExtensions]::GetMetadataReader($reader)
+            foreach ($handle in $metadata.GetAssemblyDefinition().GetCustomAttributes()) {
+                $attribute = $metadata.GetCustomAttribute($handle)
+                if ($attribute.Constructor.Kind -ne 'MemberReference') { continue }
+                $constructor = $metadata.GetMemberReference([System.Reflection.Metadata.MemberReferenceHandle]$attribute.Constructor)
+                if ($constructor.Parent.Kind -ne 'TypeReference') { continue }
+                $type = $metadata.GetTypeReference([System.Reflection.Metadata.TypeReferenceHandle]$constructor.Parent)
+                if ($metadata.GetString($type.Name) -eq 'AssemblyInformationalVersionAttribute' -and
+                    $metadata.GetString($type.Namespace) -eq 'System.Reflection') {
+                    $value = $metadata.GetBlobReader($attribute.Value)
+                    if ($value.ReadUInt16() -eq 1) { return $value.ReadSerializedString() }
+                }
+            }
+            throw "AssemblyInformationalVersionAttribute is missing or invalid."
+        }
+        finally { $reader.Dispose() }
+    }
+    finally { $stream.Dispose() }
+}
 
 function Copy-RuntimeReadme([string]$SourcePath, [string]$DestinationPath) {
     # Reparse an explicit file URI so fragments remain anchors instead of literal path characters.
@@ -108,6 +114,7 @@ $projects = Get-ChildItem -LiteralPath (Join-Path $repositoryRoot "src") -Recurs
 	Where-Object { $_.BaseName -ne "Bezoro.ECS.SourceGen" } |
 	Sort-Object FullName
 
+# Check every framework DLL before replacing an existing staging directory.
 foreach ($project in $projects) {
 	$assemblyName = $project.BaseName
 	$buildOutputDirectory = Join-Path $project.Directory.FullName "bin\$Configuration\netstandard2.1"
@@ -125,7 +132,38 @@ foreach ($project in $projects) {
 	if (-not (Test-Path -LiteralPath $artifactPath)) {
 		throw "Missing runtime assembly '$artifactPath'. Rebuild before staging."
 	}
+    $assemblyVersion = Get-AssemblyInformationalVersion $artifactPath
+    if ($assemblyVersion -cne $PackageVersion -and
+        ($documentationRevision -eq 'main' -or $assemblyVersion -cne $sourceVersion)) {
+        throw "Assembly '$assemblyName' has informational version '$assemblyVersion', expected '$PackageVersion'. Rebuild with BEZORO_PACKAGE_VERSION set to '$PackageVersion'."
+    }
+}
 
+if (Test-Path -LiteralPath $outputRoot) {
+	Remove-Item -LiteralPath $outputRoot -Recurse -Force
+}
+
+New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
+foreach ($templateItem in Get-ChildItem -LiteralPath $templateRoot -Force) {
+    Copy-Item -LiteralPath $templateItem.FullName -Destination $outputRoot -Recurse -Force
+}
+New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+Copy-Item -LiteralPath $licensePath -Destination (Join-Path $outputRoot "LICENSE.md") -Force
+
+$manifestPath = Join-Path $outputRoot "package.json"
+$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+$manifest.version = $PackageVersion
+$manifest | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+
+$legacyPluginsRoot = Join-Path $runtimeRoot "Plugins"
+if (Test-Path -LiteralPath $legacyPluginsRoot) {
+	Remove-Item -LiteralPath $legacyPluginsRoot -Recurse -Force
+}
+
+foreach ($project in $projects) {
+	$assemblyName = $project.BaseName
+	$buildOutputDirectory = Join-Path $project.Directory.FullName "bin\$Configuration\netstandard2.1"
+	$readmePath = Join-Path $project.Directory.FullName "README.md"
 	foreach ($assembly in Get-ChildItem -LiteralPath $buildOutputDirectory -Filter '*.dll' -File) {
 		if ($assembly.Name -in $hostAssemblies) { continue }
 		$hash = (Get-FileHash -LiteralPath $assembly.FullName -Algorithm SHA256).Hash

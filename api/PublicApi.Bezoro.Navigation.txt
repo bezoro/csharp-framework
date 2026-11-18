@@ -1,0 +1,64 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Navigation
+{
+    public enum GridMovement
+    {
+        FourWay = 0,
+        EightWay = 1,
+    }
+    public readonly struct GridPathOptions
+    {
+        public GridPathOptions(Bezoro.Navigation.GridMovement movement = 0, bool allowCornerCutting = false, int maxExpandedNodes = 2147483647) { }
+        public bool AllowCornerCutting { get; }
+        public int MaxExpandedNodes { get; }
+        public Bezoro.Navigation.GridMovement Movement { get; }
+    }
+    public readonly struct GridPathResult
+    {
+        public int ExpandedNodes { get; }
+        public bool HasPath { get; }
+        public int RequiredPathLength { get; }
+        public Bezoro.Navigation.GridPathStatus Status { get; }
+        public ulong? TotalCost { get; }
+        public int WrittenLength { get; }
+    }
+    public enum GridPathStatus
+    {
+        Unreachable = 0,
+        Found = 1,
+        DestinationTooSmall = 2,
+        Canceled = 3,
+        ExpansionLimitReached = 4,
+    }
+    public sealed class GridPathfinder
+    {
+        public GridPathfinder(int capacity) { }
+        public int Capacity { get; }
+        public Bezoro.Navigation.GridPathResult FindPath(Bezoro.Navigation.NavigationGrid grid, Bezoro.Navigation.GridPoint start, Bezoro.Navigation.GridPoint goal, System.Span<Bezoro.Navigation.GridPoint> destination, Bezoro.Navigation.GridPathOptions options = default, System.Threading.CancellationToken ct = default) { }
+    }
+    public readonly struct GridPoint : System.IEquatable<Bezoro.Navigation.GridPoint>
+    {
+        public GridPoint(int x, int y) { }
+        public int X { get; }
+        public int Y { get; }
+        public bool Equals(Bezoro.Navigation.GridPoint other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override string ToString() { }
+        public static bool operator !=(Bezoro.Navigation.GridPoint left, Bezoro.Navigation.GridPoint right) { }
+        public static bool operator ==(Bezoro.Navigation.GridPoint left, Bezoro.Navigation.GridPoint right) { }
+    }
+    public sealed class NavigationGrid
+    {
+        public NavigationGrid(int width, int height, System.ReadOnlySpan<ushort> costs) { }
+        public NavigationGrid(int width, int height, ushort traversalCost = 1) { }
+        public int CellCount { get; }
+        public System.ReadOnlySpan<ushort> Costs { get; }
+        public int Height { get; }
+        public ushort this[int x, int y] { get; }
+        public ushort MinimumTraversalCost { get; }
+        public int Width { get; }
+        public bool Contains(Bezoro.Navigation.GridPoint point) { }
+        public bool IsWalkable(Bezoro.Navigation.GridPoint point) { }
+    }
+}

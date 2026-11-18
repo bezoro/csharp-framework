@@ -8,6 +8,70 @@ namespace Bezoro.Chess.UCI.Protocol.Tests.Domain;
 
 public class BackgroundLoopManagerAsyncReadTests
 {
+	[Theory]
+	[InlineData("utf-8")]
+	[InlineData("utf-16")]
+	public async Task SplitPreambleAndMultibyteText_ShouldUseConfiguredEncoding(string encodingName)
+	{
+		var encoding = Encoding.GetEncoding(encodingName);
+		using var pipe = new AsyncOnlyStream();
+		using var reader = new StreamReader(pipe, encoding);
+		var lines = new BoundedLineReader(reader, 4);
+		foreach (byte value in encoding.GetPreamble().Concat(encoding.GetBytes("é😀\n")))
+			pipe.Feed([value]);
+		(await lines.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5))).Should().Be("é😀");
+	}
+
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task OverlongUnterminatedLine_ShouldFaultBeforeEof(bool useStderr)
+	{
+		using var pipe = new AsyncOnlyStream();
+		using var reader = new StreamReader(pipe);
+		var output = Channel.CreateUnbounded<string>();
+		var failure = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var manager = new BackgroundLoopManager(new() { MaxIncomingLineLength = 8 },
+			(ex, _) => failure.TrySetResult(ex), new());
+		manager.InitializeCancellationSources();
+		try
+		{
+			if (useStderr) manager.StartStderrLoopIfNeeded(reader);
+			else manager.StartReadLoop(reader, output.Writer);
+			pipe.Feed("12345");
+			pipe.Feed("6789");
+			(await failure.Task.WaitAsync(TimeSpan.FromSeconds(5))).Should().BeOfType<InvalidDataException>();
+			if (!useStderr)
+				await FluentActions.Awaiting(() => output.Reader.Completion).Should().ThrowAsync<InvalidDataException>();
+		}
+		finally
+		{
+			pipe.Complete();
+			await Task.WhenAll(manager.AwaitReadLoopAsync(), manager.AwaitStderrLoopAsync());
+			manager.DisposeCancellationSources();
+		}
+	}
+
+	[Fact]
+	public async Task WriteFailure_ShouldCloseOutgoingChannelAndWakeBlockedWriters()
+	{
+		using var sink = new MemoryStream();
+		var stdin = new StreamWriter(sink);
+		sink.Close();
+		var output = Channel.CreateBounded<string>(1);
+		output.Writer.TryWrite("uci");
+		var failed = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var manager = new BackgroundLoopManager(new(), (ex, _) => failed.TrySetResult(ex), new());
+		manager.InitializeCancellationSources();
+		manager.StartWriteLoop(output.Reader, stdin, output.Writer);
+		await manager.AwaitWriteLoopAsync().WaitAsync(TimeSpan.FromSeconds(5));
+		(await failed.Task).Should().BeOfType<ObjectDisposedException>();
+		output.Writer.TryWrite("isready").Should().BeFalse();
+		await FluentActions.Awaiting(() => output.Writer.WriteAsync("isready").AsTask())
+			.Should().ThrowAsync<ChannelClosedException>();
+		manager.DisposeCancellationSources();
+	}
+
 	[Fact]
 	public async Task ReadLoops_ShouldUseAsyncReadsAndForwardUtf8Lines()
 	{
@@ -24,6 +88,9 @@ public class BackgroundLoopManagerAsyncReadTests
 		manager.StartStderrLoopIfNeeded(stderrReader);
 		try
 		{
+			string fullChunk = new('a', 1023);
+			stdout.Feed(fullChunk + "\n");
+			(await output.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5))).Should().Be(fullChunk);
 			stdout.Feed("first\n\nOlá 世界\n");
 			stderr.Feed("stderr\n\nOlá 世界\n");
 			stdout.Complete();
@@ -95,7 +162,8 @@ public class BackgroundLoopManagerAsyncReadTests
 		public override bool CanWrite => false;
 		public override long Length => throw new NotSupportedException();
 		public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
-		public void Feed(string text) => _chunks.Writer.TryWrite(Encoding.UTF8.GetBytes(text));
+		public void Feed(string text) => Feed(Encoding.UTF8.GetBytes(text));
+		public void Feed(byte[] bytes) => _chunks.Writer.TryWrite(bytes);
 		public void Complete() => _chunks.Writer.TryComplete();
 
 		public override int Read(byte[] buffer, int offset, int count)

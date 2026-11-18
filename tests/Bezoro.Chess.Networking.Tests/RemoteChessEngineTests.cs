@@ -9,6 +9,27 @@ public sealed class RemoteChessEngineTests
     private static readonly SearchParameters Budget = new() { Nodes = 1000 };
 
     [Fact]
+    public async Task EngineSearchOnRestoredPromotionIsRestrictedToTheSavedChoice()
+    {
+        using var local = new Bezoro.Chess.UCI.Protocol.API.UciPlayableMatchSession(
+            claimableDrawPolicy: PlayableMatchClaimableDrawPolicy.ClaimRequired,
+            drawOfferPolicy: PlayableMatchDrawOfferPolicy.ExpireOnMove);
+        await local.LoadMatchAsync(new(Fen.Parse("7k/P7/8/8/8/8/8/7K w - - 0 1")!.Value));
+        local.ApplyMove("a7a8");
+        using var host = AuthoritativeChessMatch.Restore(Guid.NewGuid(), local.CaptureSave(), engineSeat: ChessPlayerSeat.White);
+        var service = new DelegateService((_, search, _) =>
+        {
+            Assert.Equal(4, search.SearchMoves.Length);
+            Assert.All(search.SearchMoves, move => Assert.StartsWith("a7a8", move));
+            return Task.FromResult("a7a8r");
+        });
+        var result = await host.PlayEngineTurnAsync(service, Budget);
+        Assert.True(result.Applied);
+        Assert.Equal("a7a8r", Assert.Single(result.Snapshot.State.MoveHistory).Move);
+        Assert.Null(result.Snapshot.State.PendingPromotion);
+    }
+
+    [Fact]
     public async Task EngineReplyUsesCompleteHistoryAndIsCommittedByLocalRules()
     {
         using var match = Create(ChessPlayerSeat.Black);

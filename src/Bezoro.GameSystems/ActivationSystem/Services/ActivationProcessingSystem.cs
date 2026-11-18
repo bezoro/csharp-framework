@@ -50,34 +50,21 @@ public sealed class ActivationProcessingSystem : ISystem
 			ApplyCancellations(world, context.CommandStream, entriesByHandle);
 		}
 
-		var pendingEntries = CollectPendingEntries(world, out var activatedCount);
-		int pendingEntryCount = pendingEntries?.Count ?? 0;
-		ref var runtime = ref world.WriteResource<ActivationRuntimeState>();
-		if (pendingEntryCount > 0)
-			runtime.CompletionPublished = false;
-
-		if (pendingEntryCount > 1)
-			pendingEntries!.Sort(static (left, right) =>
-				{
-					var priorityComparison = right.Priority.CompareTo(left.Priority);
-					return priorityComparison != 0
-							   ? priorityComparison
-							   : left.HandleId.CompareTo(right.HandleId);
-				}
-			);
-
 		ref readonly var config = ref world.ReadResource<ActivationConfig>();
 		ref var dispatchQueue = ref world.WriteResource<ActivationDispatchQueueResource>();
-
-		var maxActivationsPerTick = config.MaxActivationsPerTick <= 0
-										? int.MaxValue
-										: config.MaxActivationsPerTick;
-		var targetActivationCount = Math.Min(maxActivationsPerTick, pendingEntryCount);
+		int budget = config.MaxActivationsPerTick <= 0 ? int.MaxValue : config.MaxActivationsPerTick;
+		budget = Math.Min(budget, dispatchQueue.MaxCapacity - dispatchQueue.Count);
+		var pendingEntries = CollectPendingEntries(world, budget, out var activatedCount, out var pendingEntryCount,
+			out var best);
+		ref var runtime = ref world.WriteResource<ActivationRuntimeState>();
+		if (pendingEntryCount > 0) runtime.CompletionPublished = false;
+		pendingEntries?.Sort(CompareCandidates);
+		int targetActivationCount = Math.Min(budget, pendingEntryCount);
 
 		var activatedThisTick = 0;
 		for (var i = 0; i < targetActivationCount; i++)
 		{
-			var candidate = pendingEntries![i];
+			var candidate = budget == 1 ? best : pendingEntries![i];
 			if (!world.TryWrite<ActivationEntry>(candidate.EntryEntity, out var entryRef))
 				continue;
 
@@ -109,7 +96,7 @@ public sealed class ActivationProcessingSystem : ISystem
 
 			var eventData = new ActivationCompletedEvent(runtime.ActivatedCount);
 			ref var events = ref world.GetOrCreateResource<ActivationEventsResource>();
-			events.Enqueue(in eventData);
+			if (!events.TryEnqueue(in eventData)) return;
 
 			try
 			{
@@ -127,10 +114,19 @@ public sealed class ActivationProcessingSystem : ISystem
 		runtime.CompletionPublished = false;
 	}
 
-	private static List<PendingActivationCandidate>? CollectPendingEntries(World world, out int activatedCount)
+	private static int CompareCandidates(PendingActivationCandidate left, PendingActivationCandidate right)
+	{
+		int priority = right.Priority.CompareTo(left.Priority);
+		return priority != 0 ? priority : left.HandleId.CompareTo(right.HandleId);
+	}
+
+	private static List<PendingActivationCandidate>? CollectPendingEntries(World world, int budget, out int activatedCount,
+		out int pendingCount, out PendingActivationCandidate best)
 	{
 		List<PendingActivationCandidate>? pendingEntries = null;
 		var activatedCountLocal = 0;
+		int pending = 0;
+		PendingActivationCandidate highest = default;
 
 		world.Query<ActivationEntryQuery>().ForEachRead<ActivationEntry>(
 			(Entity entryEntity, in ActivationEntry entry) =>
@@ -145,11 +141,29 @@ public sealed class ActivationProcessingSystem : ISystem
 				if (entry.State != ActivationState.Pending)
 					return;
 
-				(pendingEntries ??= new()).Add(new(entryEntity, entry.Priority, entry.Handle.Id));
+				pending++;
+				if (budget == 0) return;
+				var candidate = new PendingActivationCandidate(entryEntity, entry.Priority, entry.Handle.Id);
+				if (budget == 1)
+				{
+					if (pending == 1 || CompareCandidates(candidate, highest) < 0) highest = candidate;
+				}
+				else
+				{
+					(pendingEntries ??= new()).Add(candidate);
+					// Once two batches accumulate, the lower-ranked half can never enter this tick's batch.
+					if (pendingEntries.Count - budget >= budget)
+					{
+						pendingEntries.Sort(CompareCandidates);
+						pendingEntries.RemoveRange(budget, pendingEntries.Count - budget);
+					}
+				}
 			}
 		);
 
 		activatedCount = activatedCountLocal;
+		pendingCount = pending;
+		best = highest;
 		return pendingEntries;
 	}
 

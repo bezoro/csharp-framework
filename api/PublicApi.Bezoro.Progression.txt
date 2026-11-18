@@ -1,0 +1,159 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Progression
+{
+    public sealed class BattlePassDefinition
+    {
+        public BattlePassDefinition(System.ReadOnlySpan<Bezoro.Progression.BattlePassTierDefinition> tiers) { }
+        public int Count { get; }
+        public System.ReadOnlySpan<Bezoro.Progression.BattlePassTierDefinition> Tiers { get; }
+        public int GetUnlockedTierCount(long experience) { }
+    }
+    public sealed class BattlePassProgress
+    {
+        public BattlePassProgress(Bezoro.Progression.BattlePassDefinition definition) { }
+        public Bezoro.Progression.BattlePassDefinition Definition { get; }
+        public long Experience { get; }
+        public bool HasPremiumAccess { get; }
+        public int UnlockedTierCount { get; }
+        public long AddExperience(long amount) { }
+        public void CopyClaimStateTo(System.Span<byte> destination) { }
+        public void CopyStateTo(System.Span<byte> claimState, out long experience, out bool hasPremiumAccess) { }
+        public bool GrantPremiumAccess() { }
+        public bool IsClaimed(int tierIndex, Bezoro.Progression.BattlePassTrack track) { }
+        public bool TryClaim(int tierIndex, Bezoro.Progression.BattlePassTrack track, out Bezoro.Progression.RewardBatch rewards) { }
+        public bool TryRestore(long experience, bool hasPremiumAccess, System.ReadOnlySpan<byte> claimState) { }
+    }
+    public sealed class BattlePassTierDefinition
+    {
+        public BattlePassTierDefinition(long requiredExperience, System.ReadOnlySpan<Bezoro.Progression.RewardGrant> freeRewards = default, System.ReadOnlySpan<Bezoro.Progression.RewardGrant> premiumRewards = default) { }
+        public Bezoro.Progression.RewardBatch FreeRewards { get; }
+        public Bezoro.Progression.RewardBatch PremiumRewards { get; }
+        public long RequiredExperience { get; }
+    }
+    public enum BattlePassTrack : byte
+    {
+        Free = 0,
+        Premium = 1,
+    }
+    public readonly struct ProgressionId : System.IEquatable<Bezoro.Progression.ProgressionId>
+    {
+        public ProgressionId(uint value) { }
+        public bool IsValid { get; }
+        public uint Value { get; }
+    }
+    public sealed class QuestCatalog
+    {
+        public QuestCatalog(System.ReadOnlySpan<Bezoro.Progression.QuestDefinition> definitions) { }
+        public int Count { get; }
+        public System.ReadOnlySpan<Bezoro.Progression.QuestDefinition> Definitions { get; }
+        public int ObjectiveCount { get; }
+        public Bezoro.Progression.QuestDefinition GetDefinition(Bezoro.Progression.ProgressionId quest) { }
+    }
+    public sealed class QuestDefinition
+    {
+        public QuestDefinition(Bezoro.Progression.ProgressionId id, System.ReadOnlySpan<Bezoro.Progression.QuestObjective> objectives, System.ReadOnlySpan<Bezoro.Progression.RewardGrant> rewards = default) { }
+        public Bezoro.Progression.ProgressionId Id { get; }
+        public System.ReadOnlySpan<Bezoro.Progression.QuestObjective> Objectives { get; }
+        public Bezoro.Progression.RewardBatch Rewards { get; }
+    }
+    public readonly struct QuestObjective : System.IEquatable<Bezoro.Progression.QuestObjective>
+    {
+        public QuestObjective(Bezoro.Progression.ProgressionId counter, long target) { }
+        public Bezoro.Progression.ProgressionId Counter { get; }
+        public long Target { get; }
+    }
+    public sealed class QuestProgress
+    {
+        public QuestProgress(Bezoro.Progression.QuestCatalog catalog) { }
+        public Bezoro.Progression.QuestCatalog Catalog { get; }
+        public void CopyStateTo(System.Span<Bezoro.Progression.QuestStatus> statuses, System.Span<long> objectiveProgress) { }
+        public long GetObjectiveProgress(Bezoro.Progression.ProgressionId quest, int objectiveIndex) { }
+        public Bezoro.Progression.QuestStatus GetStatus(Bezoro.Progression.ProgressionId quest) { }
+        public int Record(Bezoro.Progression.ProgressionId counter, long amount = 1) { }
+        public bool TryActivate(Bezoro.Progression.ProgressionId quest) { }
+        public bool TryClaim(Bezoro.Progression.ProgressionId quest, out Bezoro.Progression.RewardBatch rewards) { }
+        public bool TryRestore(System.ReadOnlySpan<Bezoro.Progression.QuestStatus> statuses, System.ReadOnlySpan<long> objectiveProgress) { }
+    }
+    public enum QuestStatus : byte
+    {
+        Inactive = 0,
+        Active = 1,
+        Completed = 2,
+        Claimed = 3,
+    }
+    public readonly struct RewardBatch
+    {
+        public int Count { get; }
+        public Bezoro.Progression.RewardGrant this[int index] { get; }
+        public System.ReadOnlySpan<Bezoro.Progression.RewardGrant> Rewards { get; }
+    }
+    public readonly struct RewardGrant : System.IEquatable<Bezoro.Progression.RewardGrant>
+    {
+        public RewardGrant(Bezoro.Progression.ProgressionId reward, long quantity = 1) { }
+        public long Quantity { get; }
+        public Bezoro.Progression.ProgressionId Reward { get; }
+    }
+    public sealed class StoryCatalog
+    {
+        public StoryCatalog(System.ReadOnlySpan<Bezoro.Progression.StoryStageDefinition> stages) { }
+        public int Count { get; }
+        public System.ReadOnlySpan<Bezoro.Progression.StoryStageDefinition> Stages { get; }
+        public Bezoro.Progression.StoryStageDefinition GetDefinition(Bezoro.Progression.ProgressionId stage) { }
+    }
+    public readonly struct StoryPrerequisite : System.IEquatable<Bezoro.Progression.StoryPrerequisite>
+    {
+        public StoryPrerequisite(Bezoro.Progression.ProgressionId stage, byte requiredStars = 1) { }
+        public byte RequiredStars { get; }
+        public Bezoro.Progression.ProgressionId Stage { get; }
+    }
+    public sealed class StoryProgress
+    {
+        public StoryProgress(Bezoro.Progression.StoryCatalog catalog) { }
+        public Bezoro.Progression.StoryCatalog Catalog { get; }
+        public void CopyStateTo(System.Span<byte> destination) { }
+        public byte GetBestStars(Bezoro.Progression.ProgressionId stage) { }
+        public bool IsUnlocked(Bezoro.Progression.ProgressionId stage) { }
+        public bool TryComplete(Bezoro.Progression.ProgressionId stage, byte stars, out Bezoro.Progression.StoryStageCompletion completion) { }
+        public bool TryRestore(System.ReadOnlySpan<byte> stars) { }
+    }
+    public readonly struct StoryStageCompletion
+    {
+        public bool IsFirstCompletion { get; }
+        public byte PreviousStars { get; }
+        public Bezoro.Progression.ProgressionId Stage { get; }
+        public byte Stars { get; }
+    }
+    public sealed class StoryStageDefinition
+    {
+        public StoryStageDefinition(Bezoro.Progression.ProgressionId id, byte maximumStars = 3, System.ReadOnlySpan<Bezoro.Progression.StoryPrerequisite> prerequisites = default) { }
+        public Bezoro.Progression.ProgressionId Id { get; }
+        public byte MaximumStars { get; }
+        public System.ReadOnlySpan<Bezoro.Progression.StoryPrerequisite> Prerequisites { get; }
+    }
+}
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.Progression.ProgressionId::Equals(Bezoro.Progression.ProgressionId)
+// System.Boolean Bezoro.Progression.ProgressionId::Equals(System.Object)
+// System.Boolean Bezoro.Progression.ProgressionId::op_Equality(Bezoro.Progression.ProgressionId,Bezoro.Progression.ProgressionId)
+// System.Boolean Bezoro.Progression.ProgressionId::op_Inequality(Bezoro.Progression.ProgressionId,Bezoro.Progression.ProgressionId)
+// System.Boolean Bezoro.Progression.QuestObjective::Equals(Bezoro.Progression.QuestObjective)
+// System.Boolean Bezoro.Progression.QuestObjective::Equals(System.Object)
+// System.Boolean Bezoro.Progression.QuestObjective::op_Equality(Bezoro.Progression.QuestObjective,Bezoro.Progression.QuestObjective)
+// System.Boolean Bezoro.Progression.QuestObjective::op_Inequality(Bezoro.Progression.QuestObjective,Bezoro.Progression.QuestObjective)
+// System.Boolean Bezoro.Progression.RewardGrant::Equals(Bezoro.Progression.RewardGrant)
+// System.Boolean Bezoro.Progression.RewardGrant::Equals(System.Object)
+// System.Boolean Bezoro.Progression.RewardGrant::op_Equality(Bezoro.Progression.RewardGrant,Bezoro.Progression.RewardGrant)
+// System.Boolean Bezoro.Progression.RewardGrant::op_Inequality(Bezoro.Progression.RewardGrant,Bezoro.Progression.RewardGrant)
+// System.Boolean Bezoro.Progression.StoryPrerequisite::Equals(Bezoro.Progression.StoryPrerequisite)
+// System.Boolean Bezoro.Progression.StoryPrerequisite::Equals(System.Object)
+// System.Boolean Bezoro.Progression.StoryPrerequisite::op_Equality(Bezoro.Progression.StoryPrerequisite,Bezoro.Progression.StoryPrerequisite)
+// System.Boolean Bezoro.Progression.StoryPrerequisite::op_Inequality(Bezoro.Progression.StoryPrerequisite,Bezoro.Progression.StoryPrerequisite)
+// System.Int32 Bezoro.Progression.ProgressionId::GetHashCode()
+// System.Int32 Bezoro.Progression.QuestObjective::GetHashCode()
+// System.Int32 Bezoro.Progression.RewardGrant::GetHashCode()
+// System.Int32 Bezoro.Progression.StoryPrerequisite::GetHashCode()
+// System.String Bezoro.Progression.ProgressionId::ToString()
+// System.String Bezoro.Progression.QuestObjective::ToString()
+// System.String Bezoro.Progression.RewardGrant::ToString()
+// System.String Bezoro.Progression.StoryPrerequisite::ToString()

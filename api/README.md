@@ -1,24 +1,12 @@
 # Public API Baselines
 
-These files are the pre-1.0 public type baseline for the framework packages under `src/`.
+These snapshots describe the compiled public API of each framework assembly. The exporter groups target frameworks with identical signatures and keeps target-specific snapshots when they differ. It includes constructors, members, generic constraints, defaults, nullable signatures and synthesized methods such as record deconstruction.
 
-Run this after intentional public type changes:
+Build the Release solution and check the baselines:
 
-```powershell
-./scripts/Export-PublicApi.ps1
+```sh
+dotnet build bezoro.framework.sln -c Release
+pwsh -NoProfile -File scripts/Export-PublicApi.ps1 -Check
 ```
 
-CI checks the baseline with:
-
-```powershell
-./scripts/Export-PublicApi.ps1 -Check
-```
-
-Review flags are intentionally conservative:
-
-- `review-unsealed-class`: public class inheritance is part of the contract unless the type is sealed.
-- `review-mutable-struct`: public value type has mutable shape and should be reviewed for copy semantics.
-- `review-mutable-record-struct`: public record struct has mutable shape unless declared readonly.
-- `review-contract`: public interface or abstract type has explicit implementation/versioning cost.
-- `review-naming`: public type name does not match the expected PascalCase type naming shape.
-- `stable-shape`: no type-shape concern was detected by the baseline exporter.
+For intentional API changes, run the script without `-Check` after rebuilding and review the diff. The exporter is a development tool and is not a dependency of the runtime or UPM package. The snapshots make declarative contract changes visible. Review behavior, binary compatibility and migration separately.

@@ -1,6 +1,7 @@
 param(
 	[string]$PackagePath,
-	[string]$Branch = "upm"
+	[string]$Branch = "upm",
+	[string]$SourceRepositoryPath = (Join-Path $PSScriptRoot "..")
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,6 +21,15 @@ if ([string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) {
 
 if ([string]::IsNullOrWhiteSpace($env:GITHUB_REPOSITORY)) {
 	throw "GITHUB_REPOSITORY must be set."
+}
+
+$sourceRevision = $env:GITHUB_SHA
+if ($sourceRevision -notmatch '^[0-9a-fA-F]{40}$') {
+	throw "GITHUB_SHA must identify the validated source commit."
+}
+& git -C $SourceRepositoryPath cat-file -e "$sourceRevision^{commit}"
+if ($LASTEXITCODE -ne 0) {
+	throw "The validated source commit is missing from the source checkout."
 }
 
 $publishRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("bezoro-upm-" + [System.Guid]::NewGuid().ToString("N"))
@@ -47,13 +57,37 @@ for ($offset = 0; $offset -lt 2; $offset++) {
 $env:GIT_CONFIG_COUNT = ($configCount + 2).ToString([Globalization.CultureInfo]::InvariantCulture)
 
 try {
-	& git ls-remote --exit-code --heads $remoteUrl $Branch *> $null
+	& git ls-remote --exit-code --heads $remoteUrl "refs/heads/$Branch" *> $null
+	if ($LASTEXITCODE -notin 0, 2) {
+		throw "Failed to inspect branch '$Branch'."
+	}
 	$branchExists = $LASTEXITCODE -eq 0
+	$publishedRevision = $null
 
 	if ($branchExists) {
 		& git clone --depth 1 --branch $Branch $remoteUrl $publishRoot
 		if ($LASTEXITCODE -ne 0) {
 			throw "Failed to clone branch '$Branch'."
+		}
+
+		if ($Branch -ceq 'upm') {
+			$publication = & git -C $publishRoot log -1 --format=%s
+			if ($LASTEXITCODE -ne 0 -or $publication -notmatch '^chore\(upm\): publish Unity package from ([0-9a-fA-F]{40})$') {
+				throw "Cannot identify the source commit of the current UPM package."
+			}
+			$publishedRevision = $Matches[1]
+			& git -C $SourceRepositoryPath merge-base --is-ancestor $publishedRevision $sourceRevision
+			if ($LASTEXITCODE -eq 1) {
+				& git -C $SourceRepositoryPath merge-base --is-ancestor $sourceRevision $publishedRevision
+				if ($LASTEXITCODE -eq 0) {
+					Write-Host "UPM already publishes a newer source commit. Skipping $sourceRevision."
+					return
+				}
+				throw "The requested revision does not descend from the published UPM source."
+			}
+			if ($LASTEXITCODE -ne 0) {
+				throw "Failed to compare UPM source revisions. Use a complete source checkout."
+			}
 		}
 	}
 	else {
@@ -86,25 +120,26 @@ try {
 		& git config user.name "github-actions[bot]"
 		& git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 		& git add --all
+		if ($LASTEXITCODE -ne 0) {
+			throw "Failed to stage Unity package contents."
+		}
 
 		& git diff --cached --quiet
-		if ($LASTEXITCODE -eq 0) {
+		if ($LASTEXITCODE -notin 0, 1) {
+			throw "Failed to inspect staged Unity package contents."
+		}
+		if ($LASTEXITCODE -eq 0 -and ($Branch -cne 'upm' -or $publishedRevision -eq $sourceRevision)) {
 			Write-Host "Unity package branch is already up to date."
 			return
 		}
 
-		$sourceRevision = if ([string]::IsNullOrWhiteSpace($env:GITHUB_SHA)) { "unknown" } else { $env:GITHUB_SHA }
-		& git commit -m "chore(upm): publish Unity package from $sourceRevision"
+		# An identical package at a new official revision still advances the source watermark.
+		& git commit --allow-empty -m "chore(upm): publish Unity package from $sourceRevision"
 		if ($LASTEXITCODE -ne 0) {
 			throw "Failed to commit Unity package contents."
 		}
 
-		if ($branchExists) {
-			& git push origin "HEAD:$Branch"
-		}
-		else {
-			& git push --set-upstream origin $Branch
-		}
+		& git push origin "HEAD:refs/heads/$Branch"
 
 		if ($LASTEXITCODE -ne 0) {
 			throw "Failed to push Unity package branch '$Branch'."

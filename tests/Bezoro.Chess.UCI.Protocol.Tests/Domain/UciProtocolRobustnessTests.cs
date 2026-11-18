@@ -10,11 +10,11 @@ public class UciProtocolRobustnessTests
 	[InlineData("isready")]
 	[InlineData("uci")]
 	[InlineData("d")]
-	public async Task FailedWrite_ShouldRemoveAllResponseWaitersBeforeNextCommand(string command)
+	public async Task FailedWrite_ShouldRemoveWaitersAndRejectAmbiguousAcknowledgments(string command)
 	{
 		var transport = Substitute.For<IUciTransport>();
 		var waiters = new UciLineWaiterRegistry();
-		var module = new UciEngineCommandModule(transport, waiters, Substitute.For<IUciLineSource>(), _ => { }, new());
+		var module = new UciEngineCommandModule(transport, waiters, _ => { }, new());
 		transport.WriteLineAsync(command, Arg.Any<CancellationToken>()).Returns(Task.FromException(new IOException("write failed")));
 
 		Func<Task> action = command switch
@@ -31,7 +31,10 @@ public class UciProtocolRobustnessTests
 			waiters.Notify("readyok");
 			return Task.CompletedTask;
 		});
-		await module.IsReadyAsync(default).WaitAsync(TimeSpan.FromSeconds(1));
+		if (command != "d")
+			await FluentActions.Awaiting(() => module.IsReadyAsync(default)).Should().ThrowAsync<InvalidOperationException>().WithMessage("*restart*");
+		else
+			await module.IsReadyAsync(default).WaitAsync(TimeSpan.FromSeconds(1));
 		waiters.HasWaiters.Should().BeFalse();
 	}
 

@@ -167,10 +167,12 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 	public bool TryRent([NotNullWhen(true)] out T? item) => TryAcquire(false, out item);
 
 	/// <inheritdoc />
-	public int TrimExcess(Percent targetUtilization = default)
+	public int TrimExcess() => TrimExcess(Percent.Ninety);
+
+	/// <inheritdoc />
+	public int TrimExcess(Percent targetUtilization)
 	{
-		if (targetUtilization == default)
-			targetUtilization = Percent.Ninety;
+		if (targetUtilization.Value == 0) return 0;
 
 		var trimmed   = 0;
 		int available = AvailableCount;
@@ -178,8 +180,9 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 
 		if (total == 0) return 0;
 
-		var targetAvailable = (int)((long)total * (100 - targetUtilization.Value) / 100);
-		int toRemove        = available - targetAvailable;
+		long rented = Math.Max(0, total - available);
+		long targetTotal = rented * 100 / targetUtilization.Value;
+		long toRemove = total - targetTotal;
 
 		while (toRemove > 0 && TryPopAvailable(out var item))
 		{
@@ -313,13 +316,13 @@ public sealed class ObjectPool<T> : IPool<T>, IDisposable where T : class
 
 		try
 		{
-			Clear();
+			_disposeWaitCancellation?.Cancel();
 		}
 		finally
 		{
 			try
 			{
-				_disposeWaitCancellation?.Cancel();
+				Clear();
 			}
 			finally
 			{

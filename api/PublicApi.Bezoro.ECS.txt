@@ -1,0 +1,903 @@
+// net10.0, netstandard2.1
+namespace Bezoro.ECS.Abstractions
+{
+    public interface ICompiledQuerySpec
+    {
+        void Build(ref Bezoro.ECS.Types.QueryBuilder builder);
+    }
+    public interface IEngineAdapter
+    {
+        float GetDeltaTime();
+        Bezoro.ECS.Types.InputStateProxy PollInput();
+        void SyncTransformsToEngine(System.ReadOnlySpan<Bezoro.ECS.Types.Entity> entities, System.ReadOnlySpan<Bezoro.ECS.Types.TransformProxy> transforms);
+    }
+    public interface IEntity
+    {
+        int Id { get; }
+        int Version { get; }
+    }
+    public interface IForEachEntity<T1>
+        where T1 :  struct
+    {
+        void Execute(Bezoro.ECS.Types.Entity entity, ref T1 component1);
+    }
+    public interface IForEachEntity<T1, T2>
+        where T1 :  struct
+        where T2 :  struct
+    {
+        void Execute(Bezoro.ECS.Types.Entity entity, ref T1 component1, in T2 component2);
+    }
+    public interface IForEachEntity<T1, T2, T3>
+        where T1 :  struct
+        where T2 :  struct
+        where T3 :  struct
+    {
+        void Execute(Bezoro.ECS.Types.Entity entity, ref T1 component1, in T2 component2, in T3 component3);
+    }
+    public interface IForEachEntity<T1, T2, T3, T4>
+        where T1 :  struct
+        where T2 :  struct
+        where T3 :  struct
+        where T4 :  struct
+    {
+        void Execute(Bezoro.ECS.Types.Entity entity, ref T1 component1, in T2 component2, in T3 component3, in T4 component4);
+    }
+    public interface IForEach<T1>
+        where T1 :  struct
+    {
+        void Execute(ref T1 component1);
+    }
+    public interface IForEach<T1, T2>
+        where T1 :  struct
+        where T2 :  struct
+    {
+        void Execute(ref T1 component1, in T2 component2);
+    }
+    public interface IForEach<T1, T2, T3>
+        where T1 :  struct
+        where T2 :  struct
+        where T3 :  struct
+    {
+        void Execute(ref T1 component1, in T2 component2, in T3 component3);
+    }
+    public interface IForEach<T1, T2, T3, T4>
+        where T1 :  struct
+        where T2 :  struct
+        where T3 :  struct
+        where T4 :  struct
+    {
+        void Execute(ref T1 component1, in T2 component2, in T3 component3, in T4 component4);
+    }
+    public interface ISystem
+    {
+        Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        Bezoro.ECS.Types.Stage Stage { get; }
+        Bezoro.ECS.Types.SystemUpdateSettings UpdateSettings { get; }
+        void OnCreate(Bezoro.ECS.Services.World world);
+        void OnDestroy(Bezoro.ECS.Services.World world);
+        void Update(in Bezoro.ECS.Types.SystemContext context);
+    }
+    public interface ISystemRunCondition
+    {
+        bool ShouldRun(in Bezoro.ECS.Types.SystemRunConditionContext context);
+    }
+    public interface IWorld
+    {
+        void Add<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct;
+        void Add<T>(Bezoro.ECS.Types.Entity entity, in T component)
+            where T :  struct;
+        void AddRelation<TRelation>(Bezoro.ECS.Types.Entity source, Bezoro.ECS.Types.Entity target)
+            where TRelation :  struct;
+        void Despawn(Bezoro.ECS.Types.Entity entity);
+        T& GetOrCreateResource<T>()
+            where T :  notnull, new ();
+        bool Has<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct;
+        bool HasRelation<TRelation>(Bezoro.ECS.Types.Entity source, Bezoro.ECS.Types.Entity target)
+            where TRelation :  struct;
+        bool HasResource<T>()
+            where T :  notnull;
+        bool IsAlive(Bezoro.ECS.Types.Entity entity);
+        Bezoro.ECS.Types.QueryView<TQuery> Query<TQuery>()
+            where TQuery :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec;
+        T& Read<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct;
+        T& ReadResource<T>()
+            where T :  notnull;
+        void Remove<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct;
+        bool RemoveRelation<TRelation>(Bezoro.ECS.Types.Entity source, Bezoro.ECS.Types.Entity target)
+            where TRelation :  struct;
+        bool RemoveResource<T>()
+            where T :  notnull;
+        void Replace<T>(Bezoro.ECS.Types.Entity entity, in T component)
+            where T :  struct;
+        void ReplaceResource<T>(T resource)
+            where T :  notnull;
+        void Set<T>(Bezoro.ECS.Types.Entity entity, in T component)
+            where T :  struct;
+        void SetResource<T>(T resource)
+            where T :  notnull;
+        Bezoro.ECS.Types.Entity Spawn();
+        Bezoro.ECS.Types.Entity Spawn<T1>(in T1 component1)
+            where T1 :  struct;
+        Bezoro.ECS.Types.Entity Spawn<T1, T2>(in T1 component1, in T2 component2)
+            where T1 :  struct
+            where T2 :  struct;
+        Bezoro.ECS.Types.Entity Spawn<T1, T2, T3>(in T1 component1, in T2 component2, in T3 component3)
+            where T1 :  struct
+            where T2 :  struct
+            where T3 :  struct;
+        Bezoro.ECS.Types.Entity Spawn<T1, T2, T3, T4>(in T1 component1, in T2 component2, in T3 component3, in T4 component4)
+            where T1 :  struct
+            where T2 :  struct
+            where T3 :  struct
+            where T4 :  struct;
+        bool TryGet<T>(Bezoro.ECS.Types.Entity entity, out T component)
+            where T :  struct;
+        bool TryRead<T>(Bezoro.ECS.Types.Entity entity, out T component)
+            where T :  struct;
+        bool TryReadResource<T>(out T resource)
+            where T :  notnull;
+        bool TryWrite<T>(Bezoro.ECS.Types.Entity entity, out Bezoro.ECS.Types.ComponentRef<T> component)
+            where T :  struct;
+        T& Write<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct;
+        T& WriteResource<T>()
+            where T :  notnull;
+    }
+    public interface IWorldSnapshotReader
+    {
+        Bezoro.ECS.Types.WorldSnapshot Read();
+    }
+    public interface IWorldSnapshotWriter
+    {
+        void Write(in Bezoro.ECS.Types.WorldSnapshot snapshot);
+    }
+}
+namespace Bezoro.ECS.Attributes
+{
+    [System.AttributeUsage(System.AttributeTargets.Struct, AllowMultiple=true)]
+    public sealed class AddedAttribute : System.Attribute
+    {
+        public AddedAttribute(System.Type componentType) { }
+        public System.Type ComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=true, Inherited=true)]
+    public sealed class AfterAttribute : System.Attribute
+    {
+        public AfterAttribute(System.Type systemType) { }
+        public System.Type SystemType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Struct, AllowMultiple=true)]
+    public sealed class AllAttribute : System.Attribute
+    {
+        public AllAttribute(System.Type componentType) { }
+        public System.Type ComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Struct, AllowMultiple=true)]
+    public sealed class AnyAttribute : System.Attribute
+    {
+        public AnyAttribute(System.Type firstComponentType, System.Type secondComponentType) { }
+        public System.Type FirstComponentType { get; }
+        public System.Type SecondComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Struct, AllowMultiple=true, Inherited=false)]
+    public sealed class AnyOfAttribute : System.Attribute
+    {
+        public AnyOfAttribute(System.Type componentType) { }
+        public System.Type ComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=true, Inherited=true)]
+    public sealed class BeforeAttribute : System.Attribute
+    {
+        public BeforeAttribute(System.Type systemType) { }
+        public System.Type SystemType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Struct, AllowMultiple=true)]
+    public sealed class ChangedAttribute : System.Attribute
+    {
+        public ChangedAttribute(System.Type componentType) { }
+        public System.Type ComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct)]
+    public sealed class ExclusiveAttribute : System.Attribute
+    {
+        public ExclusiveAttribute() { }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, Inherited=true)]
+    public sealed class NoWorldAccessAttribute : System.Attribute
+    {
+        public NoWorldAccessAttribute() { }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Struct, AllowMultiple=true)]
+    public sealed class NoneAttribute : System.Attribute
+    {
+        public NoneAttribute(System.Type componentType) { }
+        public System.Type ComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Struct, AllowMultiple=true)]
+    public sealed class OptionalAttribute : System.Attribute
+    {
+        public OptionalAttribute(System.Type componentType) { }
+        public System.Type ComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Struct)]
+    public sealed class QueryAttribute : System.Attribute
+    {
+        public QueryAttribute() { }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=true)]
+    public sealed class ReadsAttribute : System.Attribute
+    {
+        public ReadsAttribute(System.Type componentType) { }
+        public System.Type ComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=true, Inherited=true)]
+    public sealed class ReadsResourceAttribute : System.Attribute
+    {
+        public ReadsResourceAttribute(System.Type resourceType) { }
+        public System.Type ResourceType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=true, Inherited=true)]
+    public sealed class RunIfAttribute : System.Attribute
+    {
+        public RunIfAttribute(System.Type runConditionType) { }
+        public System.Type RunConditionType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Struct)]
+    public sealed class SplitFieldsAttribute : System.Attribute
+    {
+        public SplitFieldsAttribute() { }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Field)]
+    public sealed class SplitGroupAttribute : System.Attribute
+    {
+        public SplitGroupAttribute(int groupId) { }
+        public int GroupId { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=true, Inherited=true)]
+    public sealed class SystemSetAttribute : System.Attribute
+    {
+        public SystemSetAttribute(System.Type setType) { }
+        public System.Type SetType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Struct, AllowMultiple=true, Inherited=false)]
+    public sealed class WithAttribute : System.Attribute
+    {
+        public WithAttribute(System.Type componentType) { }
+        public System.Type ComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Struct, AllowMultiple=true, Inherited=false)]
+    public sealed class WithoutAttribute : System.Attribute
+    {
+        public WithoutAttribute(System.Type componentType) { }
+        public System.Type ComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=true)]
+    public sealed class WritesAttribute : System.Attribute
+    {
+        public WritesAttribute(System.Type componentType) { }
+        public System.Type ComponentType { get; }
+    }
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=true, Inherited=true)]
+    public sealed class WritesResourceAttribute : System.Attribute
+    {
+        public WritesResourceAttribute(System.Type resourceType) { }
+        public System.Type ResourceType { get; }
+    }
+}
+namespace Bezoro.ECS.Options
+{
+    public sealed class SnapshotDeserializationOptions
+    {
+        public SnapshotDeserializationOptions() { }
+        public bool AllowAllComponentTypes { get; init; }
+        public bool AllowAllRelationTypes { get; init; }
+        public bool AllowAllResourceTypes { get; init; }
+        public System.Type[] AllowedComponentTypes { get; init; }
+        public System.Type[] AllowedRelationTypes { get; init; }
+        public System.Type[] AllowedResourceTypes { get; init; }
+        public System.Func<System.Type, bool>? TypeValidator { get; init; }
+        public static Bezoro.ECS.Options.SnapshotDeserializationOptions Default { get; }
+    }
+}
+namespace Bezoro.ECS.Services
+{
+    public class World : Bezoro.ECS.Abstractions.IWorld, System.IDisposable
+    {
+        public World() { }
+        public World(Bezoro.ECS.Types.WorldConfig config) { }
+        public int EntityCount { get; }
+        public void Add<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct { }
+        public void Add<T>(Bezoro.ECS.Types.Entity entity, in T component)
+            where T :  struct { }
+        public void AddRelation<TRelation>(Bezoro.ECS.Types.Entity source, Bezoro.ECS.Types.Entity target)
+            where TRelation :  struct { }
+        public void AddSystem(Bezoro.ECS.Abstractions.ISystem system, Bezoro.ECS.Types.Stage? stage = default) { }
+        public void AddSystem<TSystem>(Bezoro.ECS.Types.Stage? stage = default)
+            where TSystem : Bezoro.ECS.Abstractions.ISystem, new () { }
+        public void CaptureSnapshot<TSnapshotWriter>(ref TSnapshotWriter writer)
+            where TSnapshotWriter :  struct, Bezoro.ECS.Abstractions.IWorldSnapshotWriter { }
+        public void Clear() { }
+        public void ClearSystemSetRunCondition<TSet>() { }
+        public Bezoro.ECS.Types.QueryHandle<TSpec> Compile<TSpec>()
+            where TSpec :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec { }
+        public Bezoro.ECS.Types.CommandStream CreateCommandStream() { }
+        public void Despawn(Bezoro.ECS.Types.Entity entity) { }
+        public void Dispose() { }
+        public Bezoro.ECS.Types.QueryCursor Execute<TSpec>(Bezoro.ECS.Types.QueryHandle<TSpec> handle)
+            where TSpec :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec { }
+        public void FixedTick(float deltaTime) { }
+        public void ForEach<TSpec, T1>(Bezoro.ECS.Types.QueryHandle<TSpec> handle, Bezoro.ECS.Types.QueryCursor.RefAction<T1> action)
+            where TSpec :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec
+            where T1 :  unmanaged { }
+        public void ForEach<TSpec, T1, T2>(Bezoro.ECS.Types.QueryHandle<TSpec> handle, Bezoro.ECS.Types.QueryCursor.RefInAction<T1, T2> action)
+            where TSpec :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec
+            where T1 :  unmanaged
+            where T2 :  unmanaged { }
+        public void ForEach<TSpec, T1, T2, T3>(Bezoro.ECS.Types.QueryHandle<TSpec> handle, Bezoro.ECS.Types.QueryCursor.RefInAction<T1, T2, T3> action)
+            where TSpec :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged { }
+        public void ForEach<TSpec, T1, T2, T3, T4>(Bezoro.ECS.Types.QueryHandle<TSpec> handle, Bezoro.ECS.Types.QueryCursor.RefInAction<T1, T2, T3, T4> action)
+            where TSpec :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged
+            where T4 :  unmanaged { }
+        public Bezoro.ECS.Types.ComponentAccessor<T> GetAccessor<T>()
+            where T :  unmanaged { }
+        public Bezoro.ECS.Types.WorldDiagnostics GetDiagnostics() { }
+        public T& GetOrCreateResource<T>()
+            where T :  notnull, new () { }
+        public T& GetOrCreateResource<T>(System.Func<T> factory)
+            where T :  notnull { }
+        public Bezoro.ECS.Types.QueryDiagnostics GetQueryDiagnostics<TSpec>(Bezoro.ECS.Types.QueryHandle<TSpec> handle)
+            where TSpec :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec { }
+        public Bezoro.ECS.Types.ScheduleDiagnostics GetScheduleDiagnostics() { }
+        public bool Has<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct { }
+        public bool HasRelation<TRelation>(Bezoro.ECS.Types.Entity source, Bezoro.ECS.Types.Entity target)
+            where TRelation :  struct { }
+        public bool HasResource<T>()
+            where T :  notnull { }
+        public bool IsAlive(Bezoro.ECS.Types.Entity entity) { }
+        public bool IsSystemSetEnabled<TSet>() { }
+        public void LateTick(float deltaTime) { }
+        public void Playback(Bezoro.ECS.Types.CommandStream stream) { }
+        public void Precompile<TSpec>()
+            where TSpec :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec { }
+        public Bezoro.ECS.Types.QueryView<TSpec> Query<TSpec>()
+            where TSpec :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec { }
+        public T& Read<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct { }
+        public T& ReadResource<T>()
+            where T :  notnull { }
+        public void Remove<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct { }
+        public bool RemoveRelation<TRelation>(Bezoro.ECS.Types.Entity source, Bezoro.ECS.Types.Entity target)
+            where TRelation :  struct { }
+        public bool RemoveResource<T>()
+            where T :  notnull { }
+        public void Replace<T>(Bezoro.ECS.Types.Entity entity, in T component)
+            where T :  struct { }
+        public void ReplaceResource<T>(T resource)
+            where T :  notnull { }
+        public void Reset() { }
+        public void RestoreSnapshot<TSnapshotReader>(ref TSnapshotReader reader, Bezoro.ECS.Options.SnapshotDeserializationOptions? options = null)
+            where TSnapshotReader :  struct, Bezoro.ECS.Abstractions.IWorldSnapshotReader { }
+        public void RunPhase(Bezoro.ECS.Types.SystemLoopPhase loopPhase, float deltaTime) { }
+        public void Set<T>(Bezoro.ECS.Types.Entity entity, in T component)
+            where T :  struct { }
+        public void SetResource<T>(T resource)
+            where T :  notnull { }
+        public void SetSystemSetEnabled<TSet>(bool enabled) { }
+        public void SetSystemSetRunCondition<TSet>(Bezoro.ECS.Abstractions.ISystemRunCondition runCondition) { }
+        public Bezoro.ECS.Types.Entity Spawn() { }
+        public Bezoro.ECS.Types.Entity Spawn<T1>(in T1 component1)
+            where T1 :  struct { }
+        public Bezoro.ECS.Types.Entity Spawn<T1, T2>(in T1 component1, in T2 component2)
+            where T1 :  struct
+            where T2 :  struct { }
+        public Bezoro.ECS.Types.Entity Spawn<T1, T2, T3>(in T1 component1, in T2 component2, in T3 component3)
+            where T1 :  struct
+            where T2 :  struct
+            where T3 :  struct { }
+        public Bezoro.ECS.Types.Entity Spawn<T1, T2, T3, T4>(in T1 component1, in T2 component2, in T3 component3, in T4 component4)
+            where T1 :  struct
+            where T2 :  struct
+            where T3 :  struct
+            where T4 :  struct { }
+        public void Tick(float deltaTime) { }
+        public bool TryGet<T>(Bezoro.ECS.Types.Entity entity, out T component)
+            where T :  struct { }
+        public bool TryRead<T>(Bezoro.ECS.Types.Entity entity, out T component)
+            where T :  struct { }
+        public bool TryReadResource<T>(out T resource)
+            where T :  notnull { }
+        public bool TryWrite<T>(Bezoro.ECS.Types.Entity entity, out Bezoro.ECS.Types.ComponentRef<T> component)
+            where T :  struct { }
+        public T& Write<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct { }
+        public T& WriteResource<T>()
+            where T :  notnull { }
+    }
+    public sealed class WorldGroup
+    {
+        public WorldGroup(System.Collections.Generic.IEnumerable<Bezoro.ECS.Services.World> worlds, int maxDegreeOfParallelism = 1) { }
+        public int MaxDegreeOfParallelism { get; }
+        public System.Collections.Generic.IReadOnlyList<Bezoro.ECS.Services.World> Worlds { get; }
+        public void FixedTick(float deltaTime, System.Threading.CancellationToken cancellationToken = default) { }
+        public void LateTick(float deltaTime, System.Threading.CancellationToken cancellationToken = default) { }
+        public void RunPhase(Bezoro.ECS.Types.SystemLoopPhase loopPhase, float deltaTime, System.Threading.CancellationToken cancellationToken = default) { }
+        public void Tick(float deltaTime, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+}
+namespace Bezoro.ECS.Types
+{
+    public sealed class ArenaDiagnostics
+    {
+        public ArenaDiagnostics(string name, int capacity, int used, int highWatermark, int overflowCount) { }
+        public int Capacity { get; }
+        public int HighWatermark { get; }
+        public string Name { get; }
+        public int OverflowCount { get; }
+        public int Used { get; }
+    }
+    public sealed class CommandStream : System.IDisposable
+    {
+        public bool HasCommands { get; }
+        public int RemainingCapacity { get; }
+        public Bezoro.ECS.Types.Entity CreateEntity() { }
+        public Bezoro.ECS.Types.Entity CreateEntity<T>(in T component)
+            where T :  struct { }
+        public void Destroy(Bezoro.ECS.Types.Entity entity) { }
+        public void Dispose() { }
+        public Bezoro.ECS.Types.CommandStreamDiagnostics GetDiagnostics() { }
+        public void Remove<T>(Bezoro.ECS.Types.Entity entity)
+            where T :  struct { }
+        public void Reset() { }
+        public void Set<T>(Bezoro.ECS.Types.Entity entity, in T component)
+            where T :  struct { }
+    }
+    public sealed class CommandStreamDiagnostics
+    {
+        public CommandStreamDiagnostics(int commandCapacity, int recordedCommands, int highWatermark, int overflowCount) { }
+        public int CommandCapacity { get; }
+        public int HighWatermark { get; }
+        public int OverflowCount { get; }
+        public int RecordedCommands { get; }
+    }
+    public struct ComponentAccessor<T>
+        where T :  unmanaged
+    {
+        public bool Has(Bezoro.ECS.Types.Entity entity) { }
+        public bool TryRead(Bezoro.ECS.Types.Entity entity, out T component) { }
+        public T& Write(Bezoro.ECS.Types.Entity entity) { }
+    }
+    public readonly ref struct ComponentRef<T>
+        where T :  struct
+    {
+        public T& Value { get; }
+    }
+    public readonly struct Entity : Bezoro.ECS.Abstractions.IEntity, System.IEquatable<Bezoro.ECS.Types.Entity>
+    {
+        public static readonly Bezoro.ECS.Types.Entity None;
+        public static readonly Bezoro.ECS.Types.Entity Wildcard;
+        public Entity(int Id, int Version) { }
+        public int Id { get; init; }
+        public int Version { get; init; }
+    }
+    public readonly struct InputStateProxy { }
+    public struct QueryBuilder
+    {
+        public void Added<T>()
+            where T :  struct { }
+        public void All<T>()
+            where T :  struct { }
+        public void Any<T>()
+            where T :  struct { }
+        public void AnyOf<T>()
+            where T :  struct { }
+        public void Changed<T>()
+            where T :  struct { }
+        public void None<T>()
+            where T :  struct { }
+        public void Optional<T>()
+            where T :  struct { }
+        public void Related<TRelation>()
+            where TRelation :  struct { }
+        public void Related<TRelation>(Bezoro.ECS.Types.Entity target)
+            where TRelation :  struct { }
+        public void With<T>()
+            where T :  struct { }
+        public void Without<T>()
+            where T :  struct { }
+    }
+    public struct QueryCursor : System.IDisposable
+    {
+        public int Count { get; }
+        public System.ReadOnlySpan<Bezoro.ECS.Types.Entity> Current { get; }
+        public void Dispose() { }
+        public void ForEach<T1>(Bezoro.ECS.Types.QueryCursor.RefAction<T1> action)
+            where T1 :  unmanaged { }
+        public void ForEach<T1, T2>(Bezoro.ECS.Types.QueryCursor.RefInAction<T1, T2> action)
+            where T1 :  unmanaged
+            where T2 :  unmanaged { }
+        public void ForEach<T1, T2, T3>(Bezoro.ECS.Types.QueryCursor.RefInAction<T1, T2, T3> action)
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged { }
+        public void ForEach<T1, T2, T3, T4>(Bezoro.ECS.Types.QueryCursor.RefInAction<T1, T2, T3, T4> action)
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged
+            where T4 :  unmanaged { }
+        public void ForEachEntity<T1>(Bezoro.ECS.Types.QueryCursor.EntityRefAction<T1> action)
+            where T1 :  unmanaged { }
+        public void ForEachEntity<T1, T2>(Bezoro.ECS.Types.QueryCursor.EntityRefInAction<T1, T2> action)
+            where T1 :  unmanaged
+            where T2 :  unmanaged { }
+        public void ForEachEntity<T1, T2, T3>(Bezoro.ECS.Types.QueryCursor.EntityRefInAction<T1, T2, T3> action)
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged { }
+        public void ForEachEntity<T1, T2, T3, T4>(Bezoro.ECS.Types.QueryCursor.EntityRefInAction<T1, T2, T3, T4> action)
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged
+            where T4 :  unmanaged { }
+        public Bezoro.ECS.Types.Entity GetEntity(int index) { }
+        public bool MoveNext() { }
+        public T& Read<T>(int index)
+            where T :  unmanaged { }
+        public void Run<TJob, T1>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1>
+            where T1 :  unmanaged { }
+        public void Run<TJob, T1, T2>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1, T2>
+            where T1 :  unmanaged
+            where T2 :  unmanaged { }
+        public void Run<TJob, T1, T2, T3>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1, T2, T3>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged { }
+        public void Run<TJob, T1, T2, T3, T4>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1, T2, T3, T4>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged
+            where T4 :  unmanaged { }
+        public void RunEntity<TJob, T1>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1>
+            where T1 :  unmanaged { }
+        public void RunEntity<TJob, T1, T2>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1, T2>
+            where T1 :  unmanaged
+            where T2 :  unmanaged { }
+        public void RunEntity<TJob, T1, T2, T3>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1, T2, T3>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged { }
+        public void RunEntity<TJob, T1, T2, T3, T4>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1, T2, T3, T4>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged
+            where T4 :  unmanaged { }
+        public T& Write<T>(int index)
+            where T :  unmanaged { }
+        public delegate void EntityRefAction<T1>(Bezoro.ECS.Types.Entity entity, ref T1 component1);
+        public delegate void EntityRefInAction<T1, T2, T3, T4>(Bezoro.ECS.Types.Entity entity, ref T1 component1, in T2 component2, in T3 component3, in T4 component4);
+        public delegate void EntityRefInAction<T1, T2, T3>(Bezoro.ECS.Types.Entity entity, ref T1 component1, in T2 component2, in T3 component3);
+        public delegate void EntityRefInAction<T1, T2>(Bezoro.ECS.Types.Entity entity, ref T1 component1, in T2 component2);
+        public delegate void RefAction<T1>(ref T1 component1);
+        public delegate void RefInAction<T1, T2, T3, T4>(ref T1 component1, in T2 component2, in T3 component3, in T4 component4);
+        public delegate void RefInAction<T1, T2, T3>(ref T1 component1, in T2 component2, in T3 component3);
+        public delegate void RefInAction<T1, T2>(ref T1 component1, in T2 component2);
+    }
+    public sealed class QueryDiagnostics
+    {
+        public QueryDiagnostics(int matchingArchetypeCount, int matchingChunkCount, int matchingEntityCount, int archetypeCacheVersion, bool isArchetypeCacheUpToDate, System.Type[] allTypes, System.Type[] anyTypes, System.Type[] noneTypes, System.Type[] optionalTypes, System.Type[] addedTypes, System.Type[] changedTypes, System.Type? relatedRelationType, Bezoro.ECS.Types.Entity relatedTarget) { }
+        public System.Type[] AddedTypes { get; }
+        public System.Type[] AllTypes { get; }
+        public System.Type[] AnyTypes { get; }
+        public int ArchetypeCacheVersion { get; }
+        public System.Type[] ChangedTypes { get; }
+        public bool IsArchetypeCacheUpToDate { get; }
+        public int MatchingArchetypeCount { get; }
+        public int MatchingChunkCount { get; }
+        public int MatchingEntityCount { get; }
+        public System.Type[] NoneTypes { get; }
+        public System.Type[] OptionalTypes { get; }
+        public System.Type? RelatedRelationType { get; }
+        public Bezoro.ECS.Types.Entity RelatedTarget { get; }
+    }
+    public readonly struct QueryHandle<TSpec>
+        where TSpec :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec { }
+    public readonly struct QueryView<TQuery>
+        where TQuery :  struct, Bezoro.ECS.Abstractions.ICompiledQuerySpec
+    {
+        public QueryView(Bezoro.ECS.Services.World world, Bezoro.ECS.Types.QueryHandle<TQuery> handle) { }
+        public bool Any() { }
+        public int Count() { }
+        public void ForEach(Bezoro.ECS.Types.QueryView<TQuery>.EntityAction action) { }
+        public void ForEach<T1>(Bezoro.ECS.Types.QueryView<TQuery>.EntityRefAction<T1> action)
+            where T1 :  struct { }
+        public void ForEach<T1, T2>(Bezoro.ECS.Types.QueryView<TQuery>.EntityRefInAction<T1, T2> action)
+            where T1 :  struct
+            where T2 :  struct { }
+        public void ForEach<T1, T2, T3>(Bezoro.ECS.Types.QueryView<TQuery>.EntityRefInAction<T1, T2, T3> action)
+            where T1 :  struct
+            where T2 :  struct
+            where T3 :  struct { }
+        public void ForEach<T1, T2, T3, T4>(Bezoro.ECS.Types.QueryView<TQuery>.EntityRefInAction<T1, T2, T3, T4> action)
+            where T1 :  struct
+            where T2 :  struct
+            where T3 :  struct
+            where T4 :  struct { }
+        public void ForEachRead<T1>(Bezoro.ECS.Types.QueryView<TQuery>.EntityInAction<T1> action)
+            where T1 :  struct { }
+        public void Run<TJob, T1>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1>
+            where T1 :  unmanaged { }
+        public void Run<TJob, T1, T2>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1, T2>
+            where T1 :  unmanaged
+            where T2 :  unmanaged { }
+        public void Run<TJob, T1, T2, T3>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1, T2, T3>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged { }
+        public void Run<TJob, T1, T2, T3, T4>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1, T2, T3, T4>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged
+            where T4 :  unmanaged { }
+        public void RunEntity<TJob, T1>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1>
+            where T1 :  unmanaged { }
+        public void RunEntity<TJob, T1, T2>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1, T2>
+            where T1 :  unmanaged
+            where T2 :  unmanaged { }
+        public void RunEntity<TJob, T1, T2, T3>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1, T2, T3>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged { }
+        public void RunEntity<TJob, T1, T2, T3, T4>(TJob job)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1, T2, T3, T4>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged
+            where T4 :  unmanaged { }
+        public void RunParallel<TJob, T1>(TJob job, int? degreeOfParallelism = default)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1>
+            where T1 :  unmanaged { }
+        public void RunParallel<TJob, T1, T2>(TJob job, int? degreeOfParallelism = default)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1, T2>
+            where T1 :  unmanaged
+            where T2 :  unmanaged { }
+        public void RunParallel<TJob, T1, T2, T3>(TJob job, int? degreeOfParallelism = default)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1, T2, T3>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged { }
+        public void RunParallel<TJob, T1, T2, T3, T4>(TJob job, int? degreeOfParallelism = default)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEach<T1, T2, T3, T4>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged
+            where T4 :  unmanaged { }
+        public void RunParallelEntity<TJob, T1>(TJob job, int? degreeOfParallelism = default)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1>
+            where T1 :  unmanaged { }
+        public void RunParallelEntity<TJob, T1, T2>(TJob job, int? degreeOfParallelism = default)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1, T2>
+            where T1 :  unmanaged
+            where T2 :  unmanaged { }
+        public void RunParallelEntity<TJob, T1, T2, T3>(TJob job, int? degreeOfParallelism = default)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1, T2, T3>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged { }
+        public void RunParallelEntity<TJob, T1, T2, T3, T4>(TJob job, int? degreeOfParallelism = default)
+            where TJob :  struct, Bezoro.ECS.Abstractions.IForEachEntity<T1, T2, T3, T4>
+            where T1 :  unmanaged
+            where T2 :  unmanaged
+            where T3 :  unmanaged
+            where T4 :  unmanaged { }
+        public delegate void EntityAction<TQuery>(Bezoro.ECS.Types.Entity entity);
+        public delegate void EntityInAction<TQuery, T1>(Bezoro.ECS.Types.Entity entity, in T1 component1);
+        public delegate void EntityRefAction<TQuery, T1>(Bezoro.ECS.Types.Entity entity, ref T1 component1);
+        public delegate void EntityRefInAction<TQuery, T1, T2, T3, T4>(Bezoro.ECS.Types.Entity entity, ref T1 component1, in T2 component2, in T3 component3, in T4 component4);
+        public delegate void EntityRefInAction<TQuery, T1, T2, T3>(Bezoro.ECS.Types.Entity entity, ref T1 component1, in T2 component2, in T3 component3);
+        public delegate void EntityRefInAction<TQuery, T1, T2>(Bezoro.ECS.Types.Entity entity, ref T1 component1, in T2 component2);
+    }
+    public sealed class ScheduleBatchDiagnostics
+    {
+        public ScheduleBatchDiagnostics(int batchIndex, System.Type[] systemTypes, bool containsExclusiveSystem) { }
+        public int BatchIndex { get; }
+        public bool ContainsExclusiveSystem { get; }
+        public System.Type[] SystemTypes { get; }
+    }
+    public sealed class ScheduleDiagnostics
+    {
+        public ScheduleDiagnostics(int registeredSystemCount, int planBuildCount, Bezoro.ECS.Types.SchedulePhaseDiagnostics[] phases) { }
+        public Bezoro.ECS.Types.SchedulePhaseDiagnostics[] Phases { get; }
+        public int PlanBuildCount { get; }
+        public int RegisteredSystemCount { get; }
+    }
+    public sealed class SchedulePhaseDiagnostics
+    {
+        public SchedulePhaseDiagnostics(Bezoro.ECS.Types.SystemLoopPhase loopPhase, Bezoro.ECS.Types.ScheduleStageDiagnostics[] stages) { }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public Bezoro.ECS.Types.ScheduleStageDiagnostics[] Stages { get; }
+    }
+    public sealed class ScheduleStageDiagnostics
+    {
+        public ScheduleStageDiagnostics(Bezoro.ECS.Types.Stage stage, Bezoro.ECS.Types.ScheduleBatchDiagnostics[] batches) { }
+        public Bezoro.ECS.Types.ScheduleBatchDiagnostics[] Batches { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+    }
+    public readonly struct SnapshotComponentRecord : System.IEquatable<Bezoro.ECS.Types.SnapshotComponentRecord>
+    {
+        public SnapshotComponentRecord(System.Type ComponentType, object Value) { }
+        public System.Type ComponentType { get; init; }
+        public object Value { get; init; }
+    }
+    public readonly struct SnapshotEntityRecord : System.IEquatable<Bezoro.ECS.Types.SnapshotEntityRecord>
+    {
+        public SnapshotEntityRecord(Bezoro.ECS.Types.Entity Entity, Bezoro.ECS.Types.SnapshotComponentRecord[] Components) { }
+        public Bezoro.ECS.Types.SnapshotComponentRecord[] Components { get; init; }
+        public Bezoro.ECS.Types.Entity Entity { get; init; }
+    }
+    public readonly struct SnapshotRelationRecord : System.IEquatable<Bezoro.ECS.Types.SnapshotRelationRecord>
+    {
+        public SnapshotRelationRecord(System.Type RelationType, Bezoro.ECS.Types.Entity Source, Bezoro.ECS.Types.Entity Target) { }
+        public System.Type RelationType { get; init; }
+        public Bezoro.ECS.Types.Entity Source { get; init; }
+        public Bezoro.ECS.Types.Entity Target { get; init; }
+    }
+    public readonly struct SnapshotResourceRecord : System.IEquatable<Bezoro.ECS.Types.SnapshotResourceRecord>
+    {
+        public SnapshotResourceRecord(System.Type ResourceType, object Value) { }
+        public System.Type ResourceType { get; init; }
+        public object Value { get; init; }
+    }
+    public enum Stage
+    {
+        Input = 0,
+        PreTick = 1,
+        Tick = 2,
+        PostTick = 3,
+        Render = 4,
+    }
+    public readonly struct SystemContext
+    {
+        public SystemContext(float deltaTime, Bezoro.ECS.Types.Stage stage, Bezoro.ECS.Services.World world, Bezoro.ECS.Types.CommandStream commandStream) { }
+        public Bezoro.ECS.Types.CommandStream CommandStream { get; }
+        public float DeltaTime { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public Bezoro.ECS.Services.World World { get; }
+    }
+    public enum SystemLoopPhase
+    {
+        Tick = 0,
+        FixedTick = 1,
+        LateTick = 2,
+    }
+    public readonly struct SystemMetadata
+    {
+        public SystemMetadata(System.Type systemType, System.Type[] reads, System.Type[] writes, System.Type[] readResources, System.Type[] writeResources, bool isExclusive) { }
+        public bool IsExclusive { get; }
+        public System.Type[] ReadResources { get; }
+        public System.Type[] Reads { get; }
+        public System.Type SystemType { get; }
+        public System.Type[] WriteResources { get; }
+        public System.Type[] Writes { get; }
+    }
+    public readonly struct SystemRunConditionContext
+    {
+        public SystemRunConditionContext(Bezoro.ECS.Services.World world, Bezoro.ECS.Abstractions.ISystem system, Bezoro.ECS.Types.SystemLoopPhase loopPhase, Bezoro.ECS.Types.Stage stage, float deltaTime) { }
+        public float DeltaTime { get; }
+        public Bezoro.ECS.Types.SystemLoopPhase LoopPhase { get; }
+        public Bezoro.ECS.Types.Stage Stage { get; }
+        public Bezoro.ECS.Abstractions.ISystem System { get; }
+        public Bezoro.ECS.Services.World World { get; }
+    }
+    public readonly struct SystemUpdateSettings
+    {
+        public SystemUpdateSettings(float intervalSeconds) { }
+        public float IntervalSeconds { get; }
+        public static Bezoro.ECS.Types.SystemUpdateSettings EveryTick { get; }
+        public static Bezoro.ECS.Types.SystemUpdateSettings FixedInterval(System.TimeSpan interval) { }
+        public static Bezoro.ECS.Types.SystemUpdateSettings FixedInterval(float intervalSeconds) { }
+        public static Bezoro.ECS.Types.SystemUpdateSettings FixedInterval(int intervalMilliseconds) { }
+        public static Bezoro.ECS.Types.SystemUpdateSettings FixedInterval(uint intervalMilliseconds) { }
+    }
+    public readonly struct TransformProxy
+    {
+        public TransformProxy(float x, float y, float z) { }
+        public float X { get; }
+        public float Y { get; }
+        public float Z { get; }
+    }
+    public sealed class WorldConfig
+    {
+        public WorldConfig() { }
+        public int ChunkCapacity { get; init; }
+        public int CommandCapacity { get; init; }
+        public int CommandPayloadCapacityPerType { get; init; }
+        public int ComponentTypeCapacity { get; init; }
+        public int EntityCapacity { get; init; }
+        public int MaxDegreeOfParallelism { get; init; }
+        public Bezoro.ECS.Types.WorldOverflowPolicy OverflowPolicy { get; init; }
+        public int QueryResultCapacity { get; init; }
+    }
+    public sealed class WorldDiagnostics
+    {
+        public WorldDiagnostics(Bezoro.ECS.Types.ArenaDiagnostics entityArena, Bezoro.ECS.Types.ArenaDiagnostics componentTypeArena, Bezoro.ECS.Types.ArenaDiagnostics queryResultArena) { }
+        public Bezoro.ECS.Types.ArenaDiagnostics ComponentTypeArena { get; }
+        public Bezoro.ECS.Types.ArenaDiagnostics EntityArena { get; }
+        public Bezoro.ECS.Types.ArenaDiagnostics QueryResultArena { get; }
+    }
+    public enum WorldOverflowPolicy
+    {
+        FailFast = 0,
+        DropNewest = 1,
+    }
+    public sealed class WorldSnapshot
+    {
+        public WorldSnapshot(Bezoro.ECS.Types.SnapshotResourceRecord[] resources, Bezoro.ECS.Types.SnapshotEntityRecord[] entities, Bezoro.ECS.Types.SnapshotRelationRecord[] relations) { }
+        public Bezoro.ECS.Types.SnapshotEntityRecord[] Entities { get; }
+        public Bezoro.ECS.Types.SnapshotRelationRecord[] Relations { get; }
+        public Bezoro.ECS.Types.SnapshotResourceRecord[] Resources { get; }
+    }
+}
+
+// Compiler-generated callable members
+// System.Boolean Bezoro.ECS.Types.Entity::Equals(Bezoro.ECS.Types.Entity)
+// System.Boolean Bezoro.ECS.Types.Entity::Equals(System.Object)
+// System.Boolean Bezoro.ECS.Types.Entity::op_Equality(Bezoro.ECS.Types.Entity,Bezoro.ECS.Types.Entity)
+// System.Boolean Bezoro.ECS.Types.Entity::op_Inequality(Bezoro.ECS.Types.Entity,Bezoro.ECS.Types.Entity)
+// System.Boolean Bezoro.ECS.Types.SnapshotComponentRecord::Equals(Bezoro.ECS.Types.SnapshotComponentRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotComponentRecord::Equals(System.Object)
+// System.Boolean Bezoro.ECS.Types.SnapshotComponentRecord::op_Equality(Bezoro.ECS.Types.SnapshotComponentRecord,Bezoro.ECS.Types.SnapshotComponentRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotComponentRecord::op_Inequality(Bezoro.ECS.Types.SnapshotComponentRecord,Bezoro.ECS.Types.SnapshotComponentRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotEntityRecord::Equals(Bezoro.ECS.Types.SnapshotEntityRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotEntityRecord::Equals(System.Object)
+// System.Boolean Bezoro.ECS.Types.SnapshotEntityRecord::op_Equality(Bezoro.ECS.Types.SnapshotEntityRecord,Bezoro.ECS.Types.SnapshotEntityRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotEntityRecord::op_Inequality(Bezoro.ECS.Types.SnapshotEntityRecord,Bezoro.ECS.Types.SnapshotEntityRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotRelationRecord::Equals(Bezoro.ECS.Types.SnapshotRelationRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotRelationRecord::Equals(System.Object)
+// System.Boolean Bezoro.ECS.Types.SnapshotRelationRecord::op_Equality(Bezoro.ECS.Types.SnapshotRelationRecord,Bezoro.ECS.Types.SnapshotRelationRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotRelationRecord::op_Inequality(Bezoro.ECS.Types.SnapshotRelationRecord,Bezoro.ECS.Types.SnapshotRelationRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotResourceRecord::Equals(Bezoro.ECS.Types.SnapshotResourceRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotResourceRecord::Equals(System.Object)
+// System.Boolean Bezoro.ECS.Types.SnapshotResourceRecord::op_Equality(Bezoro.ECS.Types.SnapshotResourceRecord,Bezoro.ECS.Types.SnapshotResourceRecord)
+// System.Boolean Bezoro.ECS.Types.SnapshotResourceRecord::op_Inequality(Bezoro.ECS.Types.SnapshotResourceRecord,Bezoro.ECS.Types.SnapshotResourceRecord)
+// System.Int32 Bezoro.ECS.Types.Entity::GetHashCode()
+// System.Int32 Bezoro.ECS.Types.SnapshotComponentRecord::GetHashCode()
+// System.Int32 Bezoro.ECS.Types.SnapshotEntityRecord::GetHashCode()
+// System.Int32 Bezoro.ECS.Types.SnapshotRelationRecord::GetHashCode()
+// System.Int32 Bezoro.ECS.Types.SnapshotResourceRecord::GetHashCode()
+// System.String Bezoro.ECS.Types.Entity::ToString()
+// System.String Bezoro.ECS.Types.SnapshotComponentRecord::ToString()
+// System.String Bezoro.ECS.Types.SnapshotEntityRecord::ToString()
+// System.String Bezoro.ECS.Types.SnapshotRelationRecord::ToString()
+// System.String Bezoro.ECS.Types.SnapshotResourceRecord::ToString()
+// System.Void Bezoro.ECS.Types.Entity::Deconstruct(System.Int32&,System.Int32&)
+// System.Void Bezoro.ECS.Types.SnapshotComponentRecord::Deconstruct(System.Type&,System.Object&)
+// System.Void Bezoro.ECS.Types.SnapshotEntityRecord::Deconstruct(Bezoro.ECS.Types.Entity&,Bezoro.ECS.Types.SnapshotComponentRecord[]&)
+// System.Void Bezoro.ECS.Types.SnapshotRelationRecord::Deconstruct(System.Type&,Bezoro.ECS.Types.Entity&,Bezoro.ECS.Types.Entity&)
+// System.Void Bezoro.ECS.Types.SnapshotResourceRecord::Deconstruct(System.Type&,System.Object&)

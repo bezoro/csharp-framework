@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Framework audit fixes
+
+- Keep a committed chess move independent of observer failures and limit engine fallback to selection before a move is committed. Complete promotion selection before sending a move from Unity and accept a legal completion for a restored pending promotion.
+- Keep perft capture separate from raw-line observers. Require a restart after an ambiguous UCI acknowledgment, apply readiness deadlines to writes and responses, and bound handshake metadata. Accept mixed protocol whitespace, reduce PV parsing allocations, and prefer longer forced losses during pondering.
+- Close the redirected engine streams deterministically, propagate stdin writer faults to waiting producers, and bound stdout and stderr lines while decoding. Close invalidated engines without requiring another readiness handshake, and complete transport shutdown once it begins.
+- Retain progression results when a custom completion clock fails, protect published catalog and snapshot data, and apply successful changes without replaying the full ledger. Persisted mutations reject same-owner reentry from a save-store callback.
+- Restore ECS resources registered under a base type or interface when both that key and the concrete type are authorized. Reject registering one disposable instance under several keys. Preserve generated system metadata during managed trimming.
+- Preserve array contents when a removal predicate fails. Honor the requested utilization when trimming pools and wake pending rents before disposal invokes discard callbacks. Read the event subscription count from one coherent index.
+- Reserve composed behavior lifecycle operations before a graph can adopt the target. Keep statechart and tree handlers private, and skip pairwise conflict scans for transitions from provably independent active leaves.
+- Retain timer completion when either a bounded event queue or deferred destruction buffer fills, offer bounded input ingress, limit activation candidate work for small tick budgets, and retry saturated completion events without delaying activation callbacks.
+- Publish the exact Unity package staged by validation. Skip stale official runs, verify version metadata before staging, and compare compiled public signatures per target framework.
+- **Breaking:** custom `IPool<T>` implementations provide both overloads of `TrimExcess`. Composed adapters no longer implement public tree and statechart handler interfaces. Gameplay event handlers no longer fault a committed command. A canceled or timed out command with an outstanding UCI acknowledgment requires stopping and restarting the client. Review the [pool contract](src/Bezoro.Core/README.md), [behavior composition](docs/composable-behaviors.md), [ECS resource ownership](src/Bezoro.ECS/README.md) and [UCI restart behavior](src/Bezoro.Chess.UCI.Protocol/README.md) when migrating.
+
 ### Licensing
 
 - License framework-owned code under MIT, publish the same canonical license in the Unity package with stable importer metadata, and declare the SPDX identifier in package metadata. Third-party licenses remain unchanged.

@@ -1,0 +1,177 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Chess.Progression
+{
+    public sealed class ChessCosmeticCatalog
+    {
+        public ChessCosmeticCatalog(System.Collections.Generic.IEnumerable<Bezoro.Chess.Progression.ChessCosmeticDefinition> definitions) { }
+        public System.Collections.Generic.IReadOnlyList<Bezoro.Chess.Progression.ChessCosmeticDefinition> Definitions { get; }
+        public Bezoro.Commerce.StoreCatalog Store { get; }
+        public Bezoro.Chess.Progression.ChessCosmeticDefinition Get(string id) { }
+        public Bezoro.Chess.Progression.ChessCosmeticDefinition GetDefault(Bezoro.Chess.Progression.ChessCosmeticSlot slot) { }
+        public static Bezoro.Chess.Progression.ChessCosmeticCatalog CreateStarter() { }
+    }
+    public sealed class ChessCosmeticDefinition
+    {
+        public ChessCosmeticDefinition(string id, string title, Bezoro.Chess.Progression.ChessCosmeticSlot slot, long price, bool isDefault = false) { }
+        public string Id { get; }
+        public bool IsDefault { get; }
+        public long Price { get; }
+        public Bezoro.Chess.Progression.ChessCosmeticSlot Slot { get; }
+        public string Title { get; }
+    }
+    public enum ChessCosmeticSlot
+    {
+        Board = 0,
+        Pieces = 1,
+    }
+    public readonly struct ChessCosmeticSnapshot
+    {
+        public bool CanPurchase { get; }
+        public string Id { get; }
+        public bool IsDefault { get; }
+        public bool IsEquipped { get; }
+        public bool IsOwned { get; }
+        public long Price { get; }
+        public Bezoro.Chess.Progression.ChessCosmeticSlot Slot { get; }
+        public string Title { get; }
+    }
+    public enum ChessMatchProgressSource
+    {
+        LiveTraining = 0,
+        Replay = 1,
+    }
+    public sealed class ChessPlayerProgress
+    {
+        public const uint SaveSchemaVersion = 1u;
+        public Bezoro.Chess.Progression.ChessProgressCatalog Catalog { get; }
+        public Bezoro.Chess.Progression.ChessPlayerSnapshot Snapshot { get; }
+        public System.Threading.Tasks.ValueTask<bool> ClaimQuestAsync(Bezoro.Progression.ProgressionId quest, System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.ValueTask<bool> CompleteLessonAsync(Bezoro.Chess.Study.ChessLessonCompletion completion, System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.ValueTask<bool> EquipCosmeticAsync(Bezoro.Chess.Progression.ChessCosmeticSlot slot, string cosmeticId, System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.ValueTask<bool> PurchaseCosmeticAsync(string cosmeticId, System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.ValueTask<bool> RecordMatchAsync(Bezoro.Chess.Progression.ChessTrainingMatch match, System.Threading.CancellationToken cancellationToken = default) { }
+        public bool TryGetUnlockedLesson(Bezoro.Progression.ProgressionId stageId, out Bezoro.Chess.Study.GuidedLessonDefinition? lesson) { }
+        public System.Threading.Tasks.ValueTask<bool> UpdateProfileAsync(string displayName, string? portraitId, System.Threading.CancellationToken cancellationToken = default) { }
+        public static System.Threading.Tasks.ValueTask<Bezoro.Chess.Progression.ChessPlayerProgress> OpenAsync(Bezoro.Persistence.ISaveStore store, string slot, Bezoro.PlayerProfiles.PlayerProfile initialProfile, Bezoro.Chess.Progression.ChessProgressCatalog catalog, Bezoro.Chess.Progression.ChessProgressOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class ChessPlayerSnapshot
+    {
+        public System.Collections.Generic.IReadOnlyList<Bezoro.Chess.Progression.ChessCosmeticSnapshot> Cosmetics { get; }
+        public int Draws { get; }
+        public string EquippedBoardId { get; }
+        public string EquippedPiecesId { get; }
+        public System.Collections.Generic.IReadOnlyList<Bezoro.PlayerProfiles.PlayerMatchRecord> History { get; }
+        public int Losses { get; }
+        public Bezoro.PlayerProfiles.PlayerProfile Profile { get; }
+        public System.Collections.Generic.IReadOnlyList<Bezoro.Chess.Progression.ChessQuestSnapshot> Quests { get; }
+        public System.Collections.Generic.IReadOnlyDictionary<Bezoro.Progression.ProgressionId, long> RewardBalances { get; }
+        public System.Collections.Generic.IReadOnlyList<Bezoro.Chess.Progression.ChessStageSnapshot> Stages { get; }
+        public long TrainingPoints { get; }
+        public Bezoro.PlayerProfiles.EloRating TrainingRating { get; }
+        public int Wins { get; }
+    }
+    public sealed class ChessProgressCatalog
+    {
+        public ChessProgressCatalog(Bezoro.Chess.Study.ChessLearningCampaign campaign, System.Collections.Generic.IEnumerable<Bezoro.Chess.Progression.ChessQuestDefinition> quests, Bezoro.Chess.Progression.ChessCosmeticCatalog? cosmetics = null) { }
+        public Bezoro.Chess.Study.ChessLearningCampaign Campaign { get; }
+        public Bezoro.Chess.Progression.ChessCosmeticCatalog Cosmetics { get; }
+        public string Fingerprint { get; }
+        public Bezoro.Progression.QuestCatalog QuestCatalog { get; }
+        public System.Collections.Generic.IReadOnlyList<Bezoro.Chess.Progression.ChessQuestDefinition> Quests { get; }
+        public static Bezoro.Chess.Progression.ChessProgressCatalog CreateStarter(Bezoro.Chess.Study.ChessLearningCampaign campaign) { }
+    }
+    public static class ChessProgressIds
+    {
+        public static Bezoro.Progression.ProgressionId FirstLesson { get; }
+        public static Bezoro.Progression.ProgressionId FirstMatch { get; }
+        public static Bezoro.Progression.ProgressionId FirstVisit { get; }
+        public static Bezoro.Progression.ProgressionId FirstWin { get; }
+        public static Bezoro.Progression.ProgressionId FiveMatches { get; }
+        public static Bezoro.Progression.ProgressionId LessonsCompleted { get; }
+        public static Bezoro.Progression.ProgressionId MatchesFinished { get; }
+        public static Bezoro.Progression.ProgressionId MatchesWon { get; }
+        public static Bezoro.Progression.ProgressionId ProfileOpened { get; }
+        public static Bezoro.Progression.ProgressionId TrainingPoints { get; }
+    }
+    public sealed class ChessProgressOptions
+    {
+        public ChessProgressOptions(double initialTrainingRating = 1200, double ratingKFactor = 32, int historyCapacity = 10000, int maximumSaveBytes = 4194304) { }
+        public int HistoryCapacity { get; }
+        public double InitialTrainingRating { get; }
+        public int MaximumSaveBytes { get; }
+        public double RatingKFactor { get; }
+    }
+    public sealed class ChessQuestDefinition
+    {
+        public ChessQuestDefinition(string title, Bezoro.Progression.QuestDefinition definition) { }
+        public Bezoro.Progression.QuestDefinition Definition { get; }
+        public string Title { get; }
+    }
+    public readonly struct ChessQuestObjectiveSnapshot
+    {
+        public Bezoro.Progression.ProgressionId Counter { get; }
+        public long Current { get; }
+        public long Target { get; }
+    }
+    public sealed class ChessQuestSnapshot
+    {
+        public Bezoro.Progression.ProgressionId Id { get; }
+        public System.Collections.Generic.IReadOnlyList<Bezoro.Chess.Progression.ChessQuestObjectiveSnapshot> Objectives { get; }
+        public Bezoro.Progression.RewardBatch Rewards { get; }
+        public Bezoro.Progression.QuestStatus Status { get; }
+        public string Title { get; }
+    }
+    public readonly struct ChessStageSnapshot
+    {
+        public byte BestStars { get; }
+        public Bezoro.Progression.ProgressionId Id { get; }
+        public bool IsUnlocked { get; }
+        public string LessonId { get; }
+    }
+    public readonly struct ChessTrainingCaptureRejection
+    {
+        public Bezoro.Chess.Progression.ChessTrainingMatch Match { get; }
+        public long Sequence { get; }
+    }
+    public readonly struct ChessTrainingMatch : System.IEquatable<Bezoro.Chess.Progression.ChessTrainingMatch>
+    {
+        public ChessTrainingMatch(string matchId, string opponentId, double opponentRating, char playerSide, Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult result, System.DateTimeOffset completedAt, Bezoro.Chess.Progression.ChessMatchProgressSource source, string? replayReference = null) { }
+        public System.DateTimeOffset CompletedAt { get; }
+        public bool IsValid { get; }
+        public string MatchId { get; }
+        public string OpponentId { get; }
+        public double OpponentRating { get; }
+        public Bezoro.PlayerProfiles.PlayerMatchOutcome Outcome { get; }
+        public char PlayerSide { get; }
+        public string? ReplayReference { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchResult Result { get; }
+        public Bezoro.Chess.Progression.ChessMatchProgressSource Source { get; }
+        public bool Equals(Bezoro.Chess.Progression.ChessTrainingMatch other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+    }
+    public enum ChessTrainingProgressMode
+    {
+        Disabled = 0,
+        Training = 1,
+        Replay = 2,
+        Lesson = 3,
+    }
+    public sealed class ChessTrainingProgressRecorder : System.IAsyncDisposable, System.IDisposable
+    {
+        public ChessTrainingProgressRecorder(Bezoro.Chess.UCI.API.UciGameEngineSession session, Bezoro.Chess.Progression.ChessPlayerProgress progress, string opponentId, double opponentRating, char playerSide, Bezoro.Chess.Progression.ChessTrainingProgressMode mode = 0, System.Func<System.DateTimeOffset>? utcNowProvider = null, int pendingCapacity = 256) { }
+        public System.Exception? LastError { get; }
+        public Bezoro.Chess.Progression.ChessTrainingCaptureRejection? LastRejectedCapture { get; }
+        public int PendingCapacity { get; }
+        public int PendingCount { get; }
+        public long RejectedCaptureCount { get; }
+        public event System.Action<Bezoro.Chess.Progression.ChessTrainingCaptureRejection>? CaptureRejected;
+        public bool AcknowledgeClockFailure(System.Exception observedError) { }
+        public bool AcknowledgeRejectedCaptures(long observedCount) { }
+        public void Dispose() { }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public System.Threading.Tasks.Task DrainAsync() { }
+        public System.Threading.Tasks.Task RetryPendingAsync() { }
+        public void SetContext(Bezoro.Chess.Progression.ChessTrainingProgressMode mode, string opponentId, double opponentRating, char playerSide) { }
+    }
+}

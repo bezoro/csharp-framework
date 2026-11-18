@@ -11,6 +11,46 @@ namespace Bezoro.Chess.Progression.Tests;
 public sealed class PlayerProgressTests
 {
     [Fact]
+    public async Task ReentrantSaveStoreCommandFailsBeforeWaitingAndRollsBackTheOuterMatch()
+    {
+        using var fixture = new Fixture();
+        var app = await fixture.Open();
+        fixture.Store.DuringWrite = async () =>
+        {
+            await Task.Yield();
+            Assert.Empty(app.Snapshot.History);
+            await app.UpdateProfileAsync("Nested", null);
+        };
+        var result = Match("reentry", PlayerMatchOutcome.Win);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => app.RecordMatchAsync(result).AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Empty(app.Snapshot.History);
+        Assert.Equal("Ada", app.Snapshot.Profile.DisplayName);
+        fixture.Store.DuringWrite = null;
+        Assert.True(await app.RecordMatchAsync(result));
+        Assert.Single((await fixture.Open()).Snapshot.History);
+    }
+
+    [Fact]
+    public async Task PublicCollectionSynchronizationRootsCannotExposeMutableStorage()
+    {
+        using var fixture = new Fixture();
+        var app = await fixture.Open();
+        var stage = fixture.Catalog.Campaign.Stages[0];
+        object[] views = { fixture.Catalog.Quests, fixture.Catalog.Cosmetics.Definitions, fixture.Catalog.Campaign.Stages,
+            stage.Lesson.Steps, stage.Lesson.Fundamentals, app.Snapshot.History, app.Snapshot.Quests, app.Snapshot.Stages,
+            app.Snapshot.Cosmetics, app.Snapshot.Quests[0].Objectives, app.Snapshot.RewardBalances };
+        foreach (var view in views)
+        {
+            if (view is not System.Collections.ICollection collection) continue;
+            var root = collection.SyncRoot;
+            Assert.False(root is Array);
+            if (root is System.Collections.IList list) Assert.True(list.IsReadOnly);
+            if (root is System.Collections.IDictionary dictionary) Assert.True(dictionary.IsReadOnly);
+        }
+    }
+
+    [Fact]
     public async Task NewProfilePersistsMetadataFreeDefaultsAndFirstVisitWithoutGrantingUnclaimedRewards()
     {
         using var fixture = new Fixture();
@@ -478,6 +518,7 @@ public sealed class PlayerProgressTests
 
     private sealed class ObservedStore(ISaveStore inner) : ISaveStore
     {
+        internal Func<Task>? DuringWrite;
         internal int Writes;
         internal bool FailWrites;
         internal bool BlockWrites;
@@ -485,6 +526,7 @@ public sealed class PlayerProgressTests
         public async ValueTask WriteAsync(string slot, uint schemaVersion, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
         {
             Interlocked.Increment(ref Writes);
+            if (DuringWrite is not null) await DuringWrite();
             if (FailWrites) throw new IOException("Injected atomic precommit failure.");
             if (BlockWrites)
             {

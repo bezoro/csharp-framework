@@ -13,6 +13,28 @@ public class BackgroundLoopManagerPipeReadTests
 {
 	private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 
+	[Fact]
+	public async Task FullPipeChunkEndingInNewline_ShouldDeliverBeforeAnotherWrite()
+	{
+		using var pipe = new TestPipe(false);
+		var channel = Channel.CreateBounded<string>(1);
+		var manager = new BackgroundLoopManager(new(), (_, _) => { }, new());
+		manager.InitializeCancellationSources();
+		manager.StartReadLoop(pipe.Reader, channel.Writer);
+		try
+		{
+			string line = new('x', 1023);
+			pipe.Feed(line + "\n");
+			(await channel.Reader.ReadAsync().AsTask().WaitAsync(Timeout)).Should().Be(line);
+		}
+		finally
+		{
+			pipe.Complete();
+			await manager.AwaitReadLoopAsync();
+			manager.DisposeCancellationSources();
+		}
+	}
+
 	[Theory]
 	[InlineData(false)]
 	[InlineData(true)]
@@ -35,20 +57,20 @@ public class BackgroundLoopManagerPipeReadTests
 		manager.StartWriteLoop(outgoing.Reader, stdin);
 		try
 		{
-			await Task.WhenAll(stdout.Reader.ReadStarted.Task, stderr.Reader.ReadStarted.Task).WaitAsync(Timeout);
+			await Task.WhenAll(stdout.Probe.ReadStarted.Task, stderr.Probe.ReadStarted.Task).WaitAsync(Timeout);
 			// A legacy ReadLineAsync may synchronously block before returning its Task.
 			// Both idle pipes must therefore belong to background threads outside the shared pool.
-			stdout.Reader.Reads.Should().OnlyContain(read => !read.OnPool && read.IsBackground);
-			stderr.Reader.Reads.Should().OnlyContain(read => !read.OnPool && read.IsBackground);
-			stdout.Reader.ReadCompleted.Task.IsCompleted.Should().BeFalse();
-			stderr.Reader.ReadCompleted.Task.IsCompleted.Should().BeFalse();
+			stdout.Probe.Reads.Should().OnlyContain(read => !read.OnPool && read.IsBackground);
+			stderr.Probe.Reads.Should().OnlyContain(read => !read.OnPool && read.IsBackground);
+			stdout.Probe.ReadCompleted.Task.IsCompleted.Should().BeFalse();
+			stderr.Probe.ReadCompleted.Task.IsCompleted.Should().BeFalse();
 
 			outgoing.Writer.TryWrite("uci").Should().BeTrue();
 			outgoing.Writer.TryComplete().Should().BeTrue();
 			await manager.AwaitWriteLoopAsync().WaitAsync(Timeout);
 			Encoding.UTF8.GetString(commands.ToArray()).Should().Be("uci" + Environment.NewLine);
 			metrics.LinesWritten.Should().Be(1);
-			stdout.Reader.ReadCompleted.Task.IsCompleted.Should().BeFalse("command writes must not wait for engine output");
+			stdout.Probe.ReadCompleted.Task.IsCompleted.Should().BeFalse("command writes must not wait for engine output");
 
 			stdout.Feed("first\n\nOlá 世界\n");
 			stderr.Feed("warning\n\nsecond\n");
@@ -69,8 +91,8 @@ public class BackgroundLoopManagerPipeReadTests
 		metrics.LinesRead.Should().Be(2);
 		received.Select(item => item.Line).Should().Equal("warning", "second");
 		received.Should().OnlyContain(item => item.OnPool, "stderr handlers retain their public callback context");
-		stdout.Reader.Reads.Should().OnlyContain(read => !read.OnPool && read.IsBackground);
-		stderr.Reader.Reads.Should().OnlyContain(read => !read.OnPool && read.IsBackground);
+		stdout.Probe.Reads.Should().OnlyContain(read => !read.OnPool && read.IsBackground);
+		stderr.Probe.Reads.Should().OnlyContain(read => !read.OnPool && read.IsBackground);
 		errors.Should().BeEmpty();
 	}
 
@@ -86,7 +108,7 @@ public class BackgroundLoopManagerPipeReadTests
 		manager.StartReadLoop(stdout.Reader, output.Writer);
 		try
 		{
-			await stdout.Reader.ReadStarted.Task.WaitAsync(Timeout);
+			await stdout.Probe.ReadStarted.Task.WaitAsync(Timeout);
 			stdout.Feed("first\nsecond\n");
 			(await AsyncTestHelpers.WaitForConditionAsync(() => metrics.BackpressureEvents > 0, timeout: Timeout))
 				.Should().BeTrue("the second line must encounter the bounded output channel");
@@ -142,7 +164,8 @@ public class BackgroundLoopManagerPipeReadTests
 		private readonly AnonymousPipeServerStream _writerPipe = new(PipeDirection.Out, HandleInheritability.None);
 		private readonly AnonymousPipeClientStream _readerPipe;
 		private readonly StreamWriter _writer;
-		public RecordingPipeReader Reader { get; }
+		public StreamReader Reader { get; }
+		public ReadProbe Probe { get; }
 		public bool IsCompleted { get; private set; }
 
 		public TestPipe(bool useFileStream, IOException? failure = null)
@@ -153,11 +176,12 @@ public class BackgroundLoopManagerPipeReadTests
 			_writerPipe.ClientSafePipeHandle.SetHandleAsInvalid();
 			// Mono exposes redirected process pipes as synchronous FileStreams.
 			// Keep the actual pipe owner alive while the FileStream borrows its handle.
+			Probe = new ReadProbe(failure);
+			IntPtr handle = _readerPipe.SafePipeHandle.DangerousGetHandle();
 			Stream input = useFileStream
-				? new FileStream(new SafeFileHandle(_readerPipe.SafePipeHandle.DangerousGetHandle(), ownsHandle: false),
-					FileAccess.Read, 4096, isAsync: false)
-				: _readerPipe;
-			Reader = new(input, failure);
+				? new RecordingFileStream(new SafeFileHandle(handle, ownsHandle: false), Probe)
+				: new RecordingPipeStream(_readerPipe, Probe);
+			Reader = new(input, new UTF8Encoding(false, true));
 			_writer = new(_writerPipe, new UTF8Encoding(false)) { AutoFlush = true };
 		}
 
@@ -177,23 +201,41 @@ public class BackgroundLoopManagerPipeReadTests
 		}
 	}
 
-	private sealed class RecordingPipeReader(Stream input, IOException? failure)
-		: StreamReader(input, new UTF8Encoding(false, true))
+	private sealed class RecordingFileStream(SafeFileHandle handle, ReadProbe probe)
+		: FileStream(handle, FileAccess.Read, 4096, isAsync: false)
+	{
+		public override int Read(byte[] buffer, int offset, int count)
+		{
+			probe.Begin();
+			int read = base.Read(buffer, offset, count);
+			probe.ReadCompleted.TrySetResult();
+			return read;
+		}
+	}
+
+	private sealed class RecordingPipeStream(AnonymousPipeClientStream pipe, ReadProbe probe)
+		: PipeStream(PipeDirection.In, 4096)
+	{
+		public override int Read(byte[] buffer, int offset, int count)
+		{
+			probe.Begin();
+			int read = pipe.Read(buffer, offset, count);
+			probe.ReadCompleted.TrySetResult();
+			return read;
+		}
+	}
+
+	private sealed class ReadProbe(IOException? failure)
 	{
 		public ConcurrentQueue<(bool OnPool, bool IsBackground)> Reads { get; } = new();
 		public TaskCompletionSource ReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		public TaskCompletionSource ReadCompleted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-		public override string? ReadLine() => ReadPipeLine();
-		public override Task<string?> ReadLineAsync() => Task.FromResult(ReadPipeLine());
 
-		private string? ReadPipeLine()
+		public void Begin()
 		{
 			Reads.Enqueue((Thread.CurrentThread.IsThreadPoolThread, Thread.CurrentThread.IsBackground));
 			ReadStarted.TrySetResult();
 			if (failure is not null) throw failure;
-			string? line = base.ReadLine();
-			ReadCompleted.TrySetResult();
-			return line;
 		}
 	}
 }

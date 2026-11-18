@@ -1,0 +1,117 @@
+// net10.0, netstandard2.1
+namespace Bezoro.BehaviorTrees
+{
+    public readonly struct BehaviorActionHandle { }
+    public readonly struct BehaviorActivation : System.IEquatable<Bezoro.BehaviorTrees.BehaviorActivation>
+    {
+        public long Owner { get; }
+        public ulong Serial { get; }
+        public bool Equals(Bezoro.BehaviorTrees.BehaviorActivation other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Bezoro.BehaviorTrees.BehaviorActivation left, Bezoro.BehaviorTrees.BehaviorActivation right) { }
+        public static bool operator ==(Bezoro.BehaviorTrees.BehaviorActivation left, Bezoro.BehaviorTrees.BehaviorActivation right) { }
+    }
+    public struct BehaviorBudget
+    {
+        public BehaviorBudget(int maximumVisits) { }
+        public int Consumed { get; }
+        public int Remaining { get; }
+        public bool TryConsume() { }
+    }
+    public sealed class BehaviorNode
+    {
+        public static Bezoro.BehaviorTrees.BehaviorNode Fail { get; }
+        public static Bezoro.BehaviorTrees.BehaviorNode Succeed { get; }
+        public static Bezoro.BehaviorTrees.BehaviorNode Action(int actionId) { }
+        public static Bezoro.BehaviorTrees.BehaviorNode Condition(Bezoro.Conditions.ConditionProgram program) { }
+        public static Bezoro.BehaviorTrees.BehaviorNode Condition(int predicateId) { }
+        public static Bezoro.BehaviorTrees.BehaviorNode Invert(Bezoro.BehaviorTrees.BehaviorNode child) { }
+        public static Bezoro.BehaviorTrees.BehaviorNode ReactiveSelector(params Bezoro.BehaviorTrees.BehaviorNode[] children) { }
+        public static Bezoro.BehaviorTrees.BehaviorNode ReactiveSequence(params Bezoro.BehaviorTrees.BehaviorNode[] children) { }
+        public static Bezoro.BehaviorTrees.BehaviorNode Repeat(Bezoro.BehaviorTrees.BehaviorNode child, int repeatCount) { }
+        public static Bezoro.BehaviorTrees.BehaviorNode Selector(params Bezoro.BehaviorTrees.BehaviorNode[] children) { }
+        public static Bezoro.BehaviorTrees.BehaviorNode Sequence(params Bezoro.BehaviorTrees.BehaviorNode[] children) { }
+        public static Bezoro.BehaviorTrees.BehaviorNode Subtree(Bezoro.BehaviorTrees.BehaviorTreeDefinition definition) { }
+    }
+    public readonly struct BehaviorNodeInfo
+    {
+        public int ActionId { get; }
+        public int ChildCount { get; }
+        public Bezoro.BehaviorTrees.BehaviorNodeKind Kind { get; }
+        public int Parameter { get; }
+        public int SubtreeEndIndex { get; }
+    }
+    public enum BehaviorNodeKind
+    {
+        Action = 0,
+        Condition = 1,
+        Sequence = 2,
+        Selector = 3,
+        ReactiveSequence = 4,
+        ReactiveSelector = 5,
+        Invert = 6,
+        Repeat = 7,
+        Subtree = 8,
+        Succeed = 9,
+        Fail = 10,
+    }
+    public enum BehaviorStatus
+    {
+        Inactive = 0,
+        Running = 1,
+        Success = 2,
+        Failure = 3,
+        Faulted = 4,
+    }
+    public readonly struct BehaviorTickResult
+    {
+        public bool BudgetExhausted { get; }
+        public int ConsumedVisits { get; }
+        public Bezoro.BehaviorTrees.BehaviorStatus Status { get; }
+    }
+    public sealed class BehaviorTreeCompilation
+    {
+        public BehaviorTreeCompilation(Bezoro.BehaviorTrees.BehaviorNode root, int maximumNodes = 16384, int maximumDepth = 256) { }
+        public Bezoro.BehaviorTrees.BehaviorTreeDefinition Definition { get; }
+        public Bezoro.BehaviorTrees.BehaviorActionHandle GetAction(Bezoro.BehaviorTrees.BehaviorNode action) { }
+        public int Resolve(Bezoro.BehaviorTrees.BehaviorActionHandle action) { }
+    }
+    public sealed class BehaviorTreeDefinition
+    {
+        public BehaviorTreeDefinition(Bezoro.BehaviorTrees.BehaviorNode root, int maximumNodes = 16384, int maximumDepth = 256) { }
+        public bool HasReactiveNodes { get; }
+        public int MaximumDepth { get; }
+        public int MaximumReactiveDepth { get; }
+        public int NodeCount { get; }
+        public int RequiredConditionStackSize { get; }
+        public Bezoro.BehaviorTrees.BehaviorNodeInfo GetNode(int nodeId) { }
+    }
+    public sealed class BehaviorTreeRunner<TContext>
+    {
+        public BehaviorTreeRunner(Bezoro.BehaviorTrees.BehaviorTreeDefinition definition) { }
+        public int ActiveNodeId { get; }
+        public Bezoro.BehaviorTrees.BehaviorTreeDefinition Definition { get; }
+        public int FrameCapacity { get; }
+        public int ReactiveFrameCapacity { get; }
+        public Bezoro.BehaviorTrees.BehaviorStatus Status { get; }
+        public bool IsActive(Bezoro.BehaviorTrees.BehaviorActivation activation) { }
+        public void Restart(ref TContext context, Bezoro.BehaviorTrees.IBehaviorTreeHandler<TContext> handler) { }
+        public void Restart<THandler>(ref TContext context, ref THandler handler)
+            where THandler : Bezoro.BehaviorTrees.IBehaviorTreeHandler<TContext> { }
+        public void Start() { }
+        public void Stop(ref TContext context, Bezoro.BehaviorTrees.IBehaviorTreeHandler<TContext> handler) { }
+        public void Stop<THandler>(ref TContext context, ref THandler handler)
+            where THandler : Bezoro.BehaviorTrees.IBehaviorTreeHandler<TContext> { }
+        public Bezoro.BehaviorTrees.BehaviorTickResult Tick(ref TContext context, Bezoro.BehaviorTrees.IBehaviorTreeHandler<TContext> handler, ref Bezoro.BehaviorTrees.BehaviorBudget budget) { }
+        public Bezoro.BehaviorTrees.BehaviorTickResult Tick<THandler>(ref TContext context, ref THandler handler, ref Bezoro.BehaviorTrees.BehaviorBudget budget)
+            where THandler : Bezoro.BehaviorTrees.IBehaviorTreeHandler<TContext> { }
+    }
+    public interface IBehaviorTreeHandler<TContext> : Bezoro.Conditions.IConditionEvaluator<TContext>
+    {
+        void Abort(int nodeId, int actionId, Bezoro.BehaviorTrees.BehaviorActivation activation, ref TContext context);
+        void Enter(int nodeId, int actionId, Bezoro.BehaviorTrees.BehaviorActivation activation, ref TContext context);
+        void Exit(int nodeId, int actionId, Bezoro.BehaviorTrees.BehaviorActivation activation, Bezoro.BehaviorTrees.BehaviorStatus result, ref TContext context);
+        Bezoro.BehaviorTrees.BehaviorStatus Tick(int nodeId, int actionId, Bezoro.BehaviorTrees.BehaviorActivation activation, ref TContext context, ref Bezoro.BehaviorTrees.BehaviorBudget budget);
+    }
+}

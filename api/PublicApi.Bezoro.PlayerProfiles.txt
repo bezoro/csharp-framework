@@ -1,0 +1,71 @@
+// net10.0, netstandard2.1
+namespace Bezoro.PlayerProfiles
+{
+    public readonly struct EloRating
+    {
+        public EloRating(double value, int gamesPlayed = 0) { }
+        public int GamesPlayed { get; }
+        public double Value { get; }
+    }
+    public readonly struct EloRatingUpdate
+    {
+        public Bezoro.PlayerProfiles.EloRating FirstPlayer { get; }
+        public Bezoro.PlayerProfiles.EloRating SecondPlayer { get; }
+    }
+    public static class EloRatings
+    {
+        public static Bezoro.PlayerProfiles.EloRatingUpdate ApplyResult(Bezoro.PlayerProfiles.EloRating firstPlayer, Bezoro.PlayerProfiles.EloRating secondPlayer, Bezoro.PlayerProfiles.PlayerMatchOutcome firstPlayerOutcome, double firstPlayerKFactor = 32, double secondPlayerKFactor = 32) { }
+        public static double ExpectedScore(Bezoro.PlayerProfiles.EloRating firstPlayer, Bezoro.PlayerProfiles.EloRating secondPlayer) { }
+    }
+    public enum MatchHistoryAppendResult
+    {
+        Added = 0,
+        AlreadyRecorded = 1,
+        ConflictingRecord = 2,
+        CapacityReached = 3,
+    }
+    public sealed class PlayerMatchHistory
+    {
+        public PlayerMatchHistory(string playerId, int capacity = 256) { }
+        public int Capacity { get; }
+        public int Count { get; }
+        public Bezoro.PlayerProfiles.PlayerMatchRecord this[int index] { get; }
+        public string PlayerId { get; }
+        public Bezoro.PlayerProfiles.MatchHistoryAppendResult Append(Bezoro.PlayerProfiles.PlayerMatchRecord record) { }
+        public void CopyTo(System.Span<Bezoro.PlayerProfiles.PlayerMatchRecord> destination) { }
+        public Bezoro.PlayerProfiles.PlayerMatchRecord[] CreateSnapshot() { }
+        public bool TryGet(string matchId, out Bezoro.PlayerProfiles.PlayerMatchRecord record) { }
+    }
+    public enum PlayerMatchOutcome
+    {
+        Loss = 0,
+        Draw = 1,
+        Win = 2,
+    }
+    public readonly struct PlayerMatchRecord : System.IEquatable<Bezoro.PlayerProfiles.PlayerMatchRecord>
+    {
+        public PlayerMatchRecord(string matchId, string playerId, string opponentId, Bezoro.PlayerProfiles.PlayerMatchOutcome outcome, System.DateTimeOffset completedAt, string gameMode, bool isRated = false, string? replayReference = null) { }
+        public System.DateTimeOffset CompletedAt { get; }
+        public string GameMode { get; }
+        public bool IsRated { get; }
+        public bool IsValid { get; }
+        public string MatchId { get; }
+        public string OpponentId { get; }
+        public Bezoro.PlayerProfiles.PlayerMatchOutcome Outcome { get; }
+        public string PlayerId { get; }
+        public string? ReplayReference { get; }
+        public bool Equals(Bezoro.PlayerProfiles.PlayerMatchRecord other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Bezoro.PlayerProfiles.PlayerMatchRecord left, Bezoro.PlayerProfiles.PlayerMatchRecord right) { }
+        public static bool operator ==(Bezoro.PlayerProfiles.PlayerMatchRecord left, Bezoro.PlayerProfiles.PlayerMatchRecord right) { }
+    }
+    public readonly struct PlayerProfile
+    {
+        public PlayerProfile(string playerId, string displayName, string? portraitId = null) { }
+        public string DisplayName { get; }
+        public bool IsValid { get; }
+        public string PlayerId { get; }
+        public string? PortraitId { get; }
+    }
+}

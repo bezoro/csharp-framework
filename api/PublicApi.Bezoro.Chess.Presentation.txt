@@ -1,0 +1,77 @@
+// net10.0, netstandard2.1
+namespace Bezoro.Chess.Presentation
+{
+    public static class ChessBoardCoordinates
+    {
+        public static Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare FromDisplayCell(int column, int row, Bezoro.Chess.Presentation.ChessBoardOrientation orientation) { }
+        public static int GetColumn(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare square, Bezoro.Chess.Presentation.ChessBoardOrientation orientation) { }
+        public static int GetRow(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare square, Bezoro.Chess.Presentation.ChessBoardOrientation orientation) { }
+    }
+    public enum ChessBoardOrientation
+    {
+        White = 0,
+        Black = 1,
+    }
+    public readonly struct ChessBoardPresentation
+    {
+        public Bezoro.Chess.Presentation.ChessMoveVisual? LastMove { get; }
+        public string PositionKey { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare? SelectedSquare { get; }
+        public Bezoro.Chess.Presentation.ChessSquareHighlights GetHighlights(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare square) { }
+        public char GetPieceSymbol(Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare square) { }
+        public static Bezoro.Chess.Presentation.ChessBoardPresentation FromMatch(in Bezoro.Chess.UCI.Protocol.API.Types.PlayableMatchState state, Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare? selectedSquare = default) { }
+    }
+    public enum ChessBoardVisualMode
+    {
+        TwoDimensional = 0,
+        ThreeDimensional = 1,
+    }
+    public sealed class ChessHighlightPalette
+    {
+        public ChessHighlightPalette(Bezoro.Core.Types.Color? selected = default, Bezoro.Core.Types.Color? legalMove = default, Bezoro.Core.Types.Color? legalCapture = default, Bezoro.Core.Types.Color? lastMove = default, Bezoro.Core.Types.Color? capture = default, Bezoro.Core.Types.Color? castlingRook = default, Bezoro.Core.Types.Color? promotion = default, Bezoro.Core.Types.Color? check = default, Bezoro.Core.Types.Color? checkmate = default) { }
+        public Bezoro.Core.Types.Color Capture { get; }
+        public Bezoro.Core.Types.Color CastlingRook { get; }
+        public Bezoro.Core.Types.Color Check { get; }
+        public Bezoro.Core.Types.Color Checkmate { get; }
+        public Bezoro.Core.Types.Color LastMove { get; }
+        public Bezoro.Core.Types.Color LegalCapture { get; }
+        public Bezoro.Core.Types.Color LegalMove { get; }
+        public Bezoro.Core.Types.Color Promotion { get; }
+        public Bezoro.Core.Types.Color Selected { get; }
+        public static Bezoro.Chess.Presentation.ChessHighlightPalette Default { get; }
+        public Bezoro.Core.Types.Color GetOverlay(Bezoro.Chess.Presentation.ChessSquareHighlights highlights) { }
+    }
+    public readonly struct ChessMoveVisual
+    {
+        public char? CapturedPiece { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare? CapturedSquare { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare? CastlingRookFrom { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare? CastlingRookTo { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare From { get; }
+        public char MovingPiece { get; }
+        public char? PromotionPiece { get; }
+        public Bezoro.Chess.UCI.Protocol.API.Types.ChessSquare To { get; }
+    }
+    public readonly struct ChessPieceSkin
+    {
+        public ChessPieceSkin(string id, string twoDimensionalAssetKey, string threeDimensionalAssetKey) { }
+        public string Id { get; }
+        public string ThreeDimensionalAssetKey { get; }
+        public string TwoDimensionalAssetKey { get; }
+        public string GetAssetKey(Bezoro.Chess.Presentation.ChessBoardVisualMode mode) { }
+    }
+    [System.Flags]
+    public enum ChessSquareHighlights
+    {
+        None = 0,
+        Selected = 1,
+        LegalMove = 2,
+        LegalCapture = 4,
+        LastMove = 8,
+        Capture = 16,
+        CastlingRook = 32,
+        Promotion = 64,
+        Check = 128,
+        Checkmate = 256,
+    }
+}

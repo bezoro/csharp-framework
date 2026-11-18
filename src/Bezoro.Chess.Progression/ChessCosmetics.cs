@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Bezoro.Commerce;
 
 namespace Bezoro.Chess.Progression;
@@ -52,7 +53,7 @@ public sealed class ChessCosmeticCatalog
         if (copied.Count(item => item.IsDefault && item.Slot == ChessCosmeticSlot.Board) != 1
             || copied.Count(item => item.IsDefault && item.Slot == ChessCosmeticSlot.Pieces) != 1)
             throw new ArgumentException("Exactly one free default board and piece set are required.", nameof(definitions));
-        Definitions = Array.AsReadOnly(copied);
+        Definitions = ImmutableList.CreateRange(copied);
         Store = new StoreCatalog(copied.Select(item => new SkinDefinition(item.Id, item.Id, item.Id)).ToArray(),
             copied.Where(item => !item.IsDefault).Select(item => new StoreOffer(item.Id, item.Id, Currency, item.Price)).ToArray());
     }

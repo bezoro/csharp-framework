@@ -73,6 +73,59 @@ public sealed class ConcurrencyTests
     }
 
     [Fact]
+    public void AdoptionAndDirectStartCannotBothTakeOwnership()
+    {
+        using var gate = new Barrier(2);
+        var children = Enumerable.Range(0, 512).Select(_ => new Leaf()).ToArray();
+        var parents = new Group?[children.Length];
+        var started = new bool[children.Length];
+        Parallel.Invoke(() =>
+        {
+            for (int index = 0; index < children.Length; index++)
+            {
+                gate.SignalAndWait();
+                int context = 0;
+                try { children[index].Start(ref context); started[index] = true; }
+                catch (InvalidOperationException) { }
+            }
+        }, () =>
+        {
+            for (int index = 0; index < children.Length; index++)
+            {
+                gate.SignalAndWait();
+                try { parents[index] = new Group(children[index]); }
+                catch (ArgumentException) { }
+            }
+        });
+        for (int index = 0; index < children.Length; index++)
+        {
+            int context = 0;
+            var parent = parents[index];
+            if (parent is null)
+            {
+                // If both contenders saw the other reservation, retry from an inactive root.
+                if (!started[index]) children[index].Start(ref context);
+                children[index].Stop(ref context);
+            }
+            else
+            {
+                Assert.False(started[index]);
+                Assert.Throws<InvalidOperationException>(() => children[index].Start(ref context));
+                parent.Start(ref context);
+                parent.Stop(ref context);
+            }
+            Assert.Equal(BehaviorStatus.Inactive, children[index].Status);
+        }
+    }
+
+    [Fact]
+    public void CompositionAdaptersCannotBeUsedAsCallbackReceivers()
+    {
+        Assert.False(typeof(IStatechartHandler<int>).IsAssignableFrom(typeof(StatechartBehavior<int>)));
+        Assert.False(typeof(IBehaviorTreeHandler<int>).IsAssignableFrom(typeof(TreeBehavior<int>)));
+    }
+
+    [Fact]
     public void IndependentGraphsExecuteInParallelWithTheirOwnContexts()
     {
         var definition = Definition();

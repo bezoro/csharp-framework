@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
-using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Bezoro.Chess.UCI.Protocol.Domain.Common.Constants;
@@ -40,6 +40,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 	///     Cancellation source for the read loop and engine lifetime.
 	/// </summary>
 	private CancellationTokenSource? _cts;
+	private HandshakeMetadata? _handshake;
 	private ImmutableArray<UciEngineOption> _availableOptions = ImmutableArray<UciEngineOption>.Empty;
 
 	private Task?                 _readerTask;
@@ -125,6 +126,8 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 	{
 		_transport                = transport ?? throw new ArgumentNullException(nameof(transport));
 		_options                  = options ?? new UciClientOptions();
+		if (_options.MaxAdvertisedOptions <= 0)
+			throw new ArgumentOutOfRangeException(nameof(options), "MaxAdvertisedOptions must be positive.");
 		if (_options.MaxCapturedPrincipalVariations <= 0)
 			throw new ArgumentOutOfRangeException(nameof(options), "MaxCapturedPrincipalVariations must be positive.");
 		_transport.Error         += OnTransportError;
@@ -137,7 +140,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 		);
 
 		_outputDispatcher = new(_lineWaiters, _searchCoordinator, ObserveProtocolMessage);
-		_commandModule    = new(_transport, _lineWaiters, this, SetActivity, _options, ThrowIfDisposed);
+		_commandModule    = new(_transport, _lineWaiters, SetActivity, _options, ThrowIfDisposed, BeginHandshake, EndHandshake);
 	}
 
 	/// <summary>
@@ -408,7 +411,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 
 			try
 			{
-				await UciInitAsync(ct).ConfigureAwait(false);
+				await _commandModule.UciInitAsync(ct, newTransportSession: true).ConfigureAwait(false);
 				SetActivity(EngineActivity.Idle);
 			}
 			catch
@@ -463,9 +466,21 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 			_readerTask       = null;
 		}
 
+		Exception? cancellationFailure = null;
+		try { ctsToCancel.Cancel(); }
+		catch (Exception error) { cancellationFailure = error; }
+
 		try
 		{
-			ctsToCancel.Cancel();
+			// Closing the producer also releases a reader waiting on the transport.
+			await _transport.StopAsync(CancellationToken.None).ConfigureAwait(false);
+		}
+		catch (Exception stopFailure) when (cancellationFailure is not null)
+		{
+			throw new AggregateException(cancellationFailure, stopFailure);
+		}
+		finally
+		{
 			if (readerTaskToAwait is { })
 				try
 				{
@@ -475,14 +490,13 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 				{
 					/* best-effort */
 				}
-		}
-		finally
-		{
 			ctsToCancel.Dispose();
 		}
 
-		await _transport.StopAsync(ct).ConfigureAwait(false);
 		SetActivity(EngineActivity.Idle);
+		if (cancellationFailure is not null)
+			ExceptionDispatchInfo.Capture(cancellationFailure).Throw();
+		ct.ThrowIfCancellationRequested();
 	}
 
 	/// <summary>
@@ -493,13 +507,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 	/// <summary>
 	///     Sends "uci" to the engine and waits for "uciok" and "readyok" to confirm supported handshaking.
 	/// </summary>
-	public async Task UciInitAsync(CancellationToken ct)
-	{
-        ThrowIfDisposed();
-		ResetHandshakeMetadata();
-		await _commandModule.UciInitAsync(ct).ConfigureAwait(false);
-		PromoteStandardCapabilities();
-	}
+	public Task UciInitAsync(CancellationToken ct) => _commandModule.UciInitAsync(ct);
 
 	/// <summary>
 	///     Informs the engine of a new game context via "ucinewgame"; calls <see cref="IsReadyAsync" />.
@@ -616,6 +624,7 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 		{
 			await foreach (string line in _transport.ReadLinesAsync(token).ConfigureAwait(false))
 			{
+				if (token.IsCancellationRequested) break;
 				PublishRawLineSafe(line);
 
 				try
@@ -649,42 +658,14 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 
 		switch (message.Type)
 		{
-			case UciProtocolMessageType.Id when message.Id is { Kind: UciIdKind.Name, Value: var name }:
+			case UciProtocolMessageType.Id:
+			case UciProtocolMessageType.Option:
+			case UciProtocolMessageType.UciOk:
 				lock (_metadataLock)
 				{
-					_engineInfo = _engineInfo with { Name = name };
+					if (_handshake is { Accepting: true } handshake)
+						handshake.Observe(message, _options.MaxAdvertisedOptions);
 				}
-
-				return;
-			case UciProtocolMessageType.Id when message.Id is { Kind: UciIdKind.Author, Value: var author }:
-				lock (_metadataLock)
-				{
-					_engineInfo = _engineInfo with { Author = author };
-				}
-
-				return;
-			case UciProtocolMessageType.Option when message.Option is { Option: var option }:
-				lock (_metadataLock)
-				{
-					var builder = _availableOptions.ToBuilder();
-					int index   = -1;
-					for (var i = 0; i < builder.Count; i++)
-					{
-						if (!string.Equals(builder[i].Name, option.Name, StringComparison.OrdinalIgnoreCase)) continue;
-
-						index = i;
-						break;
-					}
-
-					if (index >= 0)
-						builder[index] = option;
-					else
-						builder.Add(option);
-
-					_availableOptions = builder.ToImmutable();
-					PromoteStandardCapabilities_NoLock();
-				}
-
 				return;
 			case UciProtocolMessageType.Info when message.Info is { } infoMessage:
 				PublishInfoReceivedSafe(infoMessage);
@@ -710,30 +691,6 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 		{
 			// External subscribers must not interfere with transport processing.
 		}
-	}
-
-	private void PromoteStandardCapabilities()
-	{
-		lock (_metadataLock)
-		{
-			PromoteStandardCapabilities_NoLock();
-		}
-	}
-
-	private void PromoteStandardCapabilities_NoLock()
-	{
-		bool supportsPonder = _availableOptions.Any(static option =>
-														string.Equals(
-															option.Name, "Ponder", StringComparison.OrdinalIgnoreCase
-														)
-		);
-
-		_capabilities = _capabilities with
-		{
-			DebugCommand = UciCapabilityState.Supported,
-			RegisterCommand = UciCapabilityState.Supported,
-			PonderHit = supportsPonder ? UciCapabilityState.Supported : UciCapabilityState.Unknown
-		};
 	}
 
 	private void PublishBestMoveSafe(string bestMove, string ponderMove)
@@ -829,13 +786,67 @@ public sealed class UciEngineClient : IAsyncDisposable, IUciLineSource
 		}
 	}
 
-	private void ResetHandshakeMetadata()
+	private void BeginHandshake(bool newTransportSession)
 	{
 		lock (_metadataLock)
 		{
-			_engineInfo       = UciEngineInfo.Empty;
+			_handshake = new();
+			if (!newTransportSession) return;
+			_engineInfo = UciEngineInfo.Empty;
 			_availableOptions = ImmutableArray<UciEngineOption>.Empty;
-			_capabilities     = UciEngineCapabilities.Unknown;
+			_capabilities = UciEngineCapabilities.Unknown;
+		}
+	}
+
+	private void EndHandshake(bool succeeded)
+	{
+		lock (_metadataLock)
+		{
+			var handshake = _handshake!;
+			_handshake = null;
+			if (!succeeded) return;
+			_engineInfo = handshake.Info;
+			_availableOptions = handshake.Options.ToImmutableArray();
+			_capabilities = _capabilities with
+			{
+				DebugCommand = UciCapabilityState.Supported,
+				RegisterCommand = UciCapabilityState.Supported,
+				PonderHit = handshake.SupportsPonder ? UciCapabilityState.Supported : UciCapabilityState.Unknown
+			};
+		}
+	}
+
+	private sealed class HandshakeMetadata
+	{
+		private readonly Dictionary<string, int> _indices = new(StringComparer.OrdinalIgnoreCase);
+		internal bool Accepting { get; private set; } = true;
+		internal UciEngineInfo Info { get; private set; } = UciEngineInfo.Empty;
+		internal List<UciEngineOption> Options { get; } = [];
+		internal bool SupportsPonder => _indices.ContainsKey("Ponder");
+
+		internal void Observe(UciProtocolMessage message, int maximumOptions)
+		{
+			switch (message.Type)
+			{
+				case UciProtocolMessageType.UciOk:
+					Accepting = false;
+					break;
+				case UciProtocolMessageType.Id when message.Id is { Kind: UciIdKind.Name, Value: var name }:
+					Info = Info with { Name = name };
+					break;
+				case UciProtocolMessageType.Id when message.Id is { Kind: UciIdKind.Author, Value: var author }:
+					Info = Info with { Author = author };
+					break;
+				case UciProtocolMessageType.Option when message.Option is { Option: var option }:
+					if (_indices.TryGetValue(option.Name, out int index))
+						Options[index] = option;
+					else if (Options.Count < maximumOptions)
+					{
+						_indices.Add(option.Name, Options.Count);
+						Options.Add(option);
+					}
+					break;
+			}
 		}
 	}
 
