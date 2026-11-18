@@ -7,7 +7,7 @@ namespace Bezoro.Behaviors;
 /// Bound actions delegate their complete lifecycle to the child; unbound actions use the host handler.
 /// A child suspended by an exhausted budget receives the next quantum before the parent's next reevaluation.
 /// </remarks>
-public sealed class TreeBehavior<TContext> : Behavior<TContext>, IBehaviorTreeHandler<TContext>
+public sealed class TreeBehavior<TContext> : Behavior<TContext>
 {
     private readonly BehaviorTreeRunner<TContext> _runner;
     private readonly IBehaviorTreeHandler<TContext>? _handler;
@@ -36,7 +36,7 @@ public sealed class TreeBehavior<TContext> : Behavior<TContext>, IBehaviorTreeHa
     protected override void OnStart(ref TContext context)
     {
         _continuation = null; _tickedChild = null;
-        if (_runner.Status == BehaviorStatus.Faulted) _runner.Stop(ref context, this);
+        if (_runner.Status == BehaviorStatus.Faulted) StopRunner(ref context);
         _runner.Start();
     }
 
@@ -69,7 +69,8 @@ public sealed class TreeBehavior<TContext> : Behavior<TContext>, IBehaviorTreeHa
                     }
                 }
             }
-            var result = _runner.Tick(ref context, this, ref budget);
+            var routing = new RoutingHandler(this);
+            var result = _runner.Tick(ref context, ref routing, ref budget);
             IsBudgetSuspended = result.BudgetExhausted || (_continuation is not null && _continuation.IsBudgetSuspended);
             return result.Status;
         }
@@ -80,12 +81,12 @@ public sealed class TreeBehavior<TContext> : Behavior<TContext>, IBehaviorTreeHa
     protected override void OnStop(ref TContext context)
     {
         _continuation = null; _tickedChild = null;
-        try { _runner.Stop(ref context, this); }
+        try { StopRunner(ref context); }
         finally
         {
             // The runner invalidates its action before invoking Abort. A failed abort therefore
             // leaves no action to call again; this second stop clears only its technical fault.
-            if (_runner.Status == BehaviorStatus.Faulted) _runner.Stop(ref context, this);
+            if (_runner.Status == BehaviorStatus.Faulted) StopRunner(ref context);
         }
     }
 
@@ -93,43 +94,55 @@ public sealed class TreeBehavior<TContext> : Behavior<TContext>, IBehaviorTreeHa
     protected override bool IsChildScopeLive(int childIndex) =>
         _runner.Status == BehaviorStatus.Running && _runner.ActiveNodeId == _bindings[childIndex].NodeId;
 
-    bool Bezoro.Conditions.IConditionEvaluator<TContext>.Evaluate(int predicateId, in TContext context) =>
-        (_handler ?? throw MissingHandler()).Evaluate(predicateId, in context);
-
-    void IBehaviorTreeHandler<TContext>.Enter(int nodeId, int actionId, BehaviorActivation activation, ref TContext context)
+    private void StopRunner(ref TContext context)
     {
-        var child = FindChild(nodeId);
-        if (child is null) (_handler ?? throw MissingHandler()).Enter(nodeId, actionId, activation, ref context);
-        else StartChild(child, ref context);
+        var routing = new RoutingHandler(this);
+        _runner.Stop(ref context, ref routing);
     }
 
-    BehaviorStatus IBehaviorTreeHandler<TContext>.Tick(int nodeId, int actionId, BehaviorActivation activation,
-        ref TContext context, ref BehaviorBudget budget)
+    private readonly struct RoutingHandler : IBehaviorTreeHandler<TContext>
     {
-        var child = FindChild(nodeId);
-        if (child is null) return (_handler ?? throw MissingHandler()).Tick(nodeId, actionId, activation, ref context, ref budget);
-        BehaviorStatus result = child.Status;
-        if (result == BehaviorStatus.Running &&
-            (!ReferenceEquals(_tickedChild, child) || _tickedActivation != activation))
-            result = TickChild(child, ref context, ref budget);
-        if (result == BehaviorStatus.Running && child.IsBudgetSuspended)
-        { _continuation = child; _continuationActivation = activation; }
-        return result;
-    }
+        private readonly TreeBehavior<TContext> _owner;
+        internal RoutingHandler(TreeBehavior<TContext> owner) => _owner = owner;
 
-    void IBehaviorTreeHandler<TContext>.Exit(int nodeId, int actionId, BehaviorActivation activation,
-        BehaviorStatus result, ref TContext context)
-    {
-        var child = FindChild(nodeId);
-        if (child is null) (_handler ?? throw MissingHandler()).Exit(nodeId, actionId, activation, result, ref context);
-        else { ClearContinuation(child); StopChild(child, ref context); }
-    }
+        public bool Evaluate(int predicateId, in TContext context) =>
+            (_owner._handler ?? throw MissingHandler()).Evaluate(predicateId, in context);
 
-    void IBehaviorTreeHandler<TContext>.Abort(int nodeId, int actionId, BehaviorActivation activation, ref TContext context)
-    {
-        var child = FindChild(nodeId);
-        if (child is null) (_handler ?? throw MissingHandler()).Abort(nodeId, actionId, activation, ref context);
-        else { ClearContinuation(child); StopChild(child, ref context); }
+        public void Enter(int nodeId, int actionId, BehaviorActivation activation, ref TContext context)
+        {
+            var child = _owner.FindChild(nodeId);
+            if (child is null) (_owner._handler ?? throw MissingHandler()).Enter(nodeId, actionId, activation, ref context);
+            else _owner.StartChild(child, ref context);
+        }
+
+        public BehaviorStatus Tick(int nodeId, int actionId, BehaviorActivation activation,
+            ref TContext context, ref BehaviorBudget budget)
+        {
+            var child = _owner.FindChild(nodeId);
+            if (child is null) return (_owner._handler ?? throw MissingHandler()).Tick(nodeId, actionId, activation, ref context, ref budget);
+            BehaviorStatus result = child.Status;
+            if (result == BehaviorStatus.Running &&
+                (!ReferenceEquals(_owner._tickedChild, child) || _owner._tickedActivation != activation))
+                result = _owner.TickChild(child, ref context, ref budget);
+            if (result == BehaviorStatus.Running && child.IsBudgetSuspended)
+            { _owner._continuation = child; _owner._continuationActivation = activation; }
+            return result;
+        }
+
+        public void Exit(int nodeId, int actionId, BehaviorActivation activation,
+            BehaviorStatus result, ref TContext context)
+        {
+            var child = _owner.FindChild(nodeId);
+            if (child is null) (_owner._handler ?? throw MissingHandler()).Exit(nodeId, actionId, activation, result, ref context);
+            else { _owner.ClearContinuation(child); _owner.StopChild(child, ref context); }
+        }
+
+        public void Abort(int nodeId, int actionId, BehaviorActivation activation, ref TContext context)
+        {
+            var child = _owner.FindChild(nodeId);
+            if (child is null) (_owner._handler ?? throw MissingHandler()).Abort(nodeId, actionId, activation, ref context);
+            else { _owner.ClearContinuation(child); _owner.StopChild(child, ref context); }
+        }
     }
 
     private void ClearContinuation(Behavior<TContext> child)

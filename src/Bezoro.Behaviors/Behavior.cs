@@ -306,7 +306,9 @@ public abstract class Behavior<TContext> : IBehavior<TContext>
         if (_parent is not null && !nested && !allowOwnedSignal)
             throw new InvalidOperationException("An owned child is controlled through its parent.");
         var root = nested ? _parent!._operationRoot : this;
-        if (!nested)
+        // Only a signal may address an owned component directly. An external lifecycle
+        // call must reserve this node itself so adoption cannot redirect its grant.
+        if (!nested && allowOwnedSignal)
             while (root!._parent is not null) root = root._parent;
         if (root is null || (nested ? Volatile.Read(ref root._graphOperationThread) != thread
             : Interlocked.CompareExchange(ref root._graphOperationThread, thread, 0) != 0))

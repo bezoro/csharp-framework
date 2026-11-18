@@ -9,7 +9,7 @@ namespace Bezoro.Behaviors;
 /// Signals are explicit. Child completion signals are optional, bounded, activation-tagged, and delivered once.
 /// No final-state mapping means the machine remains Running. A mapped failure takes precedence over success.
 /// </remarks>
-public sealed class StatechartBehavior<TContext> : Behavior<TContext>, IStatechartHandler<TContext>
+public sealed class StatechartBehavior<TContext> : Behavior<TContext>
 {
     private readonly StatechartRunner<TContext> _runner;
     private readonly IStatechartHandler<TContext>? _handler;
@@ -184,11 +184,11 @@ public sealed class StatechartBehavior<TContext> : Behavior<TContext>, IStatecha
     protected override bool IsChildScopeLive(int childIndex) => _runner.IsRunning &&
         _runner.TryGetActivation(_bindings[childIndex].State, out var activation) && _runner.IsActive(activation);
 
-    bool IStatechartHandler<TContext>.EvaluateGuard(int predicateId, StatechartView configuration, in TContext context) =>
+    private bool EvaluateGuard(int predicateId, StatechartView configuration, in TContext context) =>
         (_handler ?? throw new InvalidOperationException("The chart guard has no host evaluator."))
             .EvaluateGuard(predicateId, configuration, in context);
 
-    void IStatechartHandler<TContext>.OnEnter(StateId state, StateActivation activation, ref TContext context)
+    private void OnEnter(StateId state, StateActivation activation, ref TContext context)
     {
         if (Contains(_successStates, state)) _activeSuccess++;
         if (Contains(_failureStates, state)) _activeFailure++;
@@ -201,7 +201,7 @@ public sealed class StatechartBehavior<TContext> : Behavior<TContext>, IStatecha
         StartChild(_bindings[index].Child, ref context);
     }
 
-    void IStatechartHandler<TContext>.OnExit(StateId state, StateActivation activation, ref TContext context)
+    private void OnExit(StateId state, StateActivation activation, ref TContext context)
     {
         if (Contains(_successStates, state)) _activeSuccess--;
         if (Contains(_failureStates, state)) _activeFailure--;
@@ -220,7 +220,7 @@ public sealed class StatechartBehavior<TContext> : Behavior<TContext>, IStatecha
         if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
-    void IStatechartHandler<TContext>.OnTransition(int transitionIndex, in ChartTransition transition, ref TContext context) =>
+    private void OnTransition(int transitionIndex, in ChartTransition transition, ref TContext context) =>
         _handler?.OnTransition(transitionIndex, in transition, ref context);
 
     private BehaviorStatus TerminalStatus => _activeFailure != 0 ? BehaviorStatus.Failure :
@@ -372,12 +372,12 @@ public sealed class StatechartBehavior<TContext> : Behavior<TContext>, IStatecha
     {
         internal StatechartBehavior<TContext> Owner { private get; set; } = null!;
         public bool EvaluateGuard(int predicateId, StatechartView configuration, in TContext context) =>
-            ((IStatechartHandler<TContext>)Owner).EvaluateGuard(predicateId, configuration, in context);
+            Owner.EvaluateGuard(predicateId, configuration, in context);
         public void OnEnter(StateId state, StateActivation activation, ref TContext context) =>
-            ((IStatechartHandler<TContext>)Owner).OnEnter(state, activation, ref context);
+            Owner.OnEnter(state, activation, ref context);
         public void OnExit(StateId state, StateActivation activation, ref TContext context) =>
-            ((IStatechartHandler<TContext>)Owner).OnExit(state, activation, ref context);
+            Owner.OnExit(state, activation, ref context);
         public void OnTransition(int transitionIndex, in ChartTransition transition, ref TContext context) =>
-            ((IStatechartHandler<TContext>)Owner).OnTransition(transitionIndex, in transition, ref context);
+            Owner.OnTransition(transitionIndex, in transition, ref context);
     }
 }
