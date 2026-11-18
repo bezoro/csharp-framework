@@ -38,7 +38,8 @@ internal sealed class CountingPool<T> : IPool<T> where T : class
 		return true;
 	}
 
-	public int TrimExcess(Percent targetUtilization = default) => 0;
+	public int TrimExcess() => 0;
+	public int TrimExcess(Percent targetUtilization) => 0;
 
 	public bool TryRent([NotNullWhen(true)] out T? item)
 	{

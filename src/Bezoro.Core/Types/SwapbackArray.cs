@@ -363,7 +363,7 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 	/// <param name="match">Predicate to select elements for removal.</param>
 	/// <exception cref="ArgumentNullException">If <paramref name="match" /> is null.</exception>
 	/// <exception cref="InvalidOperationException">The predicate mutates the array.</exception>
-	/// <remarks>Compaction is in place; work performed before a predicate failure is not rolled back.</remarks>
+	/// <remarks>The array is compacted after every predicate succeeds. Changes made by a predicate remain visible.</remarks>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public uint RemoveAll(Predicate<T> match)
 	{
@@ -709,27 +709,46 @@ public sealed class SwapbackArray<T> : IReadOnlyList<T>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private uint CompactArray(Predicate<T> match, uint originalCount)
 	{
-		uint write = 0;
-		uint read  = 0;
 		uint version = Version;
-
-		while (read < originalCount)
+		int length = (int)originalCount;
+		int first = 0;
+		while (first < length)
 		{
-			bool remove = match(_items[read]);
-			if (Version != version)
-				throw new InvalidOperationException("The removal predicate must not mutate the array.");
-			if (!remove)
-			{
-				if (write != read)
-					_items[write] = _items[read];
-
-				write++;
-			}
-
-			read++;
+			bool remove = match(_items[first]);
+			if (Version != version) throw new InvalidOperationException("The removal predicate must not mutate the array.");
+			if (remove) break;
+			first++;
 		}
+		if (first == length) return originalCount;
 
-		return write;
+		int words = ((length - first - 1) / 32) + 1;
+		uint[]? rented = null;
+		Span<uint> removed = words <= 64 ? stackalloc uint[words] :
+			(rented = System.Buffers.ArrayPool<uint>.Shared.Rent(words)).AsSpan(0, words);
+		try
+		{
+			removed.Clear();
+			removed[0] = 1;
+			for (int i = first + 1; i < length; i++)
+			{
+				bool remove = match(_items[i]);
+				if (Version != version) throw new InvalidOperationException("The removal predicate must not mutate the array.");
+				int offset = i - first;
+				if (remove) removed[offset / 32] |= 1u << (offset % 32);
+			}
+			int write = first;
+			for (int i = first + 1; i < length; i++)
+			{
+				int offset = i - first;
+				if ((removed[offset / 32] & (1u << (offset % 32))) == 0)
+					_items[write++] = _items[i];
+			}
+			return (uint)write;
+		}
+		finally
+		{
+			if (rented != null) System.Buffers.ArrayPool<uint>.Shared.Return(rented);
+		}
 	}
 
 	/// <summary>

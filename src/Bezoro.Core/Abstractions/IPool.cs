@@ -50,11 +50,16 @@ public interface IPool<T> where T : class
 	bool TryRent([NotNullWhen(true)] out T? item);
 
 	/// <summary>
+	///     Trims toward 90% utilization.
+	/// </summary>
+	int TrimExcess();
+
+	/// <summary>
 	///     Trims excess capacity from the pool based on the specified target utilization.
 	/// </summary>
-	/// <param name="targetUtilization">Target utilization percentage (0-100). Defaults to 90%.</param>
+	/// <param name="targetUtilization">Target utilization percentage (0-100). Zero disables trimming. A positive target retains at most the rented count multiplied by 100 and divided by the target, rounded down.</param>
 	/// <returns>The number of objects removed from the pool.</returns>
-	int TrimExcess(Percent targetUtilization = default);
+	int TrimExcess(Percent targetUtilization);
 
 	/// <summary>
 	///     Rents an object wrapped in a disposable handle for automatic return.

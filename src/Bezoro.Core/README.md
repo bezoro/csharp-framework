@@ -64,7 +64,7 @@ Pool bookkeeping is thread-safe. Available references use reusable stack storage
 
 `new PoolOptions()` uses `PoolOptions.Default`, including rent validation and async waiting. An omitted or uninitialized options value also selects those defaults when passed to the pool. `MaxCapacity = -1` is unbounded; zero permits no owned objects. Negative initial capacity, maximum capacity below -1, and initial capacity above a bounded maximum are rejected before calling the factory. A failed factory releases its reserved capacity and wakes waiting renters. A throwing policy discard callback still disposes its `IDisposable` value; if both fail, their exceptions are aggregated.
 
-Call `TrimExcess(...)` to trim explicitly, and select a timed rent when a deadline is needed. Statistics counters require `TrackStatistics = true`.
+Call `TrimExcess()` for a 90% utilization target or pass a percentage explicitly (zero preserves all items), and select a timed rent when a deadline is needed. Statistics counters require `TrackStatistics = true`.
 
 ### Pool lifecycle migration
 
@@ -83,7 +83,7 @@ entityIds.ClearRetainingCapacity(); // Reuse the backing allocation.
 entityIds.Clear();                  // Clear and shrink to minimum capacity.
 ```
 
-`SwapbackArray<T>` removes an item by moving the last item into its slot. Indexed removal is O(1) before any optional shrink; searching by value is O(n), and shrinking copies retained values. Set `ShrinkThresholdPercent = Percent.Zero` to defer shrinking until the collection is empty, or reuse capacity with `ClearRetainingCapacity()` between workloads. The owner must keep borrowed spans exclusive through their use. `RemoveAll` rejects predicates that mutate the array before compaction can overwrite their changes; prior in-place work is not rolled back after a predicate failure.
+`SwapbackArray<T>` removes an item by moving the last item into its slot. Indexed removal is O(1) before any optional shrink; searching by value is O(n), and shrinking copies retained values. Set `ShrinkThresholdPercent = Percent.Zero` to defer shrinking until the collection is empty, or reuse capacity with `ClearRetainingCapacity()` between workloads. The owner must keep borrowed spans exclusive through their use. `RemoveAll` rejects predicates that mutate the array before compaction can overwrite their changes; predicate failures preserve the original contents except for changes made by the predicate itself.
 
 `ReplaceAt` and the indexer require `index < Count`. `TryGetIndex` returns `false` with index zero when absent. Adding the collection directly to itself appends its current contents once. An enumerable that reads the collection indirectly, such as a LINQ query over it, is invalidated when appending starts and throws instead of growing indefinitely. A failed enumeration can leave successfully appended items in the destination and invalidates existing enumerators.
 
