@@ -2,70 +2,58 @@ name: Validate and publish Unity package
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
     inputs:
-      validation_platform:
-        description: Select a targeted manual check; publishing always validates both platforms
-        type: choice
-        options:
-          - all
-          - windows
-          - linux
-        default: all
-      validation_tests:
-        description: Target persistence during manual diagnosis; main and publication always run every suite
-        type: choice
-        options:
-          - all
-          - persistence
-        default: all
       publish_upm:
-        description: Publish the validated main revision to the upm branch
+        description: Publish to upm after validation (main only)
         type: boolean
-        required: false
-        default: false
-      publish_candidate:
-        description: Publish this validated revision to the Chess Crush UPM candidate branch
-        type: boolean
-        required: false
         default: false
 
 permissions:
   contents: read
+
+defaults:
+  run:
+    shell: pwsh
 
 jobs:
   validate:
     strategy:
       fail-fast: false
       matrix:
-        # Main integration and publication always use both. Manual diagnosis can target one runner.
-        os: ${{ fromJSON((github.event_name == 'workflow_dispatch' && !inputs.publish_upm && !inputs.publish_candidate && inputs.validation_platform == 'windows') && '["windows-latest"]' || (github.event_name == 'workflow_dispatch' && !inputs.publish_upm && !inputs.publish_candidate && inputs.validation_platform == 'linux') && '["ubuntu-latest"]' || '["windows-latest","ubuntu-latest"]') }}
+        os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    env:
-      VALIDATION_TESTS: ${{ (github.event_name == 'workflow_dispatch' && !inputs.publish_upm && !inputs.publish_candidate && inputs.validation_tests == 'persistence') && 'persistence' || 'all' }}
 
     steps:
-      - name: Check publication mode
-        if: inputs.publish_upm && inputs.publish_candidate
-        shell: pwsh
-        run: throw 'Choose either official or candidate UPM publication.'
-
       - name: Check publication target
         if: inputs.publish_upm && github.ref != 'refs/heads/main'
-        shell: pwsh
         run: throw 'UPM publication requires running this workflow on main.'
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 10.0.203
+          global-json-file: global.json
+
+      - name: Resolve package version
+        id: package-version
+        run: |
+          $version = ./scripts/Get-PackageVersion.ps1
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build release binaries
+        env:
+          BEZORO_PACKAGE_VERSION: ${{ steps.package-version.outputs.version }}
+        run: dotnet build bezoro.framework.sln -c Release -p:ContinuousIntegrationBuild=true
+
+      - name: Check public API baseline
+        run: ./scripts/Export-PublicApi.ps1 -Check
 
       - name: Install Stockfish for Linux integration tests
         if: runner.os == 'Linux'
@@ -77,47 +65,21 @@ jobs:
           tar -xzf "$RUNNER_TEMP/stockfish.tar.gz" -C "$RUNNER_TEMP/stockfish"
           echo "BEZORO_STOCKFISH_PATH=$RUNNER_TEMP/stockfish/stockfish/stockfish-linux-x86-64-universal" >> "$GITHUB_ENV"
 
-      - name: Resolve package version
-        id: package-version
-        shell: pwsh
-        run: |
-          $version = ./scripts/Get-PackageVersion.ps1
-          "version=$version" >> $env:GITHUB_OUTPUT
-          Write-Host "Resolved package version $version"
-
-      - name: Restore
-        run: dotnet restore bezoro.framework.sln
-
-      - name: Build release binaries
-        run: dotnet build bezoro.framework.sln -c Release --no-restore /p:ContinuousIntegrationBuild=true /p:Version=${{ steps.package-version.outputs.version }} /p:PackageVersion=${{ steps.package-version.outputs.version }} /p:InformationalVersion=${{ steps.package-version.outputs.version }}
-
-      - name: Check public API baseline
-        shell: pwsh
-        run: ./scripts/Export-PublicApi.ps1 -Check
-
       - name: Run release tests
-        shell: pwsh
-        run: |
-          $arguments = @{ Configuration = 'Release'; NoBuild = $true }
-          if ($env:VALIDATION_TESTS -eq 'persistence') {
-            $arguments.Suite = @('Bezoro.Persistence.Tests')
-          }
-          ./scripts/Test-Framework.ps1 @arguments
+        run: ./scripts/Test-Framework.ps1 -NoBuild
 
       - name: Stage validated Unity package
         id: stage
         if: >-
           runner.os == 'Linux' &&
-          ((github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish_upm)) ||
-          (github.event_name == 'workflow_dispatch' && inputs.publish_candidate && !inputs.publish_upm))
-        shell: pwsh
+          github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish_upm)
         env:
           BEZORO_PACKAGE_VERSION: ${{ steps.package-version.outputs.version }}
-        run: ./scripts/Build-UnityPackage.ps1 -Configuration Release -OutputPath artifacts/unity-package
+        run: ./scripts/Build-UnityPackage.ps1
 
       - name: Upload validated Unity package
         if: steps.stage.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unity-package
           path: artifacts/unity-package/
@@ -127,35 +89,28 @@ jobs:
 
   publish-unity-package:
     needs: validate
-    if: >-
-      (github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish_upm)) ||
-      (github.event_name == 'workflow_dispatch' && inputs.publish_candidate && !inputs.publish_upm)
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish_upm)
     runs-on: ubuntu-latest
     concurrency:
-      group: publish-${{ inputs.publish_candidate && 'upm-candidate-chesscrush' || 'upm' }}
+      group: publish-upm
       queue: max
     permissions:
       contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Download validated Unity package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: unity-package
           path: artifacts/unity-package/
 
       - name: Publish validated UPM branch
-        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_SHA: ${{ github.sha }}
-          CANDIDATE: ${{ inputs.publish_candidate && 'true' || 'false' }}
-        run: |
-          $branch = if ($env:CANDIDATE -eq 'true') { 'upm-candidate/chesscrush' } else { 'upm' }
-          ./scripts/Publish-UnityPackageBranch.ps1 -PackagePath ./artifacts/unity-package -Branch $branch
+        run: ./scripts/Publish-UnityPackageBranch.ps1 -PackagePath artifacts/unity-package
