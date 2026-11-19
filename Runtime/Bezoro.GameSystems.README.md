@@ -50,17 +50,17 @@ world.AddActivationPipeline();
 
 ## Subsystem documentation
 
-- [Activation](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.GameSystems/ActivationSystem/README.md)
-- [Health](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.GameSystems/HealthSystem/README.md)
-- [Input](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.GameSystems/InputSystem/README.md)
-- [Streaming](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.GameSystems/StreamingSystem/README.md)
-- [Timers](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.GameSystems/TimerSystem/README.md)
+- [Activation](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.GameSystems/ActivationSystem/README.md)
+- [Health](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.GameSystems/HealthSystem/README.md)
+- [Input](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.GameSystems/InputSystem/README.md)
+- [Streaming](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.GameSystems/StreamingSystem/README.md)
+- [Timers](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.GameSystems/TimerSystem/README.md)
 
 ## Dependencies
 
-- [Bezoro.Core](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/README.md)
-- [Bezoro.ECS](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.ECS/README.md)
-- [Bezoro.Events](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Events/README.md)
+- [Bezoro.Core](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.Core/README.md)
+- [Bezoro.ECS](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.ECS/README.md)
+- [Bezoro.Events](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.Events/README.md)
 
 ## Design notes
 
@@ -78,9 +78,9 @@ world.AddActivationPipeline();
 
 ## Targets and validation
 
-Targets .NET 10 and .NET Standard 2.1. Unity 6 consumes the precompiled .NET Standard assembly; see the [Unity package](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/unity-package/README.md) for installation. The systems do not depend on Unity or Godot types.
+Targets .NET 10 and .NET Standard 2.1. Unity 6 consumes the precompiled .NET Standard assembly; see the [Unity package](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/unity-package/README.md) for installation. The systems do not depend on Unity or Godot types.
 
-Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/global.json):
 
 ```bash
 dotnet build src/Bezoro.GameSystems/Bezoro.GameSystems.csproj -c Release

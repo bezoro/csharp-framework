@@ -2,11 +2,11 @@
 
 Engine-independent collections, grids, object pools, value types, results, and guard extensions shared by the framework. The library targets .NET 10 and .NET Standard 2.1. Unity 6 consumes the precompiled .NET Standard DLLs; its project compiler does not need to compile the framework's source syntax.
 
-Pools, ring-buffer operations and singleton bookkeeping support concurrent callers. Span/ref-based storage kernels remain explicitly borrowed execution storage, suitable for independently owned workers without per-element locks. See [concurrency and migration](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/docs/concurrency.md) for the complete ownership boundaries. A thread-safe container does not make its referenced values or callbacks thread-safe.
+Pools, ring-buffer operations and singleton bookkeeping support concurrent callers. Span/ref-based storage kernels remain explicitly borrowed execution storage, suitable for independently owned workers without per-element locks. See [concurrency and migration](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/docs/concurrency.md) for the complete ownership boundaries. A thread-safe container does not make its referenced values or callbacks thread-safe.
 
 ## Data utilities
 
-[Binary span cursors](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/Binary/README.md) read and write explicit little-endian fields with bounds checks and no storage growth. [Bit sets](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/Collections/README.BitSet.md) store fixed-capacity flags in words; span extensions provide lower/upper bounds and ordered/swap-back removal with reference clearing. [Numeric helpers](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/Numerics/README.md) cover signed chunk division, cyclic indices, interpolation, and elapsed-time damping with explicit finite-input policies.
+[Binary span cursors](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.Core/Binary/README.md) read and write explicit little-endian fields with bounds checks and no storage growth. [Bit sets](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.Core/Collections/README.BitSet.md) store fixed-capacity flags in words; span extensions provide lower/upper bounds and ordered/swap-back removal with reference clearing. [Numeric helpers](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.Core/Numerics/README.md) cover signed chunk division, cyclic indices, interpolation, and elapsed-time damping with explicit finite-input policies.
 
 Use the new operations where their contracts fit the game. Binary readers do not validate application schemas, sorted span searches require caller-maintained ordering, and mutable bit sets require external serialization.
 
@@ -91,7 +91,7 @@ These collections require external synchronization for concurrent mutation and a
 
 ## Grids and borrowed views
 
-For fixed-capacity gameplay storage, see [generational slot maps and ring buffers](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/Collections/README.md). For replayable procedural generation, shuffling, and weighted selection, see [deterministic random streams](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/src/Bezoro.Core/Random/README.md). Their capacities and state ownership are explicit; they do not introduce global random state or synchronize mutable game data implicitly.
+For fixed-capacity gameplay storage, see [generational slot maps and ring buffers](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.Core/Collections/README.md). For replayable procedural generation, shuffling, and weighted selection, see [deterministic random streams](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/src/Bezoro.Core/Random/README.md). Their capacities and state ownership are explicit; they do not introduce global random state or synchronize mutable game data implicitly.
 
 ```csharp
 using Bezoro.Core.Types;
@@ -178,12 +178,12 @@ Format enum values with `ToString()` and then the string extensions. `ColorHex`,
 
 ## Build and validation
 
-Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/global.json):
+Use the SDK selected by [global.json](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/global.json):
 
 ```bash
 dotnet build src/Bezoro.Core/Bezoro.Core.csproj -c Release
 dotnet test tests/Bezoro.Core.Tests/Bezoro.Core.Tests.csproj -c Release -f net10.0
 ```
 
-The first command builds both runtime targets. See [the Core tests](https://github.com/bezoro/csharp-framework/blob/75c945335fd177220df3782b4b536ea65774b64f/tests/Bezoro.Core.Tests/README.md) for covered contracts.
+The first command builds both runtime targets. See [the Core tests](https://github.com/bezoro/csharp-framework/blob/e7647a3457bdd37cbc887092e3744b99417bde20/tests/Bezoro.Core.Tests/README.md) for covered contracts.
 
